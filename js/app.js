@@ -14,6 +14,12 @@
   const MAX_COUNT = 50;
   const MAX_HISTORY = 2000;
   const REVIEW_PAGE_SIZE = 8;
+  // 간격 반복(SRS): 평가 직후 다시 만나는 대신, 익숙한 문장일수록 간격을 늘려요.
+  const SRS_BASE_INTERVAL = { unknown: 1, confused: 3 };
+  const SRS_KNOWN_INTERVAL = [7, 14, 30, 60];
+  const SRS_DEFAULT_INTERVAL = 1;
+  const SRS_MAX_INTERVAL = 60;
+  const DAY_MS = 24 * 60 * 60 * 1000;
   const HISTORY_PAGE_SIZE = 8;
   const ROUTES = ['home', 'study', 'review', 'records'];
   const PART_KEYS = ['part3', 'part5'];
@@ -35,7 +41,7 @@
   const RANGE_INFO = {
     all: { label: '전체 문장', hint: '선택한 파트와 주제의 문장을 모두 보여드려요.' },
     new: { label: '안 본 문장', hint: '아직 한 번도 연습하지 않은 문장만 골라요.' },
-    review: { label: '복습 필요', hint: '몰라요·애매해요로 남겨 둔 문장만 골라요.' },
+    review: { label: '복습 필요', hint: '몰라요·애매해요로 남겨 둔 문장 중 오늘 복습 예정인 문장을 골라요.' },
   };
 
   const MODE_INFO = {
@@ -232,6 +238,9 @@
           status: value.status,
           addedAt,
           updatedAt: validDate(value.updatedAt) ? value.updatedAt : addedAt,
+          interval: clampDay(toInt(value.interval, 0)),
+          nextReview: validDate(value.nextReview) ? value.nextReview : addedAt,
+          reps: clampDay(toInt(value.reps, 0)),
         };
       });
     }
@@ -300,7 +309,14 @@
       const at = legacyDate(value.updated);
       next.progress[id] = { status: value.status, attempts: 1, lastSeen: at };
       if (value.status !== 'known') {
-        next.queue[id] = { status: value.status, addedAt: at, updatedAt: at };
+        next.queue[id] = {
+          status: value.status,
+          addedAt: at,
+          updatedAt: at,
+          interval: 0,
+          nextReview: at,
+          reps: 0,
+        };
       }
     });
 
@@ -447,6 +463,35 @@
     return Math.min(max, Math.max(min, value));
   }
 
+  function clampDay(value) {
+    return clamp(value, 0, SRS_MAX_INTERVAL);
+  }
+
+  // 다음 복습 시각을 계산해요. 몰라요는 1일, 애매해요는 3일부터 시작하고,
+  // 알아요는 7·14·30·60일 순서로 간격을 늘려요. 복습 중 틀리면 더 짧게 당겨요.
+  function nextSchedule(status, entry, nowMs) {
+    const previousInterval = clampDay(entry?.interval || 0);
+    const reps = clampDay((entry?.reps || 0) + 1);
+    let interval = SRS_DEFAULT_INTERVAL;
+    if (status === 'known') {
+      const knownReps = Math.max(0, reps - 1);
+      interval = SRS_KNOWN_INTERVAL[Math.min(knownReps, SRS_KNOWN_INTERVAL.length - 1)];
+    } else {
+      const base = SRS_BASE_INTERVAL[status];
+      const shrink = previousInterval > base ? Math.max(base, Math.floor(previousInterval / 2)) : base;
+      interval = clampDay(shrink);
+    }
+    return { interval, reps, nextReview: new Date(nowMs + interval * DAY_MS).toISOString() };
+  }
+
+  function dueEntries(list, nowMs = Date.now()) {
+    return list.filter((entry) => Date.parse(entry.nextReview || entry.addedAt) <= nowMs);
+  }
+
+  function isDue(entry) {
+    return Boolean(entry) && Date.parse(entry.nextReview || entry.addedAt) <= Date.now();
+  }
+
   function validDate(value) {
     return typeof value === 'string' && !Number.isNaN(Date.parse(value));
   }
@@ -504,6 +549,18 @@
 
   function prettyToday() {
     return new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date());
+  }
+
+  // 복습 예정일 표시: 하루 차이는 '내일', 오늘 이후는 'M월 D일'.
+  function formatSchedule(iso) {
+    const time = Date.parse(iso);
+    if (Number.isNaN(time)) return '미정';
+    const target = new Date(time);
+    if (dateKey(target) === todayKey()) return '오늘';
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (dateKey(target) === dateKey(tomorrow)) return '내일';
+    return new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric' }).format(target);
   }
 
   function esc(value = '') {
@@ -697,6 +754,11 @@
       .sort((a, b) => a.addedAt.localeCompare(b.addedAt));
   }
 
+  // 복습 예정일이 지난 문장. 예정일이 없으면 바로 복습 대상이에요.
+  function dueQueueCount(list = queueEntries()) {
+    return dueEntries(list).length;
+  }
+
   function partTopics() {
     const topics = [];
     PART_KEYS.forEach((key) => {
@@ -716,7 +778,7 @@
   function eligiblePool() {
     const pool = basePool();
     if (study.range === 'new') return pool.filter((sentence) => !state.progress[sentence.id]);
-    if (study.range === 'review') return pool.filter((sentence) => Boolean(state.queue[sentence.id]));
+    if (study.range === 'review') return pool.filter((sentence) => Boolean(state.queue[sentence.id]) && isDue(state.queue[sentence.id]));
     return pool;
   }
 
@@ -725,7 +787,7 @@
     return {
       all: pool.length,
       new: pool.filter((sentence) => !state.progress[sentence.id]).length,
-      review: pool.filter((sentence) => Boolean(state.queue[sentence.id])).length,
+      review: pool.filter((sentence) => Boolean(state.queue[sentence.id]) && isDue(state.queue[sentence.id])).length,
     };
   }
 
@@ -782,14 +844,15 @@
 
   function viewHome() {
     const queueCount = queueEntries().length;
-    const week = weekSnapshot().reduce((sum, day) => sum + day.total, 0);
+    const dueToday = dueQueueCount();
+    const weekTotal = weekSnapshot().reduce((sum, day) => sum + day.total, 0);
     const totalPracticed = state.history.reduce((sum, entry) => sum + entry.total, 0);
     const totalSessions = state.history.length;
     const totalSentences = SENTENCES.length;
 
     return `${pageHead('TODAY · ' + prettyToday(), '오늘도 한 문장씩,<br>영어로 말해 볼까요?', '토익스피킹 파트 3·5의 핵심 문장을 내 속도에 맞춰 연습해요.')}
       <div class="summary-bar">
-        <span><strong>이번 주 ${week}문장</strong> · ${effectiveStreak() ? `${effectiveStreak()}일 연속` : '오늘부터 시작'}</span>
+        <span><strong>오늘 복습 ${dueToday}문장</strong> · 이번 주 연습 ${weekTotal}문장 · ${effectiveStreak() ? `${effectiveStreak()}일 연속` : '오늘부터 시작'}</span>
         <span class="tag">Part 3 · Part 5</span>
       </div>
       <section class="home-cards" aria-label="학습 메뉴">
@@ -809,11 +872,11 @@
             <div class="hc-icon">${icon('repeat')}</div>
             <div>
               <div class="eyebrow">SMART REVIEW</div>
-              <h2>복습하기 ${queueCount ? `<span class="count-chip">${queueCount}</span>` : ''}</h2>
-              <p class="hc-desc">${queueCount ? '몰라요·애매해요로 남긴 문장을 다시 만나며 내 것으로 만들어요.' : '지금은 복습할 문장이 없어요. 새 문장을 연습하면 여기에 쌓여요.'}</p>
+              <h2>복습하기 ${queueCount ? `<span class="count-chip">${dueToday ? `오늘 ${dueToday}` : queueCount}</span>` : ''}</h2>
+              <p class="hc-desc">${queueCount ? (dueToday ? `오늘 복습할 문장이 ${dueToday}개 있어요. 간격을 두고 다시 만나요.` : '오늘 복습할 문장은 다 했어요. 다음 예정일까지 기다려요.') : '지금은 복습할 문장이 없어요. 새 문장을 연습하면 여기에 쌓여요.'}</p>
             </div>
           </div>
-          <div class="hc-foot"><span>복습 큐 ${queueCount}문장</span>${icon('chevronRight')}</div>
+          <div class="hc-foot"><span>오늘 ${dueToday}문장 · 전체 ${queueCount}문장</span>${icon('chevronRight')}</div>
         </a>
         <a class="home-card" href="#/records">
           <div class="hc-top">
@@ -1018,14 +1081,15 @@
   function viewDone() {
     const s = session;
     const queueCount = queueEntries().length;
+    const dueToday = dueQueueCount();
     const title = s.partial ? '여기까지 연습했어요' : s.source === 'review' ? '복습을 마쳤어요' : '오늘의 학습을 마쳤어요';
     const copy = s.partial
       ? `${s.rated}문장의 결과를 저장했어요. 다음에 이어서 가볍게 이어가요.`
-      : `${s.rated}문장을 끝까지 연습했어요. ${queueCount ? `복습 큐에 ${queueCount}문장이 기다리고 있어요.` : '복습 큐가 비어 있어요. 멋져요!'}`;
-    const primary = s.source === 'review' && queueCount
+      : `${s.rated}문장을 끝까지 연습했어요. ${dueToday ? `오늘 복습할 문장이 ${dueToday}개 남았어요.` : queueCount ? `복습 큐 ${queueCount}문장은 예정일에 다시 만나요.` : '복습 큐가 비어 있어요. 멋져요!'}`;
+    const primary = s.source === 'review' && dueToday
       ? `<button class="btn-primary" type="button" data-action="restart">${icon('repeat')} 복습 더 하기</button>`
-      : s.source === 'study' && queueCount
-        ? `<a class="btn-primary" href="#/review">${icon('repeat')} 복습하러 가기</a>`
+      : s.source === 'study' && dueToday
+        ? `<a class="btn-primary" href="#/review">${icon('repeat')} 오늘 복습 ${dueToday}문장 하기</a>`
         : `<button class="btn-primary" type="button" data-action="restart">${icon('refresh')} 한 번 더 연습</button>`;
 
     return `<h1 class="sr-only">학습 완료</h1>
@@ -1050,7 +1114,7 @@
   function viewReview() {
     const all = queueEntries();
     const filtered = reviewFilter === 'all' ? all : all.filter((entry) => entry.status === reviewFilter);
-    const visible = filtered.slice(0, reviewVisible);
+    const dueToday = dueQueueCount(all);
     const counts = {
       all: all.length,
       unknown: all.filter((entry) => entry.status === 'unknown').length,
@@ -1062,6 +1126,14 @@
       ['unknown', '몰라요', counts.unknown],
       ['confused', '애매해요', counts.confused],
     ].map(([key, label, count]) => `<button class="chip ${reviewFilter === key ? 'active' : ''}" type="button" data-action="review-filter" data-filter="${key}" aria-pressed="${reviewFilter === key}">${label} <b>${count}</b></button>`).join('');
+
+    const metaFor = (entry) => {
+      const due = Date.parse(entry.nextReview || entry.addedAt) <= Date.now();
+      const dueLabel = due
+        ? '오늘 복습'
+        : `${formatSchedule(entry.nextReview)} 예정${entry.interval ? ` · ${entry.interval}일 간격` : ''}`;
+      return `<span class="mini">${esc(PART_INFO[entry.sentence.part].label)}</span><span class="mini ${entry.status}">${STATUS_INFO[entry.status].label}</span><span class="mini">${esc(entry.sentence.topic)}</span><span class="mini">${esc(dueLabel)}</span>`;
+    };
 
     let body = '';
     if (!all.length) {
@@ -1077,28 +1149,37 @@
         title: '이 상태의 문장은 없어요',
         text: '다른 상태를 골라 복습 큐를 확인해 보세요.',
         action: '<button class="btn-secondary" type="button" data-action="review-filter" data-filter="all">전체 보기</button>',
-      });
-    } else {
+      });    } else {
+      const ordered = orderedForReview(reviewFilter);
       body = `<ul class="review-list" id="review-list">
-        ${visible.map((entry) => `<li class="review-item">
-          <div class="meta"><span class="mini">${esc(PART_INFO[entry.sentence.part].label)}</span><span class="mini ${entry.status}">${STATUS_INFO[entry.status].label}</span><span class="mini">${esc(entry.sentence.topic)}</span></div>
+        ${ordered.slice(0, reviewVisible).map((entry) => `<li class="review-item">
+          <div class="meta">${metaFor(entry)}</div>
           <p class="en" lang="en">${esc(entry.sentence.en)}</p>
           <p class="ko">${esc(entry.sentence.ko)}</p>
         </li>`).join('')}
       </ul>
-      ${filtered.length > visible.length ? `<button class="btn-secondary more-btn" type="button" data-action="more-review">${filtered.length - visible.length}문장 더 보기</button>` : ''}`;
+      ${filtered.length > reviewVisible ? `<button class="btn-secondary more-btn" type="button" data-action="more-review">${filtered.length - reviewVisible}문장 더 보기</button>` : ''}`;
     }
 
-    return `${pageHead('REVIEW', '다시 보면<br>더 오래 남아요.', '몰라요·애매해요로 남긴 문장을 우선으로 짧게 반복해요.')}
+    const startHint = dueToday
+      ? '오늘 예정된 문장부터 시작해요.'
+      : '오늘 예정된 문장은 없어요. 시작하면 가장 빨리 돌아오는 문장으로 연습해요.';
+    const startLabel = dueToday ? `오늘 복습 ${dueToday}문장 시작` : '복습 시작';
+    const dueEmpty = !dueToday && filtered.length
+      ? '<p class="panel-note">오늘은 예정된 복습이 없어요. 가장 빨리 돌아오는 문장부터 미리 해도 좋아요.</p>'
+      : '';
+
+    return `${pageHead('REVIEW', '다시 보면<br>더 오래 남아요.', '몰라요·애매해요로 남긴 문장을 기억이 흐려질 때 다시 만나요.')}
       <div class="summary-bar">
-        <span><strong>복습 대기 ${counts.all}문장</strong> · 몰라요 ${counts.unknown} · 애매해요 ${counts.confused}</span>
-        <span class="tag">자동으로 모여요</span>
+        <span><strong>오늘 복습 ${dueToday}문장</strong> · 전체 ${counts.all}문장 · 몰라요 ${counts.unknown} · 애매해요 ${counts.confused}</span>
+        <span class="tag">간격 반복</span>
       </div>
       <section class="panel">
         <div class="panel-head"><h2>복습 큐</h2><span class="tag">${filtered.length}문장</span></div>
         <div class="chip-row" role="group" aria-label="복습 상태 필터">${chips}</div>
+        ${dueEmpty}
         ${body}
-        ${filtered.length ? `<div class="panel-foot"><span class="hint">오래 전에 남긴 문장부터 시작해요.</span><button class="btn-primary" type="button" data-action="start-review">복습 시작 ${icon('arrowRight')}</button></div>` : ''}
+        ${filtered.length ? `<div class="panel-foot"><span class="hint">${esc(startHint)}</span><button class="btn-primary" type="button" data-action="start-review">${esc(startLabel)} ${icon('arrowRight')}</button></div>` : ''}
       </section>`;
   }
 
@@ -1108,6 +1189,7 @@
     const weekTotal = week.reduce((sum, day) => sum + day.total, 0);
     const maxWeek = Math.max(1, ...week.map((day) => day.total));
     const queueCount = queueEntries().length;
+    const dueToday = dueQueueCount();
     const distribution = { known: 0, confused: 0, unknown: 0 };
     Object.values(state.progress).forEach((entry) => {
       if (distribution[entry.status] !== undefined) distribution[entry.status] += 1;
@@ -1150,7 +1232,7 @@
         <div class="stat dark"><div class="k">${icon('leaf')} 연속 학습</div><div class="v">${effectiveStreak()}<small>일</small></div></div>
         <div class="stat"><div class="k">${icon('files')} 누적 문장</div><div class="v">${totalSentences}<small>문장</small></div></div>
         <div class="stat"><div class="k">${icon('calendar')} 최근 7일</div><div class="v">${weekTotal}<small>문장</small></div></div>
-        <div class="stat"><div class="k">${icon('repeat')} 복습 대기</div><div class="v">${queueCount}<small>문장</small></div></div>
+        <div class="stat"><div class="k">${icon('repeat')} 오늘 복습</div><div class="v">${dueToday}<small>문장</small></div></div>
       </section>
       <div class="records-grid">
       <section class="panel">
@@ -1266,8 +1348,17 @@
     announce(`${cards.length}문장 학습을 시작합니다.`);
   }
 
+  // 예정일이 지난 문장을 먼저, 없으면 가장 빨리 돌아오는 문장부터 복습해요.
+  function orderedForReview(filter) {
+    const list = queueEntries()
+      .filter((entry) => filter === 'all' || entry.status === filter)
+      .sort((a, b) => Date.parse(a.nextReview || a.addedAt) - Date.parse(b.nextReview || b.addedAt));
+    const due = dueEntries(list);
+    return due.length ? due : list;
+  }
+
   function startReviewSession(filter) {
-    const entries = queueEntries().filter((entry) => filter === 'all' || entry.status === filter);
+    const entries = orderedForReview(filter);
     if (!entries.length) {
       toast('복습할 문장이 없어요.');
       return false;
@@ -1334,10 +1425,12 @@
       delete state.queue[card.id];
     } else {
       const existing = state.queue[card.id];
+      const schedule = nextSchedule(status, existing, Date.parse(now));
       state.queue[card.id] = {
         status,
         addedAt: existing?.addedAt || now,
         updatedAt: now,
+        ...schedule,
       };
     }
 

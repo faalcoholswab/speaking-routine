@@ -527,7 +527,7 @@ button, a, [role="button"] { touch-action: manipulation; }
 .chip.active { background: var(--g700); border-color: var(--g700); color: #fff; }
 .review-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 .review-item { padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
-.review-item .meta { display: flex; gap: 6px; margin-bottom: 8px; align-items: center; }
+.review-item .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; align-items: center; }
 .review-item .en { font-weight: 600; font-size: 15px; margin: 0 0 4px; line-height: 1.45; }
 .review-item .ko { font-size: 13px; color: var(--muted); margin: 0; }
 .mini { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); background: #fff; }
