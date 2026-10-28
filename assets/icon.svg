@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="icon-title">
+  <title id="icon-title">스피킹 루틴</title>
+  <defs>
+    <linearGradient id="bg" x1="48" y1="24" x2="464" y2="488" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2b5141"/>
+      <stop offset="1" stop-color="#1d3d2f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <circle cx="414" cy="94" r="112" fill="#7d9b74" opacity=".18"/>
+  <path d="M152 104h208c36 0 66 30 66 66v116c0 36-30 66-66 66H244l-82 52v-52h-10c-36 0-66-30-66-66V170c0-36 30-66 66-66Z" fill="#eff4e8"/>
+  <path d="M162 176h188M162 232h132M162 288h154" fill="none" stroke="#1d3d2f" stroke-width="20" stroke-linecap="round"/>
+  <circle cx="352" cy="374" r="42" fill="#b4c9a9"/>
+  <path d="m335 374 12 12 24-26" fill="none" stroke="#1d3d2f" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

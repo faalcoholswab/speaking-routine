@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>스피킹 루틴 · 토익스피킹 문장 연습</title>
+  <meta name="description" content="토익스피킹 파트 3·5 핵심 문장을 내 분량에 맞춰 매일 연습하는 스피킹 루틴">
+  <meta name="theme-color" content="#1d3d2f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="스피킹 루틴">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" integrity="sha384-GIdEBaqGN9mNkDkMkzMHW8EKUqtpPIe/sLj1X7DIrnc9uPtLROJgmuDlh+3rBw0j" crossorigin="anonymous">
+  <link rel="stylesheet" href="css/style.css?v=29">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="#/home">
+        <span class="brand-mark"><i data-ic="message"></i></span>
+        <span class="brand-text">
+          <span class="brand-name">스피킹 루틴</span>
+          <span class="brand-sub">SPEAKING ROUTINE</span>
+        </span>
+      </a>
+      <nav class="tabs" aria-label="주요 메뉴">
+        <a class="tab" data-route="home" href="#/home"><i data-ic="home"></i><span>홈</span></a>
+        <a class="tab" data-route="study" href="#/study"><i data-ic="files"></i><span>학습하기</span></a>
+        <a class="tab" data-route="review" href="#/review"><i data-ic="repeat"></i><span>복습하기</span></a>
+        <a class="tab" href="mock.html"><i data-ic="clock"></i><span>모의고사</span></a>
+        <a class="tab" data-route="records" href="#/records"><i data-ic="chart"></i><span>학습 기록</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="crumbbar">
+      <div class="crumb">
+        <span>나의 스피킹</span>
+        <i data-ic="chevronRight"></i>
+        <strong id="crumb-current">홈</strong>
+      </div>
+      <div class="streak"><i data-ic="leaf"></i><span id="streak-text"></span></div>
+    </div>
+
+    <div id="app"></div>
+
+    <footer class="site-footer">
+      <p>학습 기록은 현재 브라우저에 저장돼요.<br>브라우저 데이터를 삭제하면 기록도 사라질 수 있어요.</p>
+      <p class="r">작은 연습, 매일의 자신감.<br><span>SPEAKING ROUTINE</span></p>
+    </footer>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <input type="file" id="import-file" accept="application/json,.json" hidden>
+
+  <script src="data/part3.js?v=29"></script>
+  <script src="data/part5.js?v=29"></script>
+  <script src="js/pron-guide.js?v=29"></script>
+  <script src="js/voice.js?v=29"></script>
+  <script src="js/app.js?v=29"></script>
+</body>
+</html>
