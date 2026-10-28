@@ -1,3 +1,9 @@
+// Part 5 문장 스키마
+//   function: 문장이 답변에서 하는 일. FUNCTIONS(의견 시작·이유·예시·연결·결론) 중 하나로 항상 필수.
+//   topic   : 화면에 보여 줄 소재. 아래 둘 중 하나.
+//             - 소재가 따로 없는 문장: 기능명을 그대로 넣어요(= function).
+//             - 소재가 있는 문장: 소재명('직장', '교육' 등)을 넣어요. 기능은 function에서 읽어요.
+//   새 문장을 추가할 때 topic에 기능명을 새로 넣지 말고, 소재가 있으면 소재명을, 없으면 function과 같은 값을 넣어요.
 window.SENTENCES = window.SENTENCES || {};
 window.SENTENCES.part5 = [
   { id: "p5-001", topic: "의견 시작", function: "의견 시작", en: "In my opinion, working from home is more efficient than working in an office.", ko: "내 생각에는 재택근무가 사무실 근무보다 더 효율적이다.", pron: "인 마이 오피니언 워킹 프럼 홈 이즈 모어 이피션트 댄 워킹 이너 노피스", keys: [ { en: "In my opinion", ko: "내 생각에는" }, { en: "working from home", ko: "재택근무" }, { en: "more efficient than", ko: "~보다 더 효율적인" } ] },

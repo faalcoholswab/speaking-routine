@@ -196,6 +196,15 @@
   let reviewVisible = REVIEW_PAGE_SIZE;
   let historyVisible = HISTORY_PAGE_SIZE;
 
+  // 기록 전체가 바뀌는 경로(다른 탭 동기화·가져오기·초기화)에서 같이 되돌리는 화면 상태예요.
+  // 이전 기록에 걸려 있던 필터·페이지가 남으면 "문장이 없어요"처럼 잘못된 빈 상태가 보여요.
+  function resetViewState() {
+    resetStudyFromState();
+    reviewFilter = 'all';
+    reviewVisible = REVIEW_PAGE_SIZE;
+    historyVisible = HISTORY_PAGE_SIZE;
+  }
+
   function defaultState() {
     return {
       version: STATE_VERSION,
@@ -1740,6 +1749,12 @@
 
   function saveAbandonedSession() {
     if (!session || session.done || session.saved || !session.rated) return false;
+    // 다른 탭이 락을 넘겨받았으면(20초 넘게 heartbeat가 끊겼다가 재개된 경우) 저장하지 않아요.
+    // 그대로 쓰면 다른 탭이 이미 저장한 최신 기록을 이 탭의 옛 state로 덮어써요.
+    if (!acquireSessionLock()) {
+      toast('다른 탭에서 학습 중이라 이번 결과는 저장하지 못했어요.');
+      return false;
+    }
     session.partial = true;
     recordSession(session);
     session.saved = true;
@@ -1979,8 +1994,7 @@
       session = null;
       suspendedSession = null;
       releaseSessionLock();
-      resetStudyFromState();
-      reviewFilter = 'all';
+      resetViewState();
       persist();
       render();
       focusHeading();
@@ -2005,8 +2019,7 @@
     session = null;
     suspendedSession = null;
     releaseSessionLock();
-    resetStudyFromState();
-    reviewFilter = 'all';
+    resetViewState();
     persist();
     render();
     focusHeading();
@@ -2364,6 +2377,8 @@
     if (!event.persisted) return;
     if (session && !session.done && !acquireSessionLock()) {
       session = null;
+      // 락을 넘겨줬으면 heartbeat도 같이 멈춰요. 남겨 두면 다른 탭 락을 5초마다 읽기만 해요.
+      releaseSessionLock();
       toast('다른 탭에서 학습이 시작되어 이 세션은 종료됐어요.');
     }
     render();
@@ -2375,8 +2390,7 @@
     if (session && !session.done) return;
     if (!event.newValue) {
       state = defaultState();
-      resetStudyFromState();
-      reviewFilter = 'all';
+      resetViewState();
       render();
       return;
     }
@@ -2385,7 +2399,7 @@
     } catch (error) {
       return;
     }
-    resetStudyFromState();
+    resetViewState();
     render();
   });
 
