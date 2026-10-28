@@ -24,6 +24,8 @@
   const ROUTES = ['home', 'study', 'review', 'records'];
   const PART_KEYS = ['part3', 'part5'];
   const SPEEDS = [0.7, 0.85, 1, 1.15];
+  // 빠른 시작에서 몇 번의 탭으로 끝낼 수 있게 문장 수는 4개만 보여줘요.
+  const QUICK_COUNTS = [5, 10, 15, 20];
 
   const PART_INFO = {
     part3: {
@@ -731,6 +733,13 @@
     return element;
   }
 
+  // 같은 설정이 두 곳(빠른 시작 · 상세 설정)에 있어서 누른 쪽으로 포커스를 돌려놔요.
+  function focusQuicks(selector) {
+    const active = document.activeElement;
+    const inQuick = Boolean(active && active.closest && active.closest('.quick-start'));
+    focusElement(inQuick ? `${selector}.quick-chip` : selector, true);
+  }
+
   function focusHeading() {
     const heading = app.querySelector('h1');
     if (!heading) return;
@@ -816,12 +825,26 @@
     return `<strong>${snapshot.actual}문장${limited}</strong><span>${esc(snapshot.partLabel)} · ${esc(topic)} · ${esc(snapshot.mode.label)}</span>`;
   }
 
+  // 빠른 시작 한 줄: 지금 설정 그대로 몇 문장을 어떤 방식으로 연습하는지 요약해요.
+  function quickSummaryMarkup() {
+    const snapshot = studySnapshot();
+    if (!snapshot.eligible.length) {
+      return '<strong>조건에 맞는 문장이 없어요</strong><span>파트나 학습 범위를 바꿔 주세요.</span>';
+    }
+    const limited = snapshot.actual < study.count ? ' (가능한 문장 모두)' : '';
+    return `<strong>빠른 시작 · ${snapshot.actual}문장${limited}</strong><span>${esc(snapshot.partLabel)} · ${esc(snapshot.mode.label)} · 지금 설정으로 바로 시작</span>`;
+  }
+
   function syncStudySummary() {
     const summary = app.querySelector('#study-summary');
     if (summary) summary.innerHTML = summaryMarkup();
+    const quick = app.querySelector('#quick-summary');
+    if (quick) quick.innerHTML = quickSummaryMarkup();
     const start = app.querySelector('[data-action="start-study"]');
+    const quickStart = app.querySelector('[data-action="quick-start"]');
     const snapshot = studySnapshot();
     if (start) start.disabled = !snapshot.actual;
+    if (quickStart) quickStart.disabled = !snapshot.actual;
     app.querySelectorAll('.count-tile').forEach((tile) => {
       const selected = Number(tile.dataset.count) === Number(study.count);
       tile.classList.toggle('selected', selected);
@@ -892,6 +915,49 @@
       </section>`;
   }
 
+  // 학습 시작을 1화면으로: 파트·문장 수·방식을 여기서 바꾸고 바로 시작할 수 있어요.
+  function quickSettingsMarkup() {
+    const snapshot = studySnapshot();
+    const partButtons = PART_KEYS.map((key) => {
+      const selected = study.parts.has(key);
+      return `<button class="quick-chip ${selected ? 'active' : ''}" type="button" data-action="toggle-part" data-part="${key}" aria-pressed="${selected}">${PART_INFO[key].label}</button>`;
+    }).join('');
+    const countButtons = QUICK_COUNTS.map((count) => {
+      const selected = Number(study.count) === count;
+      return `<button class="quick-chip ${selected ? 'active' : ''}" type="button" data-action="set-count" data-count="${count}" aria-pressed="${selected}">${count}문장</button>`;
+    }).join('');
+    const modeButtons = MODE_ORDER.map((key) => {
+      const selected = study.mode === key;
+      return `<button class="quick-chip ${selected ? 'active' : ''}" type="button" data-action="set-mode" data-mode="${key}" aria-pressed="${selected}">${esc(MODE_INFO[key].label)}</button>`;
+    }).join('');
+
+    return `<section class="panel quick-start" aria-labelledby="quick-start-title">
+      <div class="qs-head">
+        <div>
+          <div class="eyebrow">QUICK START</div>
+          <h2 id="quick-start-title">빠른 시작</h2>
+        </div>
+        <span class="tag">바로 연습</span>
+      </div>
+      <div class="qs-row">
+        <span class="qs-label" id="qs-parts">파트</span>
+        <div class="qs-chips" role="group" aria-labelledby="qs-parts">${partButtons}</div>
+      </div>
+      <div class="qs-row">
+        <span class="qs-label" id="qs-count">문장 수</span>
+        <div class="qs-chips" role="group" aria-labelledby="qs-count">${countButtons}</div>
+      </div>
+      <div class="qs-row">
+        <span class="qs-label" id="qs-mode">방식</span>
+        <div class="qs-chips" role="group" aria-labelledby="qs-mode">${modeButtons}</div>
+      </div>
+      <div class="qs-foot">
+        <div class="start-copy" id="quick-summary" aria-live="polite">${quickSummaryMarkup()}</div>
+        <button class="btn-primary" type="button" data-action="quick-start" ${snapshot.actual ? '' : 'disabled'}>지금 시작 ${icon('arrowRight')}</button>
+      </div>
+    </section>`;
+  }
+
   function viewStudy() {
     const snapshot = studySnapshot();
     const counts = rangeCounts();
@@ -910,7 +976,7 @@
       </button>`;
     }).join('');
 
-    const countTiles = [5, 10, 15, 20].map((count) => {
+    const countTiles = QUICK_COUNTS.map((count) => {
       const selected = Number(study.count) === count;
       return `<button class="count-tile ${selected ? 'selected' : ''}" type="button" data-action="set-count" data-count="${count}" aria-pressed="${selected}">
         <span class="num">${count}</span><span class="unit">문장</span>
@@ -938,6 +1004,7 @@
     }).join('');
 
     return `<div class="study-page">${pageHead('STUDY', '내게 맞는 문장으로<br>가볍게 시작해요.', '파트, 주제, 범위를 고르면 지금 연습할 문장만 모아 드려요.')}
+      ${quickSettingsMarkup()}
       <div class="study-grid">
       <section class="panel">
         <div class="panel-head"><h2>1. 파트와 범위</h2><span class="tag">${partTag}</span></div>
@@ -1850,21 +1917,21 @@
         syncSettingsFromStudy();
         persist();
         render();
-        focusElement(`[data-action="toggle-part"][data-part="${part}"]`);
+        focusQuicks(`[data-action="toggle-part"][data-part="${part}"]`);
         break;
       }
       case 'set-range':
         if (!RANGE_INFO[target.dataset.range]) return;
         study.range = target.dataset.range;
         render();
-        focusElement(`[data-action="set-range"][data-range="${study.range}"]`);
+        focusQuicks(`[data-action="set-range"][data-range="${study.range}"]`);
         break;
       case 'set-count':
         study.count = clamp(toInt(target.dataset.count, 10), 1, MAX_COUNT);
         syncSettingsFromStudy();
         persist();
         render();
-        focusElement(`[data-action="set-count"][data-count="${study.count}"]`);
+        focusQuicks(`[data-action="set-count"][data-count="${study.count}"]`);
         break;
       case 'set-mode':
         if (!MODE_INFO[target.dataset.mode]) return;
@@ -1872,9 +1939,12 @@
         syncSettingsFromStudy();
         persist();
         render();
-        focusElement(`[data-action="set-mode"][data-mode="${study.mode}"]`);
+        focusQuicks(`[data-action="set-mode"][data-mode="${study.mode}"]`);
         break;
       case 'start-study':
+        startStudySession();
+        break;
+      case 'quick-start':
         startStudySession();
         break;
       case 'start-review':

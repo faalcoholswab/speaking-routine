@@ -675,6 +675,37 @@ button, a, [role="button"] { touch-action: manipulation; }
 .study-start .start-copy strong { font-size: 15px; }
 .study-start .start-copy span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .mini.known { background: var(--g50); border-color: var(--g200); color: #3f664f; }
+
+/* ---------- 빠른 시작 (v31) ---------- */
+.quick-start { margin-bottom: 20px; }
+.qs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.qs-head h2 { margin: 2px 0 0; font-size: 19px; letter-spacing: -.02em; }
+.qs-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.qs-row + .qs-row { border-top: 1px solid var(--line); }
+.qs-label { flex: none; width: 52px; font-size: 12.5px; color: var(--muted); }
+.qs-chips { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.quick-chip {
+  min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--line-2);
+  background: #fff; font: inherit; font-size: 13.5px; color: var(--text-2); cursor: pointer;
+  touch-action: manipulation;
+}
+.quick-chip:hover { border-color: var(--g300); }
+.quick-chip.active { background: var(--g700); border-color: var(--g700); color: #fff; font-weight: 600; }
+.quick-chip:focus-visible { outline: 2px solid var(--g500); outline-offset: 2px; }
+.qs-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+}
+.qs-foot .start-copy { min-width: 0; font-size: 13px; color: var(--text-2); }
+.qs-foot .start-copy strong { display: block; font-size: 15px; color: var(--text); }
+.qs-foot .start-copy span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.qs-foot .btn-primary { flex: none; }
+@media (max-width: 560px) {
+  .qs-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .qs-label { width: auto; }
+  .qs-foot { flex-direction: column; align-items: stretch; }
+  .qs-foot .btn-primary { width: 100%; }
+}
 .history .res { flex-wrap: wrap; justify-content: flex-end; }
 .data-actions { margin-top: 18px; }
 .play-btn:disabled { opacity: .45; cursor: not-allowed; }
@@ -773,6 +804,11 @@ button, a, [role="button"] { touch-action: manipulation; }
 
   .study-page { display: flex; flex-direction: column; }
   .study-page .page-head { order: 0; }
+  .study-page .quick-start {
+    order: 1; position: sticky; top: calc(8px + env(safe-area-inset-top)); margin: 0 0 18px; z-index: 10;
+    border: 1px solid var(--g200);
+    box-shadow: 0 8px 24px rgba(29, 61, 47, .10);
+  }
   .study-page .study-start {
     order: 1; position: sticky; top: calc(8px + env(safe-area-inset-top)); margin: 0 0 18px; z-index: 10;
     border: 1px solid var(--g200);
@@ -797,6 +833,7 @@ button, a, [role="button"] { touch-action: manipulation; }
 
 /* ---------- 폰 동선: 고정 CTA · 고정 평가 바 · 압축 크롬 ---------- */
 @media (max-width: 899px) {
+  .quick-start { display: none; }
   .brand { padding: 16px 0 14px; gap: 12px; }
   .brand-mark { width: 44px; height: 44px; border-radius: 12px; }
   .brand-mark .ic { width: 22px; height: 22px; }
