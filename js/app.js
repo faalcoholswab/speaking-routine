@@ -24,6 +24,15 @@
   const ROUTES = ['home', 'study', 'review', 'records'];
   const PART_KEYS = ['part3', 'part5'];
   const SPEEDS = [0.7, 0.85, 1, 1.15];
+  // Part 5 답변 구조의 축. `topic`(소재)과 별개로 문장이 하는 일을 가리켜요.
+  const FUNCTIONS = ['의견 시작', '이유', '예시', '연결', '결론'];
+  const FUNCTION_HINTS = {
+    '의견 시작': '주제에 대한 내 입장을 먼저 분명히 말해요.',
+    이유: '왜 그렇게 생각하는지 근거를 붙여요.',
+    예시: '경험이나 사례를 하나 들어 설명해요.',
+    연결: '반대 의견이나 조건을 짚어 답변을 이어요.',
+    결론: '앞의 내용을 묶어 입장을 다시 정리해요.',
+  };
   // 빠른 시작에서 몇 번의 탭으로 끝낼 수 있게 문장 수는 4개만 보여줘요.
   const QUICK_COUNTS = [5, 10, 15, 20];
 
@@ -132,6 +141,9 @@
           ko: item.ko,
           pron: typeof item.pron === 'string' ? item.pron : '',
           topic: typeof item.topic === 'string' && item.topic ? item.topic : '기타',
+          // v32: Part 5는 `topic`(소재)과 `function`(답변에서의 역할)을 따로 둡니다.
+          split: typeof item.function === 'string' && item.function.trim() !== '',
+          function: typeof item.function === 'string' && FUNCTIONS.includes(item.function.trim()) ? item.function.trim() : '',
           keys: Array.isArray(item.keys)
             ? item.keys
                 .filter((key) => key && typeof key.en === 'string')
@@ -171,6 +183,7 @@
   const study = {
     parts: new Set(state.settings.parts),
     topic: 'all',
+    function: 'all',
     range: 'all',
     count: state.settings.count,
     mode: state.settings.mode,
@@ -446,6 +459,7 @@
   function resetStudyFromState() {
     study.parts = new Set(state.settings.parts);
     study.topic = 'all';
+    study.function = 'all';
     study.range = 'all';
     study.count = state.settings.count;
     study.mode = state.settings.mode;
@@ -779,9 +793,71 @@
     return topics;
   }
 
+  // 목록·필터에서 쓸 이름. 기능으로만 분류된 문장은 소재 이름이 없어 '-'로 표시해요.
+  function topicLabel(sentence) {
+    if (sentence.split && FUNCTIONS.includes(sentence.topic)) return '-';
+    return sentence.topic;
+  }
+
+  // 주제 드롭다운에 올릴 소재 목록. 기능 이름과, 기능으로 분류된 문장의 topic은 빼요.
+  // 기능 필터를 쓰는 동안에는 소재 기준으로 문장을 고르지 않으므로, 소재 목록을 비워 드롭다운을 잠가요.
+  function partTopicOptions() {
+    if (functionFilterActive()) return [];
+    return PART_KEYS.filter((key) => study.parts.has(key)).reduce((list, key) => {
+      partTopicSet(key).forEach((topic) => {
+        if (!list.includes(topic)) list.push(topic);
+      });
+      return list;
+    }, []);
+  }
+
+  // 파트 카드에 표시할 주제·기능 개수. Part 5는 소재와 기능을 나눠 세요.
+  function partMix(key) {
+    const topics = [];
+    const functions = [];
+    DATA[key].forEach((sentence) => {
+      if (sentence.split && FUNCTIONS.includes(sentence.topic)) {
+        if (sentence.function && !functions.includes(sentence.function)) functions.push(sentence.function);
+        return;
+      }
+      if (!topics.includes(sentence.topic)) topics.push(sentence.topic);
+    });
+    return { topics: topics.length, functions: functions.length };
+  }
+
+  // 선택한 파트의 소재 목록. 기능 이름과, 기능으로 분류된 문장의 topic은 빼요.
+  function partTopicSet(key) {
+    const topics = [];
+    DATA[key].forEach((sentence) => {
+      if (sentence.split && FUNCTIONS.includes(sentence.topic)) return;
+      if (!topics.includes(sentence.topic)) topics.push(sentence.topic);
+    });
+    return topics;
+  }
+
   function basePool() {
-    return SENTENCES.filter((sentence) => study.parts.has(sentence.part)
+    const byTopic = SENTENCES.filter((sentence) => study.parts.has(sentence.part)
       && (study.topic === 'all' || sentence.topic === study.topic));
+    if (!functionFilterActive()) return byTopic;
+    return byTopic.filter((sentence) => sentence.function === study.function);
+  }
+
+  // 소재 필터가 걸려 있지 않을 때만 기능 칩을 보여 줘요.
+  // 소재와 기능을 함께 걸면 '직장 + 결론'처럼 겹치는 문장이 거의 없어 아이템이 비어 버리기 때문이에요.
+  function partFunctions() {
+    if (study.topic !== 'all') return [];
+    const list = [];
+    PART_KEYS.forEach((key) => {
+      if (!study.parts.has(key)) return;
+      DATA[key].forEach((sentence) => {
+        if (sentence.function && !list.includes(sentence.function)) list.push(sentence.function);
+      });
+    });
+    return FUNCTIONS.filter((name) => list.includes(name));
+  }
+
+  function functionFilterActive() {
+    return study.function !== 'all' && partFunctions().includes(study.function);
   }
 
   function eligiblePool() {
@@ -820,19 +896,30 @@
     if (!snapshot.actual) {
       return '<strong>문장 수를 입력해 주세요</strong><span>1~50문장 사이로 설정할 수 있어요.</span>';
     }
-    const topic = study.topic === 'all' ? '전체 주제' : study.topic;
+    const filters = studyFilterText();
+    const label = esc(filters || '전체 주제');
     const limited = snapshot.actual < study.count ? ' (가능한 문장 모두)' : '';
-    return `<strong>${snapshot.actual}문장${limited}</strong><span>${esc(snapshot.partLabel)} · ${esc(topic)} · ${esc(snapshot.mode.label)}</span>`;
+    return `<strong>${snapshot.actual}문장${limited}</strong><span>${esc(snapshot.partLabel)} · ${label} · ${esc(snapshot.mode.label)}</span>`;
   }
 
   // 빠른 시작 한 줄: 지금 설정 그대로 몇 문장을 어떤 방식으로 연습하는지 요약해요.
+  // 지금 걸린 필터를 짧게 한 줄로. 표시할 조건이 없으면 빈 문자열.
+  function studyFilterText() {
+    const items = [];
+    if (study.topic !== 'all') items.push(study.topic);
+    if (functionFilterActive()) items.push(study.function);
+    if (study.range !== 'all' && RANGE_INFO[study.range]) items.push(RANGE_INFO[study.range].label);
+    return items.join(' · ');
+  }
+
   function quickSummaryMarkup() {
     const snapshot = studySnapshot();
     if (!snapshot.eligible.length) {
       return '<strong>조건에 맞는 문장이 없어요</strong><span>파트나 학습 범위를 바꿔 주세요.</span>';
     }
     const limited = snapshot.actual < study.count ? ' (가능한 문장 모두)' : '';
-    return `<strong>빠른 시작 · ${snapshot.actual}문장${limited}</strong><span>${esc(snapshot.partLabel)} · ${esc(snapshot.mode.label)} · 지금 설정으로 바로 시작</span>`;
+    const filters = studyFilterText();
+    return `<strong>빠른 시작 · ${snapshot.actual}문장${limited}</strong><span>${esc(snapshot.partLabel)}${filters ? ` · ${esc(filters)}` : ''} · ${esc(snapshot.mode.label)} · 지금 설정으로 바로 시작</span>`;
   }
 
   function syncStudySummary() {
@@ -961,18 +1048,20 @@
   function viewStudy() {
     const snapshot = studySnapshot();
     const counts = rangeCounts();
-    const topics = partTopics();
     const selectedParts = PART_KEYS.filter((key) => study.parts.has(key));
     const partTag = selectedParts.length === PART_KEYS.length ? 'Part 3 + 5' : selectedParts.map((key) => PART_INFO[key].label).join(' · ');
 
     const partCards = PART_KEYS.map((key) => {
       const selected = study.parts.has(key);
-      const topicCount = new Set(DATA[key].map((sentence) => sentence.topic)).size;
+      const mix = partMix(key);
+      const countText = mix.functions
+        ? `<strong>${DATA[key].length}</strong>문장 · ${mix.topics}개 주제 · ${mix.functions}가지 기능`
+        : `<strong>${DATA[key].length}</strong>문장 · ${mix.topics}개 주제`;
       return `<button class="part-card ${selected ? 'selected' : ''}" type="button" data-action="toggle-part" data-part="${key}" aria-pressed="${selected}">
         <span class="pc-top"><span class="eyebrow">TOEIC SPEAKING</span><span class="checkbox" aria-hidden="true">${selected ? icon('check') : ''}</span></span>
         <span class="pc-title">${PART_INFO[key].label} · ${PART_INFO[key].title}</span>
         <span class="pc-desc">${PART_INFO[key].desc}</span>
-        <span class="pc-count"><strong>${DATA[key].length}</strong>문장 · ${topicCount}개 주제</span>
+        <span class="pc-count">${countText}</span>
       </button>`;
     }).join('');
 
@@ -994,8 +1083,23 @@
       </button>`;
     }).join('');
 
-    const topicOptions = ['<option value="all">전체 주제</option>']
-      .concat(topics.map((topic) => `<option value="${esc(topic)}" ${study.topic === topic ? 'selected' : ''}>${esc(topic)}</option>`))
+    const functionNames = partFunctions();
+    const functionUseful = functionNames.length > 1;
+    const functionChips = functionUseful
+      ? ['all'].concat(functionNames).map((key) => {
+        const selected = key === 'all' ? !functionFilterActive() : study.function === key;
+        const label = key === 'all' ? '전체 기능' : key;
+        return `<button class="chip ${selected ? 'active' : ''}" type="button" data-action="set-function" data-function="${esc(key)}" aria-pressed="${selected}">${esc(label)}</button>`;
+      }).join('')
+      : '';
+
+    // 기능을 고르는 동안에는 소재를 함께 고를 수 없어요. 서로 보완하는 필터라 한 번에 하나만 써요.
+    const topicLocked = functionFilterActive();
+    const topicHead = topicLocked
+      ? '<option value="all" selected>기능 필터 사용 중</option>'
+      : '<option value="all">전체 주제</option>';
+    const topicOptions = [topicHead]
+      .concat(partTopicOptions().map((topic) => `<option value="${esc(topic)}" ${study.topic === topic ? 'selected' : ''}>${esc(topic)}</option>`))
       .join('');
 
     const rangeChips = Object.entries(RANGE_INFO).map(([key, info]) => {
@@ -1011,8 +1115,13 @@
         <div class="part-list">${partCards}</div>
         <div class="custom">
           <label for="topic-filter">주제</label>
-          <div class="custom-row"><select id="topic-filter">${topicOptions}</select></div>
+          <div class="custom-row"><select id="topic-filter" ${topicLocked ? 'disabled' : ''}>${topicOptions}</select></div>
         </div>
+        ${functionUseful ? `<div class="custom">
+          <label>문장 기능</label>
+          <div class="chip-row" role="group" aria-label="문장 기능">${functionChips}</div>
+          <p class="help">답변에서 이 문장이 하는 일로 골라요. 소재를 정하지 않은 문장은 '전체 기능'에서 볼 수 있어요.</p>
+        </div>` : ''}
         <div class="custom">
           <label>학습 범위</label>
           <div class="chip-row" role="group" aria-label="학습 범위">${rangeChips}</div>
@@ -1050,6 +1159,13 @@
     </div>`;
   }
 
+  // 세션 카드·복습 목록의 라벨. Part 5처럼 기능이 나뉜 문장은 `기능 · 소재`로 보여 줘요.
+  function cardLabel(sentence) {
+    if (!sentence.split) return sentence.topic;
+    const topic = topicLabel(sentence);
+    return topic === '-' ? sentence.function : `${sentence.function} · ${topic}`;
+  }
+
   function viewSession() {
     const s = session;
     const card = s.sentences[s.index];
@@ -1085,7 +1201,7 @@
         <button type="button" data-action="finish-session">${icon('x')} 학습 마치기</button>
       </section>
       <div class="session-meta">
-        <div class="l">${icon('book')}<span>${esc(card.topic)}</span><span class="dot" aria-hidden="true"></span><span>${esc(sourceLabel)}</span></div>
+        <div class="l">${icon('book')}<span>${esc(cardLabel(card))}</span><span class="dot" aria-hidden="true"></span><span>${esc(sourceLabel)}</span></div>
         <div class="pos"><strong>${s.index + 1}</strong> / ${total}</div>
       </div>
       <div class="progress" role="progressbar" aria-label="학습 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}"><i style="width:${progress}%"></i></div>
@@ -1095,7 +1211,7 @@
             <article class="flash-card" id="flash-card" tabindex="-1" aria-labelledby="sentence-main">
               <div class="fc-body">
                 <div class="fc-label">
-                  <span class="lbl">${icon('files')} ${PART_INFO[card.part].label} · ${esc(card.topic)}</span>
+                  <span class="lbl">${icon('files')} ${PART_INFO[card.part].label} · ${esc(cardLabel(card))}</span>
                   ${badgeMarkup(status)}
                 </div>
                 <h2 class="${primaryClass}" id="sentence-main"${primaryLang}>${primaryHtml}</h2>
@@ -1199,7 +1315,7 @@
       const dueLabel = due
         ? '오늘 복습'
         : `${formatSchedule(entry.nextReview)} 예정${entry.interval ? ` · ${entry.interval}일 간격` : ''}`;
-      return `<span class="mini">${esc(PART_INFO[entry.sentence.part].label)}</span><span class="mini ${entry.status}">${STATUS_INFO[entry.status].label}</span><span class="mini">${esc(entry.sentence.topic)}</span><span class="mini">${esc(dueLabel)}</span>`;
+      return `<span class="mini">${esc(PART_INFO[entry.sentence.part].label)}</span><span class="mini ${entry.status}">${STATUS_INFO[entry.status].label}</span><span class="mini">${esc(cardLabel(entry.sentence))}</span><span class="mini">${esc(dueLabel)}</span>`;
     };
 
     let body = '';
@@ -1914,10 +2030,21 @@
           study.parts.add(part);
         }
         if (study.topic !== 'all' && !partTopics().includes(study.topic)) study.topic = 'all';
+        if (study.function !== 'all' && !partFunctions().includes(study.function)) study.function = 'all';
         syncSettingsFromStudy();
         persist();
         render();
         focusQuicks(`[data-action="toggle-part"][data-part="${part}"]`);
+        break;
+      }
+      case 'set-function': {
+        const name = target.dataset.function;
+        if (name !== 'all' && !FUNCTIONS.includes(name)) return;
+        // 기능을 새로 고르면 소재 필터는 풀어요. 두 필터를 겹쳐 쓰지 않기 위해서예요.
+        if (name !== 'all') study.topic = 'all';
+        study.function = name;
+        render();
+        focusQuicks(`[data-action="set-function"][data-function="${study.function}"]`);
         break;
       }
       case 'set-range':
@@ -2091,8 +2218,9 @@
   document.addEventListener('change', (event) => {
     const target = event.target;
     if (target.id === 'topic-filter') {
+      if (functionFilterActive()) return;
       study.topic = target.value;
-      if (study.topic !== 'all' && !partTopics().includes(study.topic)) study.topic = 'all';
+      if (study.topic !== 'all' && !partTopicOptions().includes(study.topic)) study.topic = 'all';
       render();
       focusElement('#topic-filter');
       return;
