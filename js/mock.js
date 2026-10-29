@@ -124,6 +124,15 @@
     }
   }
 
+  function autoScoreEnabled() {
+    try {
+      if (window.AppSettings && typeof window.AppSettings.get === 'function') {
+        return window.AppSettings.get().autoScore !== false;
+      }
+    } catch (error) { /* noop */ }
+    return true;
+  }
+
   function scoreModulesReady() {
     if (!window.SpeakingSTT || !window.SpeakingScore) return false;
     try {
@@ -376,10 +385,23 @@
 
       const utter = new window.SpeechSynthesisUtterance(text);
       utter.lang = 'en-US';
-      utter.rate = role === 'interviewer' ? 0.88 : 0.92;
+      // 설정의 기본 속도를 쓴다. 모의고사 안내·면접관 모두 같은 값.
+      const spokenRate = window.SpeechVoice && typeof window.SpeechVoice.rate === 'function'
+        ? window.SpeechVoice.rate()
+        : 1;
+      utter.rate = Math.min(2, Math.max(0.5, Number(spokenRate) || 1));
       utter.pitch = 1;
       const voice = role === 'interviewer' ? examVoices.interviewer : examVoices.narrator;
-      if (voice) utter.voice = voice;
+      if (voice) {
+        utter.voice = voice;
+        utter.lang = voice.lang || utter.lang;
+      } else {
+        let accent = 'us';
+        try {
+          if (window.AppSettings) accent = window.AppSettings.get().voice.accent;
+        } catch (error) { /* noop */ }
+        utter.lang = accent === 'uk' ? 'en-GB' : 'en-US';
+      }
 
       const words = String(text).trim().split(/\s+/).length;
       const limit = (words / (150 * utter.rate)) * 60000 + 3500;
@@ -1624,6 +1646,12 @@
   }
 
   async function scorePracticeItem(part, q) {
+    if (!autoScoreEnabled()) {
+      const rec = await getRecording(practiceAttemptId, q.no);
+      if (!rec) return { skipped: true, noRecording: true };
+      const metrics = await analyzeRecording(rec.blob || rec);
+      return { skipped: true, metrics };
+    }
     if (!scoreModulesReady()) return { unavailable: true };
     const rec = await getRecording(practiceAttemptId, q.no);
     if (!rec) return { noRecording: true };
@@ -1683,6 +1711,22 @@
       return `<section class="practice-score pending" aria-live="polite">
         <h3>채점 중…</h3>
         <p id="practice-status">음성을 준비하고 있어요…</p>
+      </section>`;
+    }
+    if (result.skipped) {
+      if (result.noRecording) {
+        return `<section class="practice-score notice" id="practice-score-${q.no}">
+          <h3>녹음이 없어요</h3>
+          <p>녹음이 저장되지 않아 이번 답변은 남기지 못했어요. 자동 채점도 꺼져 있어요.</p>
+        </section>`;
+      }
+      return `<section class="practice-score notice" id="practice-score-${q.no}">
+        <h3>자동 채점이 꺼져 있어요</h3>
+        <p>녹음과 자기평가는 그대로 남겼어요. 설정에서 자동 채점을 켜면 다음 녹음부터 점수를 계산해요.</p>
+        <div class="qcard-audio" id="practice-audio-${q.no}"><span class="qa-empty">내 녹음 불러오는 중…</span></div>
+        ${metricsLine(result.metrics) ? `<p class="qa-metrics">${metricsLine(result.metrics)}</p>` : ''}
+        <div class="qa-tools"><button class="ex-btn ghost sm" type="button" data-settings-open>설정 열기</button></div>
+        ${sampleAnswersMarkup(q.no)}
       </section>`;
     }
     if (result.unavailable || result.noRecording) {
@@ -1918,12 +1962,12 @@
     attempt.seconds = Math.round((Date.now() - attempt.startedAt) / 1000);
     attempt.finishedAt = new Date().toISOString();
     attempt.saved = upsertAttempt(attempt);
-    const canScore = recordingEnabled && (TEST_AUDIO || recorderSupported()) && scoreModulesReady();
+    const canScore = autoScoreEnabled() && recordingEnabled && (TEST_AUDIO || recorderSupported()) && scoreModulesReady();
     scoring.token += 1;
     scoring = {
       running: canScore,
       done: false,
-      error: canScore ? null : (recordingEnabled && recorderSupported() ? 'unavailable' : 'no-recording'),
+      error: canScore ? null : (!autoScoreEnabled() ? 'auto-score-off' : (recordingEnabled && recorderSupported() ? 'unavailable' : 'no-recording')),
       results: {},
       raw: {},
       summary: null,
@@ -1960,7 +2004,7 @@
     const exam = currentExam;
     document.title = `${exam.title} 완료 · 스피킹 루틴`;
     const hasScores = Boolean(attempt.scores && Object.keys(attempt.scores).length);
-    if (scoring.running || hasScores || attempt.summary) paintReport();
+    if (scoring.running || hasScores || attempt.summary || !autoScoreEnabled()) paintReport();
     else paintLegacyDone();
     paintRatings();
   }
@@ -2050,7 +2094,7 @@
         <div class="ex-wrap">
           <div class="report-head">
             <h1 class="ex-h1" tabindex="-1">${esc(exam.title)} 완료</h1>
-            <p class="ex-sub">기기 안에서 계산한 추정 결과예요. 자기평가는 그대로 남겨 두었어요.</p>
+            <p class="ex-sub">${autoScoreEnabled() ? '기기 안에서 계산한 추정 결과예요. 자기평가는 그대로 남겨 두었어요.' : '자동 채점이 꺼져 있어 점수 없이 녹음과 자기평가만 남겼어요.'}</p>
             <p class="report-meta">${attempt.total}문항 · ${fmtClock(attempt.seconds)} · 5파트 · 자기평가 ${rated}/${attempt.total}${attempt.saved === false ? ' · 저장하지 못했어요' : ''}</p>
           </div>
           ${scoringBanner()}
@@ -2062,11 +2106,11 @@
             </div>
           </div>
           <div class="insights">
-            ${insightCard('강점', insight.strengths || [], '아직 강점을 계산하는 중이에요.')}
-            ${insightCard('보완점', insight.weaknesses || [], '채점이 끝나면 보완점이 표시됩니다.')}
+            ${insightCard('강점', insight.strengths || [], autoScoreEnabled() ? '아직 강점을 계산하는 중이에요.' : '자동 채점을 켜면 강점을 계산해요.')}
+            ${insightCard('보완점', insight.weaknesses || [], autoScoreEnabled() ? '채점이 끝나면 보완점이 표시됩니다.' : '자동 채점을 켜면 보완점을 계산해요.')}
           </div>
           <div class="qcards">${items.map((item) => renderQCard(item, scores[item.q.no])).join('')}</div>
-          <p class="report-disclaimer">기기 안에서 음성 인식으로 계산한 추정치예요. 실제 ETS 채점과 다를 수 있어요.</p>
+          <p class="report-disclaimer">${autoScoreEnabled() ? '기기 안에서 음성 인식으로 계산한 추정치예요. 실제 ETS 채점과 다를 수 있어요.' : '자동 채점이 꺼져 있어 점수는 계산하지 않았어요. 녹음과 자기평가는 기기에만 저장돼요.'}</p>
           <div class="ex-actions">
             <button class="ex-btn" data-act="retry" type="button">다시 보기</button>
             <a class="ex-btn ghost" href="index.html">학습으로 돌아가기</a>
@@ -2095,6 +2139,13 @@
       </div>`;
     }
     if (scoring.error) {
+      if (scoring.error === 'auto-score-off') {
+        return `<div class="scoring-banner error">
+          <div class="scoring-label">자동 채점이 꺼져 있어요</div>
+          <p class="scoring-sub">녹음과 자기평가는 그대로 남아 있어요. 점수가 필요하면 설정에서 자동 채점을 켜 주세요.</p>
+          <button class="ex-btn ghost sm" type="button" data-settings-open>설정 열기</button>
+        </div>`;
+      }
       const text = scoring.error === 'no-recording'
         ? '녹음이 없어 채점하지 못했어요. 자기평가만 저장됩니다.'
         : '채점을 불러오지 못했어요. 자기평가만 저장됩니다.';
@@ -2118,7 +2169,7 @@
       : null;
     const level = estimate && estimate.level ? estimate.level : (scaled === null ? '—' : levelFromScaled(scaled));
     const pct = scaled === null ? 0 : (scaled / 200) * 100;
-    const label = scaled === null ? '채점 중' : `${scaled}점 ${level}`;
+    const label = scaled === null ? (autoScoreEnabled() ? '채점 중' : '채점 꺼짐') : `${scaled}점 ${level}`;
     const arcLength = 276.46;
     const dash = (arcLength * pct / 100).toFixed(1);
     return `<div class="score-arc" role="img" aria-label="추정 점수 ${label}">
@@ -2264,8 +2315,24 @@
     </span>`;
   }
 
+  function metricsLine(metrics) {
+    if (!metrics || !Number.isFinite(Number(metrics.speechSec))) return '';
+    const seconds = Math.max(0, Math.round(Number(metrics.speechSec)));
+    const pauses = Array.isArray(metrics.longPauses) ? metrics.longPauses.length : 0;
+    return `말한 시간 ${seconds}초 · 긴 쉼 ${pauses}회`;
+  }
+
   function renderScoreBody(part, q, result, audioId) {
     if (!result) {
+      if (!autoScoreEnabled()) {
+        return `<div class="qa-section">
+          <p class="qa-label">녹음</p>
+          <div class="qcard-audio" id="${audioId}"><span class="qa-empty">내 녹음 불러오는 중…</span></div>
+          <p class="qa-metrics" id="qa-metrics-${q.no}"></p>
+          <p class="qa-empty">자동 채점이 꺼져 있어 점수는 계산하지 않았어요. 설정에서 켜면 다음 녹음부터 채점해요.</p>
+        </div>
+        ${sampleAnswersMarkup(q.no)}`;
+      }
       const message = scoring.running
         ? '채점 중…'
         : (scoring.error === 'no-recording' ? '녹음이 없어 채점하지 못했어요.' : '채점 결과가 없어요.');
@@ -2563,6 +2630,11 @@
       const url = URL.createObjectURL(blob);
       reportAudioUrls.push(url);
       slot.innerHTML = `<audio controls preload="none" src="${url}" aria-label="내 녹음"></audio>`;
+      const metricSlot = document.getElementById(`qa-metrics-${item.q.no}`);
+      if (metricSlot && !autoScoreEnabled()) {
+        const metrics = await analyzeRecording(blob);
+        metricSlot.textContent = metricsLine(metrics);
+      }
     }
   }
 
@@ -2913,6 +2985,12 @@
     attempt.finishedAt = new Date().toISOString();
     attempt.seconds = Math.round((Date.now() - attempt.startedAt) / 1000);
     const record = await getRecording(attempt.id, q.no);
+    if (record && !autoScoreEnabled()) {
+      releaseExamLock();
+      retake = { item, prevScore, skipped: true };
+      paintRetakeResult(item, prevScore, null, 'autoScoreOff');
+      return;
+    }
     if (!record || !scoreModulesReady()) {
       releaseExamLock();
       paintRetakeResult(item, prevScore, null, record ? 'unavailable' : 'noRecording');
@@ -2980,8 +3058,7 @@
     const after = result ? `${result.score}/${max}` : '—';
     const errorText = error === 'noRecording'
       ? '녹음이 없어 채점하지 못했어요.'
-      : '채점을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
-    root.innerHTML = `
+      : '채점을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';    root.innerHTML = `
       <div class="ex-home retake-page">
         <div class="ex-wrap">
           <button class="ex-back" type="button" data-act="retake-notes">← 마이노트</button>
@@ -2994,8 +3071,14 @@
           </div>
           ${result
             ? renderQCard(item, result)
-            : `<div class="score-status"><p>${errorText}</p></div>`}
-          <p class="report-disclaimer">기기 안에서 음성 인식으로 계산한 추정치예요. 실제 ETS 채점과 다를 수 있어요.</p>
+            : (error === 'autoScoreOff'
+              ? `<div class="score-status">
+                   <p>자동 채점이 꺼져 있어 점수는 계산하지 않았어요.</p>
+                   <div class="qcard-audio" id="qa-audio-${q.no}"><span class="qa-empty">내 녹음 불러오는 중…</span></div>
+                   <p class="qa-metrics" id="qa-metrics-${q.no}"></p>
+                 </div>`
+              : `<div class="score-status"><p>${errorText}</p></div>`)}
+          <p class="report-disclaimer">${autoScoreEnabled() ? '기기 안에서 음성 인식으로 계산한 추정치예요. 실제 ETS 채점과 다를 수 있어요.' : '자동 채점이 꺼져 있어 점수는 계산하지 않았어요. 녹음과 자기평가는 기기에만 저장돼요.'}</p>
           <div class="ex-actions">
             <button class="ex-btn" data-act="retake-again" type="button">한 번 더</button>
             <button class="ex-btn ghost" data-act="retake-home" type="button">모의고사 홈</button>
@@ -3003,7 +3086,7 @@
         </div>
       </div>`;
     paintRatings();
-    if (result) loadReportAudio(attempt.id, [item]);
+    if (result || error === 'autoScoreOff') loadReportAudio(attempt.id, [item]);
     const heading = root.querySelector('.ex-h1');
     if (heading) heading.focus();
   }
@@ -3306,6 +3389,20 @@
 
   if (window.SpeechVoice) window.SpeechVoice.load().then(() => paintHome());
   else paintHome();
+
+  // 설정 화면에서 음성·자동 채점을 바꾸면 다음 재생부터 반영한다.
+  if (window.AppSettings && typeof window.AppSettings.subscribe === 'function') {
+    try {
+      window.AppSettings.subscribe((value) => {
+        if (window.SpeechVoice) {
+          window.SpeechVoice.load().then(() => {
+            examVoices = window.SpeechVoice.examPair();
+          }).catch(() => {});
+        }
+        if (value && value.autoScore === false && document.querySelector('.scoring-banner')) paintDone();
+      });
+    } catch (error) { /* noop */ }
+  }
 
   // mock.html로 바로 들어와도 오프라인 셸이 등록되게 한다.
   if (/^https?:$/.test(location.protocol) && window.isSecureContext && 'serviceWorker' in navigator) {

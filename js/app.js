@@ -128,6 +128,7 @@
     alert: '<path d="M12 3 2 21h20Z"/><path d="M12 9v5M12 18h.01"/>',
     calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>',
     target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    settings: '<circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 8.96 4.6H9a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/>',
   };
 
   function getData() {
@@ -1455,11 +1456,9 @@
       </section>
       <section class="panel span-2">
         <h2 class="section-title">데이터 관리 <span>이 브라우저에 저장</span></h2>
-        <p class="panel-note">기록은 이 브라우저에만 저장돼요. 백업 파일로 내보내거나 다른 브라우저로 옮길 수 있어요.</p>
+        <p class="panel-note">기록은 이 브라우저에만 저장돼요. 내보내기·가져오기와 항목별 초기화는 설정에서 할 수 있어요.</p>
         <div class="data-actions">
-          <button class="btn-secondary" type="button" data-action="export">${icon('download')} 내보내기</button>
-          <button class="btn-secondary" type="button" data-action="import">${icon('upload')} 가져오기</button>
-          <button class="btn-secondary btn-danger" type="button" data-action="reset">${icon('trash')} 기록 초기화</button>
+          <button class="btn-secondary" type="button" data-settings-open>${icon('settings')} 설정에서 관리</button>
         </div>
       </section>
       </div>`;
@@ -1816,7 +1815,19 @@
 
     const utterance = new SpeechSynthesisUtterance(card.en);
     utterance.lang = 'en-US';
-    utterance.rate = Number(state.settings.speed) || 1;
+    if (window.AppSettings) {
+      try {
+        if (window.AppSettings.get().voice.accent === 'uk') utterance.lang = 'en-GB';
+      } catch (error) { /* noop */ }
+    }
+    // 우선순위: 학습 화면에서 1×가 아닌 속도를 골랐으면 그 값, 아니면 설정의 기본 속도.
+    const studySpeed = Number(state.settings.speed) || 1;
+    const voiceRate = window.SpeechVoice && typeof window.SpeechVoice.rate === 'function'
+      ? Number(window.SpeechVoice.rate())
+      : 1;
+    utterance.rate = studySpeed !== 1
+      ? Math.min(2, Math.max(0.5, studySpeed))
+      : Math.min(2, Math.max(0.5, Number(voiceRate) || 1));
     if (!session.voiceFor || session.voiceFor.index !== session.index) {
       session.voiceFor = { index: session.index, voice: window.SpeechVoice ? window.SpeechVoice.study() : null };
     }
@@ -2128,6 +2139,9 @@
       payload.notesStatus = notes.status;
       payload.notes = notes.value;
     }
+    if (window.AppSettings && typeof window.AppSettings.export === 'function') {
+      try { payload.appSettings = window.AppSettings.export(); } catch (error) { /* noop */ }
+    }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -2169,6 +2183,10 @@
       const next = normalizeState(parsed);
       if (!window.confirm(`현재 기록을 가져온 파일의 기록으로 바꿀까요?${mockNotice}${notesNotice}`)) return;
       state = next;
+      // 음성·자동 채점 설정은 선택 항목이라, 없는 예전 백업은 지금 설정을 그대로 둔다.
+      if (parsed.appSettings && window.AppSettings && typeof window.AppSettings.import === 'function') {
+        try { window.AppSettings.import(parsed.appSettings); } catch (error) { /* noop */ }
+      }
 
       let mockFailed = false;
       if (hasMock) {
@@ -2203,7 +2221,9 @@
       return;
     }
     if (!window.confirm('모든 학습 기록, 모의고사 기록, 마이노트, 녹음을 삭제할까요? 이 작업은 되돌릴 수 없어요.')) return;
+    const keepSettings = state.settings;
     state = defaultState();
+    state.settings = keepSettings;
     const cleared = writeMockStore(null);
     const clearedNotes = writeNotesStore(null);
     clearAudioStore();
@@ -2218,6 +2238,95 @@
       ? '학습 기록, 모의고사 기록, 마이노트, 녹음을 초기화했어요.'
       : '학습 기록은 초기화했지만 일부 기록을 삭제하지 못했어요.');
   }
+
+  // ---------- v36: 설정 화면에서 쓰는 기록 API ----------
+  function countAudioClips() {
+    if (!('indexedDB' in window)) return Promise.resolve(0);
+    return new Promise((resolve) => {
+      let request;
+      try { request = window.indexedDB.open(AUDIO_DB_NAME); } catch (error) { resolve(0); return; }
+      request.onerror = () => resolve(0);
+      request.onblocked = () => resolve(0);
+      request.onsuccess = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('clips')) {
+          db.close();
+          resolve(0);
+          return;
+        }
+        try {
+          const tx = db.transaction('clips', 'readonly');
+          const count = tx.objectStore('clips').count();
+          count.onsuccess = () => { const value = Number(count.result) || 0; db.close(); resolve(value); };
+          count.onerror = () => { db.close(); resolve(0); };
+        } catch (error) {
+          db.close();
+          resolve(0);
+        }
+      };
+    });
+  }
+
+  async function recordSummary() {
+    const mock = readMockStore();
+    const notes = readNotesStore();
+    const mockAttempts = mock.status === 'ok' && mock.value ? mock.value.attempts.length : 0;
+    const noteItems = notes.status === 'ok' && notes.value && Array.isArray(notes.value.items) ? notes.value.items.length : 0;
+    return {
+      study: {
+        sessions: state.history.length,
+        sentences: state.history.reduce((sum, entry) => sum + (Number(entry.total) || 0), 0),
+        practiced: Object.keys(state.progress || {}).length,
+      },
+      mock: { attempts: mockAttempts },
+      notes: { count: noteItems },
+      recordings: { count: await countAudioClips() },
+    };
+  }
+
+  async function resetRecords(kind) {
+    if (otherSessionLockActive()) {
+      toast('다른 탭에서 학습 중이에요. 그 탭을 마친 뒤 다시 시도해 주세요.');
+      return { ok: false, failed: true };
+    }
+    const studyReset = kind === 'all' || kind === 'study';
+    if (!studyReset && !['mock', 'notes', 'recordings'].includes(kind)) return { ok: false };
+    let failed = false;
+    if (studyReset) {
+      // 학습 기록만 지우고 학습 설정(count·mode·speed·autoPlay·parts)은 그대로 둔다.
+      const keepSettings = state.settings;
+      state = defaultState();
+      state.settings = keepSettings;
+      session = null;
+      suspendedSession = null;
+      releaseSessionLock();
+      resetViewState();
+      persist();
+    }
+    if (kind === 'all' || kind === 'mock') {
+      const cleared = writeMockStore(null);
+      if (!cleared.ok) failed = true;
+    }
+    if (kind === 'all' || kind === 'notes') {
+      const cleared = writeNotesStore(null);
+      if (!cleared.ok) failed = true;
+    }
+    if (kind === 'all' || kind === 'recordings') {
+      const cleared = await clearAudioStore();
+      if (!cleared) failed = true;
+    }
+    if (studyReset || kind === 'all') render();
+    return { ok: !failed, failed };
+  }
+
+  window.AppData = {
+    summary: recordSummary,
+    reset: resetRecords,
+    export: exportData,
+    import: importData,
+    refresh: render,
+    version: STATE_VERSION,
+  };
 
   function handleAction(action, target) {
     switch (action) {
