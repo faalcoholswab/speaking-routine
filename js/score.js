@@ -168,10 +168,29 @@
     // 말로 쓴 숫자·시각·날짜를 비교 가능한 표기("9:30am", "apr 14", "2 days")로 바꿉니다.
     let s = ` ${String(text || '').toLowerCase()} `;
     s = s.replace(/[\u2018\u2019]/g, "'");
+    // 대괄호는 화면의 발음 표기([eighdeenth], [gardigan])입니다. 점수 계산에서는 글자만 남깁니다.
+    s = s.replace(/[[\]]/g, ' ');
 
-    // 1) 범위: 앞 시각은 뒤 시각의 오전/오후를 물려받습니다. "4:00 to 5:00 p.m.", "10:30 - 11:30 a.m."
-    s = s.replace(/(?<![\d:.])(\d{1,2})(?::(\d{2}))?\s*(?:-|\u2013|to|until|and)\s*(\d{1,2}):(\d{2})\s*([ap])\.?\s*m\.?/g,
-      (all, h1, m1, h2, m2, ap) => ` ${Number(h1)}:${m1 || '00'}${ap}m ${h2}:${m2}${ap}m `);
+    // 1) 범위: 끝 시각의 오전/오후를 시작 시각에 넘깁니다.
+    //    시작 시(時)가 끝보다 이르거나 같으면 같은 오전·오후, 늦으면 반대입니다.
+    //    "2:30 to 4 p.m." → 2:30pm–4:00pm, "11 to 8:30 p.m." → 11:00am–8:30pm
+    s = s.replace(/(?<![\d:.])(\d{1,2})(?::(\d{2}))?\s*(?:-|\u2013|to|until|and)\s*(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?/g,
+      (all, h1, m1, h2, m2, ap) => {
+        // 12시는 12시간제에서 가장 이른 시각(0)으로 비교합니다.
+        const start = Number(h1) === 12 ? 0 : Number(h1);
+        const end = Number(h2) === 12 ? 0 : Number(h2);
+        const startAp = start <= end ? ap : (ap === 'p' ? 'a' : 'p');
+        return ` ${Number(h1)}:${m1 || '00'}${startAp}m ${Number(h2)}:${m2 || '00'}${ap}m `;
+      });
+
+    // 1-1) 정오가 낀 범위: "10 to noon" → 10:00am–12:00pm, "noon to 1:30 p.m." → 12:00pm–1:30pm
+    s = s.replace(/(?<![\d:.])(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?\s*(?:-|\u2013|to|until)\s*noon\b/g,
+      (all, h, m, ap) => ` ${Number(h)}:${m || '00'}${ap}m 12:00pm `);
+    s = s.replace(/(?<![\d:.])(\d{1,2})(?::(\d{2}))?\s*(?:-|\u2013|to|until)\s*noon\b/g,
+      (all, h, m) => ` ${Number(h)}:${m || '00'}am 12:00pm `);
+    s = s.replace(/\bnoon\s*(?:-|\u2013|to|until)\s*(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?/g,
+      (all, h, m, ap) => ` 12:00pm ${Number(h)}:${m || '00'}${ap}m `);
+    s = s.replace(/\bnoon\b/g, ' 12:00pm ');
 
     // 2) 숫자로 쓴 시각
     s = s.replace(/(?<![\d:.])(\d{1,2})[:.](\d{2})\s*([ap])\.?\s*m\.?/g, (all, h, m, ap) => ` ${Number(h)}:${m}${ap}m `);
@@ -202,7 +221,7 @@
       });
 
     // 5) 날짜 ("april fourteenth", "april 14", "july twenty-fourth")
-    s = s.replace(new RegExp(`\\b(${MONTH_PATTERN})\\s+([a-z-]+|\\d{1,2})\\b`, 'g'), (all, monthWord, dayWord) => {
+    s = s.replace(new RegExp(`\\b(${MONTH_PATTERN})\\s+([a-z-]+|\\d{1,2}(?:st|nd|rd|th)?)\\b`, 'g'), (all, monthWord, dayWord) => {
       const month = MONTH_NAMES[monthWord];
       if (!month) return all;
       const day = ordinalWordToNumber(dayWord);
@@ -226,6 +245,19 @@
   }
 
 
+  function editDistance(a, b) {
+    const rows = [];
+    for (let i = 0; i <= a.length; i += 1) rows[i] = [i];
+    for (let j = 0; j <= b.length; j += 1) rows[0][j] = j;
+    for (let i = 1; i <= a.length; i += 1) {
+      for (let j = 1; j <= b.length; j += 1) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        rows[i][j] = Math.min(rows[i - 1][j] + 1, rows[i][j - 1] + 1, rows[i - 1][j - 1] + cost);
+      }
+    }
+    return rows[a.length][b.length];
+  }
+
   function ordinalWordToNumber(word) {
     const clean = String(word).replace(/-/g, ' ').trim();
     const direct = NUMBER_WORDS[clean];
@@ -240,6 +272,14 @@
     if (map[clean] !== undefined) return map[clean];
     const digits = clean.match(/^(\d{1,2})(st|nd|rd|th)?$/);
     if (digits) return Number(digits[1]);
+    // 음성 인식이 서수 철자를 조금 틀린 경우("eighdeenth")는 가장 가까운 서수로 봅니다.
+    let closest = null;
+    let closestDistance = 3;
+    for (const [word, value] of Object.entries(map)) {
+      const distance = editDistance(clean.replace(/\s+/g, ''), word);
+      if (distance < closestDistance) { closestDistance = distance; closest = value; }
+    }
+    if (closest !== null) return closest;
     if (/^twenty[\s-]/.test(clean)) {
       const rest = ordinalWordToNumber(clean.replace(/^twenty[\s-]/, ''));
       return rest ? 20 + rest : null;
@@ -257,10 +297,17 @@
 
   function extractDates(normalized) {
     const out = new Set();
-    // 월 이름은 전체 이름/약어 모두 받습니다. ("april 14", "apr 14")
-    const re = /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+(\d{1,2})\b/g;
+    // 월 이름은 전체 이름/약어 모두 받습니다. ("april 14", "apr 14", "june 18th")
+    const re = /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?\b/g;
     let m;
     while ((m = re.exec(normalized))) out.add(`${m[1].slice(0, 3)} ${Number(m[2])}`);
+    // 월 없이 서수만 쓴 날짜("not the 28th")는 문장에 월이 하나뿐이면 그 월을 씁니다.
+    const monthSet = new Set([...out].filter((value) => /^[a-z]{3} \d+$/.test(value)).map((value) => value.split(' ')[0]));
+    if (monthSet.size === 1) {
+      const month = [...monthSet][0];
+      const bare = /\b(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)\b/g;
+      while ((m = bare.exec(normalized))) out.add(`${month} ${Number(m[1])}`);
+    }
     const re2 = /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/g;
     while ((m = re2.exec(normalized))) out.add(m[1]);
     const iso = /\b(\d{4})-(\d{2})-(\d{2})\b/g;
@@ -269,9 +316,22 @@
   }
 
   /* ---------------- 사실 추출 (Part 4) ---------------- */
+  // 제목·고유명사 비교용 표기: 소문자, 따옴표·아포스트로피 제거, 앞 관사(A/An/The) 제거.
+  function plainText(value) {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/["'“”‘’]/g, '')
+      .replace(/^(?:a|an|the)\s+/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function extractFacts(question) {
     const key = String(question.answerKey || '');
-    const norm = normalizeDigraphs(key);
+    // "not June 28"처럼 부정된 날짜는 기대 사실로 넣지 않습니다.
+    const positive = key.replace(/\b(?:not|never|isn't|is not|wasn't|was not)\s+(?:on\s+)?(?:the\s+)?(?:[A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?|\d{1,2}(?:st|nd|rd|th))\b/gi, ' ');
+    const norm = normalizeDigraphs(positive);
     const facts = [];
     const seen = new Set();
     const push = (type, value) => {
@@ -284,15 +344,15 @@
     for (const time of extractTimes(norm)) push('time', time);
     for (const date of extractDates(norm)) push('date', date);
 
-    // 따옴표 제목
+    // 따옴표 제목 — 따옴표 종류와 무관하게 같은 값으로 맞춥니다.
     const quoted = key.match(/['"“”]([^'"“”]{3,60})['"“”]/g) || [];
-    for (const raw of quoted) push('title', raw.replace(/^['"“”]|['"“”]$/g, '').toLowerCase().trim());
+    for (const raw of quoted) push('title', plainText(raw.replace(/^['"“”]|['"“”]$/g, '')));
 
-    // 고유명사 덩어리 (사람·장소)
-    const proper = key.match(/\b(?:[A-Z][a-z]{2,})(?:\s+(?:of|the|and|for)?\s*[A-Z][a-z]{2,})+\b/g) || [];
+    // 고유명사 덩어리 (사람·장소·작품 제목). 아포스트로피가 있어도 한 덩어리로 봅니다.
+    const proper = key.match(/\b(?:[A-Z][A-Za-z'\u2019]{2,})(?:\s+(?:of|the|and|for)?\s*[A-Z][A-Za-z'\u2019]{2,})+\b/g) || [];
     for (const raw of proper) {
-      const value = raw.toLowerCase().trim();
-      if (/^(the|this|that|it|there|no|yes)\b/.test(value)) continue;
+      const value = plainText(raw);
+      if (/^(this|that|it|there|no|yes)\b/.test(value)) continue;
       if (facts.some((f) => f.type === 'title' && (value.includes(f.value) || f.value.includes(value)))) continue;
       push('name', value);
     }
@@ -314,6 +374,8 @@
     const times = extractTimes(norm);
     const dates = extractDates(norm);
     const padded = ` ${norm} `;
+    // 제목·고유명사는 따옴표·아포스트로피·앞 관사를 뺀 표기로 비교합니다.
+    const plain = ` ${plainText(norm)} `;
     const matched = [];
     const missed = [];
     for (const fact of facts) {
@@ -326,7 +388,7 @@
         // "2 workshops"는 "2 scheduled workshops"처럼 사이에 수식어가 있어도 인정합니다.
         const re = new RegExp(`\\b${m[1]}\\s+(?:[a-z]+\\s+){0,2}(?:${m[2]}|${singular})\\b`);
         hit = re.test(norm);
-      } else hit = padded.includes(` ${fact.value} `) || padded.includes(fact.value);
+      } else hit = plain.includes(` ${fact.value} `) || plain.includes(fact.value);
       (hit ? matched : missed).push(fact);
     }
     return { matched, missed, norm, times, dates };
@@ -559,6 +621,25 @@
     return { times, dates };
   }
 
+  // 질문이 묻는 행사의 표 시간. 답안의 날짜로 표 행을 찾아 그 행의 시간만 기대값으로 봅니다.
+  // Q8 IH의 "9 to 8 p.m."처럼 같은 표의 다른 행에 있는 시각을 말해도, 이 행사의 시간이 아니면 틀린 값입니다.
+  function expectedEventTimes(question) {
+    const rows = Array.isArray(question.table) ? question.table.filter(Array.isArray) : [];
+    if (!rows.length) return new Set();
+    const keyDates = extractDates(normalizeDigraphs(question.answerKey || ''));
+    const times = new Set();
+    // 표는 같은 날짜의 둘째 행부터 날짜 칸이 비어 있습니다. 앞 행의 날짜를 이어 받습니다.
+    let current = new Set();
+    for (const row of rows) {
+      const rowNorm = normalizeDigraphs(row.join(' '));
+      const rowDates = extractDates(rowNorm);
+      if (rowDates.size) current = rowDates;
+      if (![...current].some((date) => keyDates.has(date))) continue;
+      for (const time of extractTimes(rowNorm)) times.add(time);
+    }
+    return times;
+  }
+
   function infoScore(question, text, tokens, metrics) {
     const words = tokens.length;
     const facts = extractFacts(question);
@@ -567,13 +648,16 @@
 
     const extraTimes = [...match.times].filter((t) => !known.times.has(t));
     const extraDates = [...match.dates].filter((d) => !known.dates.has(d));
+    const eventTimes = expectedEventTimes(question);
+    const wrongTimes = eventTimes.size ? [...match.times].filter((t) => !eventTimes.has(t)) : [];
 
     // 표에 있는 시각이지만 이 문항의 답이 아닌 값을 말해도 틀린 정보입니다.
     const prompt = String(question.prompt || '').toLowerCase();
     const correction = /\b(someone told me|i heard|is it true|confirm|supposed to be)\b/.test(prompt);
     const affirmative = /^(yes|yeah|that's correct|that is correct|correct|right|sure)\b/.test(String(text).toLowerCase().trim());
     const negates = /\b(no|not|isn't|is not|wasn't|actually|instead|but|moved|changed)\b/.test(String(text).toLowerCase());
-    const wrong = extraTimes.length > 0 || extraDates.length > 0 || (correction && affirmative && !negates);
+    const wrong = extraTimes.length > 0 || extraDates.length > 0 || wrongTimes.length > 0
+      || (correction && affirmative && !negates);
 
     let score;
     if (words < 5) score = 0;
@@ -603,7 +687,7 @@
         completeness: clamp(round((facts.length ? match.matched.length / facts.length : 0) * 3), 0, 3),
       },
       covered: match.matched.map((f) => f.value),
-      wrongFacts: wrong ? [...extraTimes, ...extraDates] : [],
+      wrongFacts: wrong ? [...new Set([...extraTimes, ...extraDates, ...wrongTimes])] : [],
     };
   }
 
@@ -673,7 +757,18 @@
     const out = [];
     if (Array.isArray(exam.questions)) out.push(...exam.questions);
     if (Array.isArray(exam.parts)) {
-      for (const part of exam.parts) if (Array.isArray(part.questions)) out.push(...part.questions);
+      for (const part of exam.parts) {
+        if (!Array.isArray(part.questions)) continue;
+        for (const question of part.questions) {
+          // Part 4 표·상황 설명은 문항이 아니라 파트에 있습니다. 채점에서도 볼 수 있게 붙여 둡니다.
+          out.push({
+            ...question,
+            part: question.part ?? part.part,
+            table: question.table ?? part.table,
+            context: question.context ?? part.context,
+          });
+        }
+      }
     }
     return out.sort((a, b) => Number(a.no) - Number(b.no));
   }
@@ -801,6 +896,6 @@
     gradeQuestion,
     levelFor,
     // 시험·도구용 내부 함수 (앱 화면에서는 쓰지 않음)
-    _internals: { tokenize, contentWords, overlapRatio, normalizeDigraphs, extractFacts, matchFacts, extractTimes, extractDates, align, grammarIssues, templateHits, markerCount },
+    _internals: { tokenize, contentWords, overlapRatio, normalizeDigraphs, extractFacts, matchFacts, extractTimes, extractDates, expectedEventTimes, align, grammarIssues, templateHits, markerCount },
   };
 });

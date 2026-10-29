@@ -532,20 +532,23 @@
     </button>`;
 
     const slots = [
-      { id: 'mock-01', label: '모의고사 1' },
-      { id: 'mock-02', label: '모의고사 2' },
-      { id: 'mock-03', label: '모의고사 3' },
+      { id: 'mock-01' },
+      { id: 'mock-02' },
+      { id: 'mock-03' },
+      { id: 'mock-05', tag: '기출' },
     ].map((slot, index) => {
       const exam = EXAMS.find((item) => item.id === slot.id);
       const on = Boolean(exam);
+      const title = (on && exam.title) || slot.label || `모의고사 ${index + 1}`;
+      const badge = slot.tag || String(index + 1);
       const meta = on
         ? `Part 1~5 · ${exam.parts.reduce((n, p) => n + p.questions.length, 0)}문항 · 약 ${Math.round(estimateSeconds(exam) / 60)}분`
         : '다음 영상으로 준비 중';
       return `
         <button class="ex-card ${on ? 'on' : 'off'}" ${on ? `data-act="intro" data-exam="${esc(slot.id)}"` : 'disabled'} type="button">
-          <span class="ex-card-num">${index + 1}</span>
+          <span class="ex-card-num${slot.tag ? ' text' : ''}">${esc(badge)}</span>
           <span class="ex-card-body">
-            <span class="ex-card-title">${esc(slot.label)}</span>
+            <span class="ex-card-title">${esc(title)}</span>
             <span class="ex-card-meta">${esc(meta)}</span>
           </span>
           <span class="ex-card-cta">${on ? '응시하기' : '준비 중'}</span>
@@ -1108,6 +1111,244 @@
     </section>`;
   }
 
+  // ---------- v35: 등급별 실제 답변 ----------
+  const SAMPLE_LEVELS = ['IH', 'AL', 'AM'];
+  const SAMPLE_CATEGORY = {
+    pron: '발음', inton: '억양·강세', stress: '강세', grammar: '문법', vocab: '어휘',
+    cohesion: '응집성', relevance: '관련성', completeness: '완성도',
+    length: '길이', content: '내용', info: '정보', other: '기타',
+  };
+  const CMP_OPINION = ['i think', 'i believe', 'in my opinion', 'for me'];
+  const CMP_REASON = ['because', 'since', 'so that', 'that is why', "that's why"];
+  const CMP_EXAMPLE = ['for example', 'for instance', 'such as'];
+
+  function sampleExamId() {
+    return (attempt && attempt.examId) || (currentExam && currentExam.id) || '';
+  }
+
+  function activeExam() {
+    return currentExam || (EXAMS || []).find((item) => item.id === sampleExamId()) || null;
+  }
+
+  function samplesFor(no) {
+    const bank = window.MOCK_SAMPLES && window.MOCK_SAMPLES[sampleExamId()];
+    const list = bank && bank.questions ? bank.questions[no] : null;
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((item) => item && typeof item.text === 'string' && item.text.trim())
+      .slice()
+      .sort((a, b) => {
+        const ai = SAMPLE_LEVELS.indexOf(a.level);
+        const bi = SAMPLE_LEVELS.indexOf(b.level);
+        return (ai < 0 ? 9 : ai) - (bi < 0 ? 9 : bi);
+      });
+  }
+
+  function tokensOf(text) {
+    const internals = window.SpeakingScore && window.SpeakingScore._internals;
+    if (internals && typeof internals.tokenize === 'function') {
+      try { return internals.tokenize(text); } catch (error) { /* noop */ }
+    }
+    return String(text || '').split(/\s+/).filter(Boolean);
+  }
+
+  function markerHas(text, markers) {
+    const internals = window.SpeakingScore && window.SpeakingScore._internals;
+    if (internals && typeof internals.markerCount === 'function') {
+      try { return internals.markerCount(text, markers) > 0; } catch (error) { /* noop */ }
+    }
+    const lower = ` ${String(text || '').toLowerCase()} `;
+    return markers.some((marker) => lower.includes(` ${marker} `) || lower.includes(` ${marker},`));
+  }
+
+  function gradeSampleText(no, text) {
+    const api = window.SpeakingScore;
+    const exam = activeExam();
+    if (!api || typeof api.gradeQuestion !== 'function' || !exam) return null;
+    try { return api.gradeQuestion({ exam, no, text }); } catch (error) { return null; }
+  }
+
+  function markSampleText(text, points, suspects) {
+    const source = String(text || '');
+    const ranges = [];
+    (Array.isArray(points) ? points : []).forEach((point) => {
+      const quote = String((point && point.quote) || '').trim();
+      if (!quote) return;
+      const at = source.toLowerCase().indexOf(quote.toLowerCase());
+      if (at < 0) return;
+      const end = at + quote.length;
+      if (ranges.some((range) => at < range.end && end > range.start)) return;
+      ranges.push({ start: at, end });
+    });
+    ranges.sort((a, b) => a.start - b.start);
+    const words = (Array.isArray(suspects) ? suspects : [])
+      .map((word) => String(word || '').trim())
+      .filter((word) => word && !/\s/.test(word));
+    const annotate = (plain) => {
+      let html = esc(plain);
+      words.forEach((word) => {
+        const pattern = new RegExp(`\\b(${escapeRegExp(word)})\\b`, 'gi');
+        html = html.replace(pattern, '<span class="sm-suspect" title="자막 인식 의심">$1</span>');
+      });
+      return html;
+    };
+    let out = '';
+    let cursor = 0;
+    ranges.forEach((range) => {
+      out += annotate(source.slice(cursor, range.start));
+      out += `<mark class="sm-quote">${annotate(source.slice(range.start, range.end))}</mark>`;
+      cursor = range.end;
+    });
+    return out + annotate(source.slice(cursor));
+  }
+
+  function sampleItemMarkup(sample) {
+    const points = Array.isArray(sample.points) ? sample.points : [];
+    const caption = sample.textSource === 'caption'
+      ? '<span class="sm-chip">자막에서 옮김</span>'
+      : '';
+    const suspects = Array.isArray(sample.captionSuspect) ? sample.captionSuspect.filter(Boolean) : [];
+    const inlineSuspects = suspects.filter((word) => !/\s/.test(String(word).trim()));
+    const suspectNote = suspects.length
+      ? `<p class="sm-note">${inlineSuspects.length ? '점선 표시와 아래 목록은 자막 인식이 의심되는 부분이에요. ' : ''}자막 인식 의심: ${esc(suspects.join(' / '))}</p>`
+      : '';
+    const list = points.length
+      ? `<ul class="sm-points">${points.map((point) => `
+        <li>
+          <span class="sm-cat">${esc(SAMPLE_CATEGORY[point.category] || point.category || '지적')}</span>
+          ${point.quote ? `<span class="sm-point-quote">“${esc(point.quote)}”</span>` : ''}
+          <span class="sm-point-note">${esc(point.note || '')}</span>
+          <span class="sm-source ${point.source === 'ETS' ? 'ets' : (point.source === '해설' ? 'guide' : 'unknown')}">${esc(point.source || '출처 미상')}</span>
+        </li>`).join('')}</ul>`
+      : '<p class="sm-note">지적 없음</p>';
+    return `<details class="sm-item"${sample.level === 'IH' ? ' open' : ''}>
+      <summary class="sm-sum">
+        <span class="sm-badge">${esc(sample.level || '—')}</span>
+        <span class="sm-score">${esc(sample.itemScore || '판정 미상')}</span>
+        <span class="sm-meta">${tokensOf(sample.text).length}단어</span>
+        ${caption}
+      </summary>
+      <div class="sm-body">
+        <p class="sm-text">${markSampleText(sample.text, points, suspects)}</p>
+        ${suspectNote}
+        ${list}
+      </div>
+    </details>`;
+  }
+
+  function sampleAnswersMarkup(no) {
+    const list = samplesFor(no);
+    if (!list.length) return '';
+    const bank = window.MOCK_SAMPLES[sampleExamId()];
+    const note = bank && bank.note ? `<p class="sm-intro">${esc(bank.note)}</p>` : '';
+    return `<section class="gd-block sm-block">
+      <h3 class="gd-title">등급별 실제 답변</h3>
+      ${note}
+      <div class="sm-list">${list.map(sampleItemMarkup).join('')}</div>
+    </section>`;
+  }
+
+  function compareChip(text, state) {
+    const mark = state === 'ok' ? '✓' : (state === 'wrong' ? '✗' : '—');
+    return `<span class="coverage-chip ${state}">${esc(text)} <b>${mark}</b></span>`;
+  }
+
+  function compareStat(label, value) {
+    return `<span class="sm-stat">${esc(label)} <b>${esc(value)}</b></span>`;
+  }
+
+  function comparisonMarkup(part, q, text, result) {
+    const internals = (window.SpeakingScore && window.SpeakingScore._internals) || {};
+    const tokens = tokensOf(text);
+    const rows = [];
+
+    if (part.part === 1) {
+      let missed = Array.isArray(result && result.missedWords) ? result.missedWords : [];
+      if (!result && internals.align && internals.tokenize) {
+        try { missed = internals.align(internals.tokenize(q.text || ''), tokens).missed || []; } catch (error) { missed = []; }
+      }
+      rows.push(`<div class="sm-cmp-row"><span class="sm-cmp-label">지문 읽기</span><div class="sm-stats">
+        ${compareStat('놓친 단어', `${missed.length}개`)}
+        ${compareStat('읽은 단어', `${tokens.length}개`)}
+      </div></div>`);
+    } else if (part.part === 2) {
+      const elements = Array.isArray(q.keyElements) ? q.keyElements : [];
+      const graded = gradeSampleText(q.no, text);
+      const covered = new Set((result && Array.isArray(result.covered) && result.covered.length
+        ? result.covered
+        : (graded && graded.covered) || []));
+      const chips = elements.map((element) => compareChip(element, covered.has(element) ? 'ok' : 'miss'));
+      if (chips.length) rows.push(`<div class="sm-cmp-row"><span class="sm-cmp-label">핵심 요소</span><div class="coverage">${chips.join('')}</div></div>`);
+    } else if (part.part === 4) {
+      const facts = internals.extractFacts ? internals.extractFacts(q) : [];
+      let matched = [];
+      let missed = [];
+      try {
+        const found = internals.matchFacts(facts, text);
+        matched = found.matched;
+        missed = found.missed;
+      } catch (error) { /* noop */ }
+      const graded = result ? null : gradeSampleText(q.no, text);
+      const wrong = (result && Array.isArray(result.wrongFacts) ? result.wrongFacts : [])
+        .concat((graded && Array.isArray(graded.wrongFacts) ? graded.wrongFacts : []));
+      const chips = matched.map((fact) => compareChip(originalFact(fact.value, part, q), 'ok'))
+        .concat(wrong.map((value) => compareChip(originalFact(value, part, q), 'wrong')))
+        .concat(missed.map((fact) => compareChip(originalFact(fact.value, part, q), 'miss')));
+      if (chips.length) rows.push(`<div class="sm-cmp-row"><span class="sm-cmp-label">사실 비교</span><div class="coverage">${chips.join('')}</div></div>`);
+    } else {
+      const target = part.part === 5 ? 100 : (Number(q.responseSeconds) >= 30 ? 50 : 25);
+      let relevance = 0;
+      if (internals.overlapRatio && internals.tokenize) {
+        try { relevance = internals.overlapRatio(internals.tokenize(q.prompt || ''), tokens); } catch (error) { relevance = 0; }
+      }
+      const marks = [
+        ['의견', markerHas(text, CMP_OPINION)],
+        ['이유', markerHas(text, CMP_REASON)],
+        ['예시', markerHas(text, CMP_EXAMPLE)],
+      ].map(([label, on]) => `<span class="coverage-chip ${on ? 'ok' : 'miss'}">${label} <b>${on ? '✓' : '—'}</b></span>`).join('');
+      rows.push(`<div class="sm-cmp-row"><span class="sm-cmp-label">말하기</span><div class="sm-stats">
+        ${compareStat('단어 수', `${tokens.length} / 목표 ${target}`)}
+        ${compareStat('질문 관련 표현', `${Math.round(relevance * 100)}%`)}
+      </div></div>
+      <div class="sm-cmp-row"><span class="sm-cmp-label">표현</span><div class="coverage">${marks}</div></div>`);
+    }
+    return rows.join('');
+  }
+
+  function sampleCompareMarkup(part, q, result) {
+    const list = samplesFor(q.no);
+    if (!list.length) return '';
+    const myText = String((result && result.text) || '');
+    const selected = list.some((sample) => sample.level === 'IH') ? 'IH' : list[0].level;
+    const tabs = list.map((sample) => `<button class="sm-tab" type="button" data-act="cmp-level" data-level="${esc(sample.level || '')}" aria-pressed="${(sample.level || '') === selected ? 'true' : 'false'}">${esc(sample.level || '—')}</button>`).join('');
+    const panels = list.map((sample) => {
+      const level = sample.level || '';
+      const myDisplay = part.part === 1
+        ? highlightMissed(myText, (result && result.missedWords) || [])
+        : esc(myText);
+      return `<div class="sm-cmp-panel" data-level="${esc(level)}"${level === selected ? '' : ' hidden'}>
+        <div class="sm-cmp-grid">
+          <div class="sm-cmp-col">
+            <p class="sm-cmp-title">내 답변</p>
+            <p class="sm-cmp-text">${myDisplay || '<span class="qa-empty">인식된 문장이 없어요.</span>'}</p>
+            ${comparisonMarkup(part, q, myText, result)}
+          </div>
+          <div class="sm-cmp-col sample">
+            <p class="sm-cmp-title">${esc(level || '—')} 답변 <span>${esc(sample.itemScore || '')}</span></p>
+            <p class="sm-cmp-text">${markSampleText(sample.text, sample.points, sample.captionSuspect)}</p>
+            ${comparisonMarkup(part, q, sample.text, null)}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    return `<section class="qa-section sm-compare">
+      <p class="qa-label">등급별 답변과 비교</p>
+      <div class="sm-tabs" role="group" aria-label="비교할 등급 선택">${tabs}</div>
+      <div class="sm-cmp-panels">${panels}</div>
+      <p class="sm-note">비교는 화면 표시용이에요. 점수는 위 채점 결과를 따릅니다.</p>
+    </section>`;
+  }
+
   function modelBlock(entry) {
     if (!entry || !entry.model) {
       return `<section class="gd-block"><h3 class="gd-title">모범 답안</h3><p class="ex-note-sm">준비 중입니다.</p></section>`;
@@ -1201,24 +1442,30 @@
     </div>${stepper(part, q.no, true)}`;
 
     const entry = guideEntry(q);
+    const samples = samplesFor(q.no);
+    // 가이드가 없는 시험(mock-05)은 '준비 중입니다' 대신 등급별 답변만 보여 준다.
+    const model = entry || !samples.length ? modelBlock(entry) : '';
     let body = '';
 
     if (part.part === 1) {
-      body = `<section class="gd-block"><h3 class="gd-title">발음 가이드</h3>${pronGuideMarkup(q.text, entry && entry.pron)}</section>`;
+      const pron = pronGuideMarkup(q.text, entry && entry.pron);
+      body = pron
+        ? `<section class="gd-block"><h3 class="gd-title">발음 가이드</h3>${pron}</section>`
+        : `<section class="gd-block"><h3 class="gd-title">지문</h3><p class="gd-model">${esc(q.text || '')}</p></section>`;
     } else if (part.part === 2) {
       body = `<figure class="ex-figure"><img src="assets/mock/${esc(q.image)}" alt="묘사할 그림"></figure>
-        ${keyElementsMarkup(q)}${modelBlock(entry)}`;
+        ${keyElementsMarkup(q)}${model}`;
     } else if (part.part === 3) {
       body = `${part.context ? `<div class="ex-context">${esc(part.context)}</div>` : ''}
-        <p class="ex-prompt">${esc(q.prompt)}</p>${modelBlock(entry)}`;
+        <p class="ex-prompt">${esc(q.prompt)}</p>${model}`;
     } else if (part.part === 4) {
       body = `<figure class="ex-figure wide"><img src="assets/mock/${esc(part.tableImage)}" alt="행사 일정표" tabindex="0" role="button" aria-label="일정표 확대해서 보기"></figure>
-        <p class="ex-prompt">${esc(q.prompt)}</p>${modelBlock(entry)}`;
+        <p class="ex-prompt">${esc(q.prompt)}</p>${model}`;
     } else {
-      body = `<p class="ex-prompt">${esc(q.prompt)}</p>${modelBlock(entry)}`;
+      body = `<p class="ex-prompt">${esc(q.prompt)}</p>${model}`;
     }
 
-    return `<div class="ex-q">${partBar(part.part)}${head}${body}</div>`;
+    return `<div class="ex-q">${partBar(part.part)}${head}${body}${sampleAnswersMarkup(q.no)}</div>`;
   }
 
   function partBar(current) {
@@ -1453,6 +1700,7 @@
         ${noteStar(q.no)}
       </div>
       ${renderScoreBody(part, q, result, `practice-audio-${q.no}`)}
+      ${sampleAnswersMarkup(q.no)}
     </section>`;
   }
 
@@ -2056,6 +2304,7 @@
       ${missed}
       ${coverage}
       ${feedback}
+      ${sampleCompareMarkup(part, q, result)}
       <div class="qa-tools">
         <div class="qcard-audio" id="${audioId}"><span class="qa-empty">내 녹음 불러오는 중…</span></div>
         ${model ? `<button class="ex-btn ghost sm" type="button" data-act="speak-model" data-no="${q.no}">모범 답안 듣기</button>` : ''}
@@ -2190,10 +2439,10 @@
         .concat(wrong.map((item) => `<span class="coverage-chip wrong">${esc(originalFact(item, part, q, candidates))} <b>✗</b></span>`))
         .join('');
       const answer = q.answerKey
-        ? `<details class="qa-answer"><summary>정답 정보</summary><p>${esc(q.answerKey)}</p></details>`
+        ? `<details class="qa-answer"><summary>전체 정답 보기</summary><p>${esc(q.answerKey)}</p></details>`
         : '';
       if (!chips && !answer) return '';
-      return `<div class="qa-section"><p class="qa-label">정답 정보</p>${chips ? `<div class="coverage">${chips}</div>` : ''}${answer}</div>`;
+      return `<div class="qa-section">${chips ? `<p class="qa-label">정답 정보</p><div class="coverage">${chips}</div>` : ''}${answer}</div>`;
     }
     return '';
   }
@@ -2979,6 +3228,19 @@
       cleanupMic();
       if (micOpts && micOpts.mode === 'retake') paintNotes();
       else paintIntro();
+      return;
+    }
+    if (act === 'cmp-level') {
+      event.preventDefault();
+      const group = target.closest('.sm-compare');
+      if (!group) return;
+      const level = target.dataset.level || '';
+      group.querySelectorAll('[data-act="cmp-level"]').forEach((button) => {
+        button.setAttribute('aria-pressed', button.dataset.level === level ? 'true' : 'false');
+      });
+      group.querySelectorAll('.sm-cmp-panel').forEach((panel) => {
+        panel.hidden = panel.dataset.level !== level;
+      });
       return;
     }
     if (act === 'speak-model') {
