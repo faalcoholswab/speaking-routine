@@ -43,6 +43,16 @@ window.MOCK_MANIFEST = [
     ],
   },
   {
+    id: 'mock-04',
+    data: 'data/mock-04.js',
+    guide: 'data/mock-04-guide.js',
+    images: [
+      'assets/mock/mock-04/p2-q3.webp',
+      'assets/mock/mock-04/p2-q4.webp',
+      'assets/mock/mock-04/p4-table.webp',
+    ],
+  },
+  {
     id: 'mock-05',
     data: 'data/mock-05.js',
     samples: 'data/mock-05-samples.js',
