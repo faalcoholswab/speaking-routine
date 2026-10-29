@@ -4,6 +4,8 @@
   const STORAGE_KEY = 'speaking-routine-pwa-v1';
   const LEGACY_STORAGE_KEY = 'speaking-routine-v1';
   const MOCK_STORAGE_KEY = 'speaking-routine-mock-v1';
+  const NOTES_STORAGE_KEY = 'speaking-routine-notes-v1';
+  const AUDIO_DB_NAME = 'speaking-routine-audio';
   const MOCK_LOCK_KEY = 'speaking-routine-mock-lock';
   const MOCK_STORE_VERSION = 1;
   const LOCK_KEY = 'speaking-routine-session-lock';
@@ -1868,6 +1870,69 @@
     button.innerHTML = `${icon(speaking ? 'pause' : 'play')} <span>${speaking ? '멈추기' : '영어 듣기'}</span>`;
   }
 
+  function resultWords(value) {
+    return Array.isArray(value)
+      ? value.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.slice(0, 120)).slice(0, 80)
+      : [];
+  }
+
+  // 모의고사 채점 결과(문항별)를 가져오기·내보내기에서 보존한다.
+  function sanitizeResult(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const criteria = {};
+    if (value.criteria && typeof value.criteria === 'object' && !Array.isArray(value.criteria)) {
+      ['pron', 'inton', 'grammar', 'vocab', 'cohesion', 'relevance', 'completeness'].forEach((key) => {
+        const raw = value.criteria[key];
+        if (raw === null || raw === undefined || raw === '') return;
+        const number = Number(raw);
+        if (Number.isFinite(number)) criteria[key] = clamp(Math.round(number * 10) / 10, 0, 5);
+      });
+    }
+    const feedback = Array.isArray(value.feedback)
+      ? value.feedback.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.slice(0, 300)).slice(0, 6)
+      : [];
+    const score = Number(value.score);
+    const max = Number(value.max);
+    return {
+      score: Number.isFinite(score) ? clamp(Math.round(score * 10) / 10, 0, 5) : 0,
+      max: Number.isFinite(max) && max > 0 ? clamp(Math.round(max), 1, 5) : 3,
+      criteria,
+      feedback,
+      text: typeof value.text === 'string' ? value.text.slice(0, 2000) : '',
+      missedWords: resultWords(value.missedWords),
+      covered: resultWords(value.covered),
+      wrongFacts: resultWords(value.wrongFacts),
+      noRecording: Boolean(value.noRecording),
+      unavailable: Boolean(value.unavailable),
+      pending: Boolean(value.pending),
+      silent: Boolean(value.silent),
+    };
+  }
+
+  function sanitizeSummary(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const estimate = value.estimate && typeof value.estimate === 'object' ? value.estimate : null;
+    const list = (items) => (Array.isArray(items) ? items : [])
+      .filter((item) => typeof item === 'string' && item.trim())
+      .map((item) => item.slice(0, 300))
+      .slice(0, 4);
+    const partAverages = Array.isArray(value.partAverages)
+      ? value.partAverages.slice(0, 5).map((item) => {
+        const number = Number(item);
+        return Number.isFinite(number) ? Math.round(number * 100) / 100 : null;
+      })
+      : null;
+    return {
+      estimate: estimate ? {
+        scaled: clamp(Math.round(Number(estimate.scaled) || 0), 0, 200),
+        level: typeof estimate.level === 'string' ? estimate.level.slice(0, 8) : '',
+      } : null,
+      partAverages,
+      strengths: list(value.strengths),
+      weaknesses: list(value.weaknesses),
+    };
+  }
+
   function sanitizeMockStore(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value) || !Array.isArray(value.attempts)) return null;
     const attempts = value.attempts
@@ -1883,7 +1948,7 @@
             if (/^\d{1,2}$/.test(key) && ['good', 'ok', 'weak'].includes(val)) ratings[key] = val;
           });
         }
-        return {
+        const next = {
           id: typeof entry.id === 'string' && entry.id ? entry.id.slice(0, 40) : uid(),
           examId: typeof entry.examId === 'string' && entry.examId ? entry.examId.slice(0, 40) : 'mock-01',
           at,
@@ -1891,6 +1956,33 @@
           total: clamp(toInt(entry.total, 0), 0, 99),
           ratings,
         };
+        if (typeof entry.finishedAt === 'string' && !Number.isNaN(Date.parse(entry.finishedAt))) {
+          next.finishedAt = entry.finishedAt;
+        }
+        if (entry.single && typeof entry.single === 'object') {
+          const no = Math.round(Number(entry.single.no));
+          if (Number.isInteger(no) && no >= 1 && no <= 11) next.single = { no };
+        }
+        if (entry.scores && typeof entry.scores === 'object' && !Array.isArray(entry.scores)) {
+          const scores = {};
+          Object.entries(entry.scores).forEach(([key, item]) => {
+            const no = Number(key);
+            if (!Number.isInteger(no) || no < 1 || no > 11) return;
+            const result = sanitizeResult(item);
+            if (result) scores[no] = result;
+          });
+          if (Object.keys(scores).length) next.scores = scores;
+        }
+        const estimate = entry.estimate && typeof entry.estimate === 'object' ? entry.estimate : null;
+        if (estimate) {
+          next.estimate = {
+            scaled: clamp(Math.round(Number(estimate.scaled) || 0), 0, 200),
+            level: typeof estimate.level === 'string' ? estimate.level.slice(0, 8) : '',
+          };
+        }
+        const summary = sanitizeSummary(entry.summary);
+        if (summary) next.summary = summary;
+        return next;
       });
     return { attempts };
   }
@@ -1931,20 +2023,110 @@
     }
   }
 
+  // 마이노트 — 모의고사 탭과 같은 키(speaking-routine-notes-v1)를 공유한다.
+  function sanitizeNotesStore(value) {
+    if (!value || typeof value !== 'object') return null;
+    const list = Array.isArray(value) ? value : (Array.isArray(value.items) ? value.items : null);
+    if (!list) return null;
+    const seen = new Set();
+    const items = [];
+    for (const item of list) {
+      if (!item || typeof item !== 'object') continue;
+      const no = Math.round(Number(item.no));
+      if (!Number.isInteger(no) || no < 1 || no > 11) continue;
+      const examId = typeof item.examId === 'string' && item.examId ? item.examId.slice(0, 40) : 'mock-01';
+      const key = `${examId}:${no}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const score = Number(item.lastScore);
+      items.push({
+        examId,
+        no,
+        addedAt: typeof item.addedAt === 'string' && !Number.isNaN(Date.parse(item.addedAt))
+          ? item.addedAt
+          : new Date().toISOString(),
+        lastScore: Number.isFinite(score) ? score : null,
+        source: item.source === 'manual' ? 'manual' : 'auto',
+      });
+      if (items.length >= 500) break;
+    }
+    return { version: 1, items };
+  }
+
+  function readNotesStore() {
+    let raw = null;
+    try {
+      raw = localStorage.getItem(NOTES_STORAGE_KEY);
+    } catch (error) {
+      return { status: 'error', value: null };
+    }
+    if (!raw) return { status: 'empty', value: { version: 1, items: [] } };
+    try {
+      const value = sanitizeNotesStore(JSON.parse(raw));
+      return value ? { status: 'ok', value } : { status: 'error', value: null };
+    } catch (error) {
+      return { status: 'error', value: null };
+    }
+  }
+
+  function writeNotesStore(value) {
+    try {
+      if (value === null) {
+        localStorage.removeItem(NOTES_STORAGE_KEY);
+        return { ok: true };
+      }
+      const next = sanitizeNotesStore(value);
+      if (!next) return { ok: false, error: 'invalid' };
+      if (!next.items.length) {
+        localStorage.removeItem(NOTES_STORAGE_KEY);
+        return { ok: true };
+      }
+      localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(next));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: String((error && error.message) || error) };
+    }
+  }
+
+  // 녹음 원본은 IndexedDB에만 있고 백업 파일에는 넣지 않는다. 초기화 때만 지운다.
+  function clearAudioStore() {
+    if (!('indexedDB' in window)) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      let request;
+      try {
+        request = window.indexedDB.deleteDatabase(AUDIO_DB_NAME);
+      } catch (error) {
+        resolve(false);
+        return;
+      }
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => resolve(false);
+      request.onblocked = () => resolve(false);
+    });
+  }
+
   function exportData() {
     const mock = readMockStore();
+    const notes = readNotesStore();
     const payload = {
       app: 'speaking-routine',
       version: STATE_VERSION,
       exportedAt: new Date().toISOString(),
       data: state,
       mockVersion: MOCK_STORE_VERSION,
+      notesVersion: 1,
     };
     if (mock.status === 'error') {
       payload.mockStatus = 'error';
     } else {
       payload.mockStatus = mock.status;
       payload.mock = mock.value;
+    }
+    if (notes.status === 'error') {
+      payload.notesStatus = 'error';
+    } else {
+      payload.notesStatus = notes.status;
+      payload.notes = notes.value;
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1955,8 +2137,8 @@
     anchor.click();
     anchor.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast(mock.status === 'error'
-      ? '학습 기록을 내보냈어요. 모의고사 기록은 읽지 못해 제외했습니다.'
+    toast(mock.status === 'error' || notes.status === 'error'
+      ? '학습 기록을 내보냈어요. 일부 모의고사·마이노트 기록은 읽지 못해 제외했습니다.'
       : '학습 기록을 내보냈어요.');
   }
 
@@ -1978,18 +2160,25 @@
         && ['progress', 'queue', 'history', 'ratings', 'sessions'].some((key) => key in candidate);
       if (!recognizable) throw new Error('Unrecognized backup');
 
-      // 이 파일이 모의고사 기록을 담고 있는지 먼저 판별한다.
+      // 이 파일이 모의고사·마이노트 기록을 담고 있는지 먼저 판별한다.
       const hasMock = Object.prototype.hasOwnProperty.call(parsed, 'mock');
+      const hasNotes = Object.prototype.hasOwnProperty.call(parsed, 'notes');
       const mockNotice = hasMock ? ' 모의고사 기록도 함께 바뀝니다.' : ' 모의고사 기록은 유지됩니다.';
+      const notesNotice = hasNotes ? ' 마이노트도 함께 바뀝니다.' : ' 마이노트는 유지됩니다.';
 
       const next = normalizeState(parsed);
-      if (!window.confirm(`현재 기록을 가져온 파일의 기록으로 바꿀까요?${mockNotice}`)) return;
+      if (!window.confirm(`현재 기록을 가져온 파일의 기록으로 바꿀까요?${mockNotice}${notesNotice}`)) return;
       state = next;
 
       let mockFailed = false;
       if (hasMock) {
         const written = writeMockStore(parsed.mock);
         mockFailed = !written.ok;
+      }
+      let notesFailed = false;
+      if (hasNotes) {
+        const written = writeNotesStore(parsed.notes);
+        notesFailed = !written.ok;
       }
       session = null;
       suspendedSession = null;
@@ -1998,8 +2187,8 @@
       persist();
       render();
       focusHeading();
-      toast(mockFailed
-        ? '학습 기록을 가져왔어요. 모의고사 기록은 형식이 맞지 않아 기존 기록을 유지했습니다.'
+      toast(mockFailed || notesFailed
+        ? '학습 기록을 가져왔어요. 일부 모의고사·마이노트 기록은 형식이 맞지 않아 기존 값을 유지했습니다.'
         : '학습 기록을 가져왔어요.');
     } catch (error) {
       toast('올바른 학습 기록 파일이 아니에요.');
@@ -2013,9 +2202,11 @@
       toast('다른 탭에서 학습 중이에요. 그 탭을 마친 뒤 다시 시도해 주세요.');
       return;
     }
-    if (!window.confirm('모든 학습 기록과 모의고사 기록을 삭제할까요? 이 작업은 되돌릴 수 없어요.')) return;
+    if (!window.confirm('모든 학습 기록, 모의고사 기록, 마이노트, 녹음을 삭제할까요? 이 작업은 되돌릴 수 없어요.')) return;
     state = defaultState();
     const cleared = writeMockStore(null);
+    const clearedNotes = writeNotesStore(null);
+    clearAudioStore();
     session = null;
     suspendedSession = null;
     releaseSessionLock();
@@ -2023,9 +2214,9 @@
     persist();
     render();
     focusHeading();
-    toast(cleared.ok
-      ? '학습 기록을 초기화했어요.'
-      : '학습 기록은 초기화했지만 모의고사 기록을 삭제하지 못했어요.');
+    toast(cleared.ok && clearedNotes.ok
+      ? '학습 기록, 모의고사 기록, 마이노트, 녹음을 초기화했어요.'
+      : '학습 기록은 초기화했지만 일부 기록을 삭제하지 못했어요.');
   }
 
   function handleAction(action, target) {

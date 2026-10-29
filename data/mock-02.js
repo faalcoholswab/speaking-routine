@@ -4,6 +4,7 @@
 window.MOCK_EXAMS = window.MOCK_EXAMS || [];
 window.MOCK_EXAMS.push({
   "id": "mock-02",
+  "rights": "confirmed",
   "title": "모의고사 2",
   "subtitle": "출제예상 모의고사 29회",
     "durationSeconds": 888,

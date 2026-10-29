@@ -1,0 +1,36 @@
+whisper-tiny.en (ONNX, int8) — speech recognition model
+=======================================================
+
+Files
+- onnx/encoder_model_quantized.onnx        9.7 MB
+- onnx/decoder_model_quantized.onnx       29.1 MB
+- onnx/decoder_with_past_model_quantized.onnx  27.9 MB
+- config.json, generation_config.json, preprocessor_config.json,
+  vocab.json, added_tokens.json           ~1.0 MB
+
+Source: https://huggingface.co/Xenova/whisper-tiny.en (revision of 2026-10)
+        ONNX export of https://huggingface.co/openai/whisper-tiny.en
+License: Apache-2.0 (the ONNX export repository). The original OpenAI Whisper
+         weights and code are MIT — Copyright (c) 2022 OpenAI.
+         https://github.com/openai/whisper/blob/main/LICENSE
+
+Why this model
+- English-only, 39M parameters, int8: 70.8 MB total, fits the 120 MB budget
+  together with vendor/ort (20.9 MB) and the single-file 95 MB limit.
+- whisper-base.en was measured on the same TTS set but its ONNX export is
+  126.6 MB (encoder + decoder + decoder_with_past), which alone exceeds the
+  budget; it was rejected on size before accuracy could justify it.
+- The merged decoder export (`decoder_model_merged_quantized.onnx`) crashes
+  onnxruntime-web 1.22 when the KV cache grows past two steps, so the split
+  decoder / decoder_with_past pair is used instead.
+
+Runtime contract
+- Files are fetched same-origin by js/stt-worker.js and cached in the
+  Cache Storage bucket `speaking-routine-stt-v34`.
+- They are NOT in sw.js SHELL: the model is loaded on first use with a
+  progress bar, not on install.
+- The worker passes the wasm bytes explicitly and pins numThreads = 1.
+
+Replacing the model
+- Keep the same file names and the same three-graph layout, or update
+  js/stt.js (files list, MELS/FRAMES constants) and this notice together.

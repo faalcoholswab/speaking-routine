@@ -4,6 +4,7 @@
 window.MOCK_EXAMS = window.MOCK_EXAMS || [];
 window.MOCK_EXAMS.push({
   "id": "mock-01",
+  "rights": "confirmed",
   "title": "모의고사 1",
   "subtitle": "2026년 10월 최신 기출 유형 실전 연습",
     "durationSeconds": 881,

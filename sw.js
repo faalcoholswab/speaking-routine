@@ -1,5 +1,5 @@
 /* 스피킹 루틴 — 오프라인 앱 셸 (network-first) */
-const CACHE = 'speaking-routine-v33';
+const CACHE = 'speaking-routine-v34';
 const SHELL = [
   './',
   './index.html',
@@ -11,6 +11,15 @@ const SHELL = [
   './js/pron-guide.js',
   './js/voice.js',
   './js/mock.js',
+  './js/mock-notes.js',
+  './js/recorder.js',
+  './js/stt.js',
+  './js/stt-worker.js',
+  './js/audio-metrics.js',
+  './js/score.js',
+  './vendor/ort/ort.min.mjs',
+  './vendor/ort/ort-wasm-simd-threaded.mjs',
+  './vendor/ort/ort-wasm-simd-threaded.wasm',
   './data/part3.js',
   './data/part5.js',
   './data/mock-01.js',
@@ -52,7 +61,8 @@ self.addEventListener('activate', (event) => {
     caches.keys()
       .then((keys) => Promise.all(
         keys
-          .filter((key) => key !== CACHE && key.startsWith('speaking-routine-'))
+          // 모델 캐시(speaking-routine-stt-*)는 앱 셸 버전과 무관하게 유지한다.
+          .filter((key) => key !== CACHE && key.startsWith('speaking-routine-') && !key.startsWith('speaking-routine-stt-'))
           .map((key) => caches.delete(key))
       ))
       .then(() => self.clients.claim())
@@ -69,6 +79,10 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // 음성 모델은 stt-worker가 자체 캐시(speaking-routine-stt-*)에 보관한다.
+  // 앱 셸 캐시에 70MB를 중복 저장하거나 버전 갱신 때 다시 받지 않도록 통과시킨다.
+  if (url.pathname.includes('/models/')) return;
 
   if (request.mode === 'navigate') {
     const scopeRoot = new URL('./', self.location).pathname;

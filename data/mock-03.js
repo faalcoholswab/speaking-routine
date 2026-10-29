@@ -4,6 +4,7 @@
 window.MOCK_EXAMS = window.MOCK_EXAMS || [];
 window.MOCK_EXAMS.push({
   "id": "mock-03",
+  "rights": "confirmed",
   "title": "모의고사 3",
   "subtitle": "26년 10월 최신 기출 반영 모의고사 20",
     "durationSeconds": 903,

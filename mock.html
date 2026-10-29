@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob:; script-src 'self'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net data:; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>모의고사 · 스피킹 루틴</title>
   <meta name="theme-color" content="#1d3d2f">
@@ -16,19 +16,24 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" integrity="sha384-GIdEBaqGN9mNkDkMkzMHW8EKUqtpPIe/sLj1X7DIrnc9uPtLROJgmuDlh+3rBw0j" crossorigin="anonymous">
-  <link rel="stylesheet" href="css/style.css?v=33">
-  <link rel="stylesheet" href="css/mock.css?v=33">
+  <link rel="stylesheet" href="css/style.css?v=34">
+  <link rel="stylesheet" href="css/mock.css?v=34">
 </head>
 <body class="ex-body">
   <main class="ex-shell" id="ex-root"></main>
-  <script src="data/mock-01.js?v=33"></script>
-  <script src="data/mock-02.js?v=33"></script>
-  <script src="data/mock-03.js?v=33"></script>
-  <script src="data/mock-01-guide.js?v=33"></script>
-  <script src="data/mock-02-guide.js?v=33"></script>
-  <script src="data/mock-03-guide.js?v=33"></script>
-  <script src="js/pron-guide.js?v=33"></script>
-  <script src="js/voice.js?v=33"></script>
-  <script src="js/mock.js?v=33"></script>
+  <script src="data/mock-01.js?v=34"></script>
+  <script src="data/mock-02.js?v=34"></script>
+  <script src="data/mock-03.js?v=34"></script>
+  <script src="data/mock-01-guide.js?v=34"></script>
+  <script src="data/mock-02-guide.js?v=34"></script>
+  <script src="data/mock-03-guide.js?v=34"></script>
+  <script src="js/pron-guide.js?v=34"></script>
+  <script src="js/voice.js?v=34"></script>
+  <script src="js/recorder.js?v=34"></script>
+  <script src="js/stt.js?v=34"></script>
+  <script src="js/audio-metrics.js?v=34"></script>
+  <script src="js/score.js?v=34"></script>
+  <script src="js/mock-notes.js?v=34"></script>
+  <script src="js/mock.js?v=34"></script>
 </body>
 </html>

@@ -1,0 +1,29 @@
+onnxruntime-web — WebAssembly build
+===================================
+
+Files
+- ort.min.mjs                       48 KB  (npm: dist/ort.wasm.min.mjs)
+- ort-wasm-simd-threaded.mjs        24 KB  (wasm loader glue)
+- ort-wasm-simd-threaded.wasm     10.6 MB  (SIMD, single-thread)
+
+Source: npm package onnxruntime-web@1.22.0-dev.20250409-89f8206ba4
+        (https://github.com/microsoft/onnxruntime, js/web)
+License: MIT — Copyright (c) Microsoft Corporation.
+         https://github.com/microsoft/onnxruntime/blob/main/LICENSE
+
+Naming
+- `ort.min.mjs` here is the **wasm-only** bundle (upstream `ort.wasm.min.mjs`),
+  vendored under the file name that sw.js SHELL and js/stt-worker.js use.
+  It is not the "all" bundle: no WebGL/WebGPU/WebNN execution providers.
+- The wasm-only loader requests `ort-wasm-simd-threaded.mjs` (not the `.jsep`
+  variant), which is why those two files, and not the 20.6 MB jsep pair, ship here.
+  Using the "all" bundle would force the 20.6 MB jsep binary and add ~10 MB.
+
+Why vendored
+- CSP `connect-src 'self'`: no CDN at runtime.
+- numThreads is pinned to 1 in js/stt-worker.js, so no SharedArrayBuffer and no
+  COOP/COEP headers are needed on the static host.
+
+Updating
+- Replace all three files from one npm version and re-run
+  `node tools/stt-test.mjs` and `node tools/check.mjs`. Never mix versions.
