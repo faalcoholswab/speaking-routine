@@ -1,5 +1,5 @@
 /* =========================================================
-   v36 — 설정 (음성 · 기록 · 저장 공간 · 자동 채점 · 앱 정보)
+   v36 — 설정 (음성 · 기록 · 저장 공간 · 자동 채점)
    ========================================================= */
 
 /* ----- 톱니 버튼 ----- */
@@ -167,7 +167,6 @@ body.ex-locked .ex-settings-btn { display: none; }
 .st-kv { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 6px 10px; font-size: 12.5px; }
 .st-kv dt { color: var(--faint); }
 .st-kv dd { margin: 0; color: var(--text-2); }
-.st-rights { margin: 8px 0 0; font-size: 12px; line-height: 1.7; color: var(--muted); }
 
 .st-save {
   position: sticky; bottom: 0; margin-top: 14px; padding-top: 10px;

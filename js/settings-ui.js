@@ -1,13 +1,12 @@
 /* =========================================================
    v36 — 설정 화면
-   음성 · 기록 관리 · 저장 공간 · 자동 채점 · 앱 정보
+   음성 · 기록 관리 · 저장 공간 · 자동 채점
    저장은 window.AppSettings(js/settings.js)가 있으면 그쪽에,
-   없으면 같은 키(speaking-routine-settings-v1)에 직접 저장한다.
+   없으면 같은 키에 직접 저장한다.
    ========================================================= */
 (() => {
   'use strict';
 
-  const VERSION = '36';
   const DEFAULTS = {
     voice: { accent: 'us', gender: 'female', rate: 1 },
     autoScore: true,
@@ -26,9 +25,7 @@
     ['records', '기록 관리'],
     ['storage', '저장 공간'],
     ['auto', '자동 채점'],
-    ['about', '앱 정보'],
   ];
-  const RIGHTS = '모의고사 1~3과 2025 하반기 실제기출은 원작자가 사용을 허락했고, 사용자가 사용 허락을 받았다고 보고한 자료예요. 출처 주소는 앱에 넣지 않았어요.';
 
   let host = null;
   let sheet = null;
@@ -433,47 +430,6 @@
     }
   }
 
-  /* ---------------- 업데이트 ---------------- */
-  async function checkUpdate() {
-    if (!('serviceWorker' in navigator)) {
-      statusLine = '이 브라우저는 업데이트 확인을 지원하지 않아요.';
-      paint();
-      return;
-    }
-    statusLine = '업데이트를 확인하는 중이에요…';
-    paint();
-    try {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (!registration) {
-        statusLine = '아직 설치된 앱 버전이 없어요. 인터넷에 연결된 상태에서 새로고침하면 최신 파일을 받아요.';
-        paint();
-        return;
-      }
-      await registration.update();
-      if (registration.waiting || registration.installing) {
-        statusLine = '새 버전이 준비됐어요. 아래 버튼으로 새로고침해 주세요.';
-      } else {
-        statusLine = `지금이 최신 버전이에요. (v${VERSION})`;
-      }
-    } catch (error) {
-      statusLine = '업데이트를 확인하지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.';
-    }
-    paint();
-  }
-
-  async function applyUpdate() {
-    try {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (registration && registration.waiting) {
-        navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), { once: true });
-        registration.waiting.postMessage('SKIP_WAITING');
-        window.setTimeout(() => window.location.reload(), 1200);
-        return;
-      }
-    } catch (error) { /* noop */ }
-    window.location.reload();
-  }
-
   /* ---------------- 화면 ---------------- */
   function esc(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => (
@@ -648,30 +604,12 @@
     </section>`;
   }
 
-  function sectionAbout() {
-    return `<section class="st-card">
-      <h3 class="st-h3">앱 정보</h3>
-      <dl class="st-kv">
-        <dt>버전</dt><dd>v${VERSION}</dd>
-        <dt>저장 위치</dt><dd>이 브라우저 (기기 안)</dd>
-      </dl>
-      <div class="st-actions">
-        <button class="st-btn ghost" type="button" data-si="update">업데이트 확인</button>
-      </div>
-    </section>
-    <section class="st-card">
-      <h3 class="st-h3">자료 출처와 권리</h3>
-      <p class="st-rights">${esc(RIGHTS)}</p>
-      <p class="st-note">음성 인식과 채점은 기기 안에서만 처리되고, 녹음은 밖으로 나가지 않아요.</p>
-    </section>`;
-  }
-
   function bodyMarkup() {
     if (tab === 'voice') return sectionVoice();
     if (tab === 'records') return sectionRecords();
     if (tab === 'storage') return sectionStorage();
     if (tab === 'auto') return sectionAuto();
-    return sectionAbout();
+    return sectionVoice();
   }
 
   function paint() {
@@ -827,8 +765,6 @@
       paint();
       return;
     }
-    if (action === 'update') { checkUpdate(); return; }
-    if (action === 'apply-update') { applyUpdate(); return; }
   });
 
   document.addEventListener('input', (event) => {
@@ -879,7 +815,6 @@
   window.SettingsUI = {
     open,
     close,
-    version: VERSION,
     isOpen: () => Boolean(host),
   };
 })();

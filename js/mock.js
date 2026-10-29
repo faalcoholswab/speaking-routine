@@ -553,12 +553,18 @@
       <span class="ex-card-cta">보기</span>
     </button>`;
 
-    const slots = [
+    // 카드 목록은 data/mocks.js 의 MOCK_MANIFEST 순서를 따른다 (없으면 v36의 기본 4개).
+    // 제목은 시험 title, 번호 자리는 manifest 의 tag(예: 기출) 또는 차례 번호.
+    const fallbackSlots = [
       { id: 'mock-01' },
       { id: 'mock-02' },
       { id: 'mock-03' },
       { id: 'mock-05', tag: '기출' },
-    ].map((slot, index) => {
+    ];
+    const manifestSlots = Array.isArray(window.MOCK_MANIFEST)
+      ? window.MOCK_MANIFEST.filter((item) => item && item.id)
+      : [];
+    const slots = (manifestSlots.length ? manifestSlots : fallbackSlots).map((slot, index) => {
       const exam = EXAMS.find((item) => item.id === slot.id);
       const on = Boolean(exam);
       const title = (on && exam.title) || slot.label || `모의고사 ${index + 1}`;
