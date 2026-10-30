@@ -574,7 +574,7 @@
         ${TABS.map(([key, label]) => `<button class="st-tab" role="tab" type="button" data-si-tab="${key}" aria-selected="${tab === key ? 'true' : 'false'}">${label}</button>`).join('')}
       </nav>
       <div class="st-body" id="st-body" tabindex="-1">
-        <div class="st-status" role="status" aria-live="polite"${statusLine ? '' : ' hidden'} style="margin:0 0 10px;font-size:12.5px;line-height:1.6;color:${statusWarn ? '#8a4620' : 'var(--g700)'}">${esc(statusLine)}</div>
+        <div class="st-status" role="status" aria-live="polite"${statusLine ? '' : ' hidden'} style="margin:0 0 12px;font-size:13px;line-height:1.5;color:${statusWarn ? '#8a4620' : 'var(--g700)'}">${esc(statusLine)}</div>
         ${bodyMarkup()}
         <input type="file" accept="application/json,.json" data-si-import hidden>
       </div>`;
