@@ -2,33 +2,58 @@
    음성 선택 — 설정(억양·성별·속도)을 따르는 공부/모의고사 목소리
    - 설정은 window.AppSettings 에서 읽는다. 없으면 기본값(미국식·여성·1.0).
    - 미국식/영국식/섞기, 여성/남성/섞기를 지원하고, 없는 목소리는 가장 가까운 것으로 대체한다.
-   - window.SpeechVoice = { load, all, examPair, study, genderOf, rate, applyRate, status, preview }
+   - 설정에서 목소리를 직접 고르면(voice.picks) 억양·성별 대신 그 목소리만 쓴다.
+     처음 고른 목소리가 모의고사 안내, 두 번째가 질문을 읽는다.
+   - 장난감·효과음 목소리(Bad News, Bahh…)와 Eloquence(Eddy, Grandpa…)는 목록에서 뺀다.
+   - window.SpeechVoice = { load, all, catalog, hiddenCount, idOf, picked, examPair, study,
+                            genderOf, qualityOf, rate, applyRate, status, preview }
    ========================================================= */
 (() => {
   'use strict';
 
   const FEMALE = [
-    'samantha', 'ava', 'allie', 'susan', 'zoe', 'kathy', 'karen', 'moira', 'serena',
-    'tessa', 'fiona', 'victoria', 'zira', 'hazel', 'aria', 'jenny', 'michelle',
+    'samantha', 'ava', 'allie', 'susan', 'zoe', 'karen', 'moira', 'serena',
+    'tessa', 'fiona', 'victoria', 'vicki', 'zira', 'hazel', 'aria', 'jenny', 'michelle',
     'sonia', 'libby', 'natasha', 'clara', 'emily', 'olivia', 'amelie', 'joanna',
     'salli', 'kendra', 'kimberly', 'ivy', 'nora', 'female', 'woman', 'kate', 'stephanie',
+    'martha', 'matilda', 'catherine', 'isha', 'veena', 'nicky', 'noelle', 'joelle', 'allison',
   ];
 
   const MALE = [
-    'alex', 'daniel', 'fred', 'tom', 'oliver', 'david', 'mark', 'george', 'james',
+    'alex', 'daniel', 'tom', 'oliver', 'david', 'mark', 'george', 'james',
     'ryan', 'guy', 'eric', 'christopher', 'aaron', 'adam', 'brian', 'arthur',
-    'male', 'man', 'gordon', 'lee', 'rishi', 'jamie',
+    'male', 'man', 'gordon', 'lee', 'rishi', 'jamie', 'nathan', 'evan',
   ];
+
+  // iOS·macOS가 함께 주는 장난감·효과음 목소리와 옛 합성 목소리. 공부용으로 쓰지 않는다.
+  const NOVELTY = [
+    'albert', 'bad news', 'bahh', 'bells', 'boing', 'bubbles', 'cellos', 'good news',
+    'jester', 'organ', 'pipe organ', 'superstar', 'trinoids', 'whisper', 'wobble', 'zarvox',
+    'fred', 'junior', 'ralph', 'kathy', 'agnes', 'bruce', 'princess', 'deranged', 'hysterical',
+  ];
+  // Eloquence는 화면 읽기용 기계음이다. voiceURI에 'eloquence'가 없을 때를 대비해 이름으로도 거른다.
+  const ELOQUENCE = ['eddy', 'flo', 'grandma', 'grandpa', 'reed', 'rocko', 'sandy', 'shelley'];
+  // 쓸 수는 있지만 오래된 합성음이라 자동 선택에서는 마지막에 고른다.
+  const LEGACY = ['vicki', 'victoria'];
 
   const FEMALE_SET = new Set(FEMALE);
   const MALE_SET = new Set(MALE);
+  const NOISE_SET = new Set(NOVELTY.concat(ELOQUENCE));
+  const LEGACY_SET = new Set(LEGACY);
+  const QUALITY_RANK = { premium: 3, enhanced: 2, default: 1, legacy: 0 };
+  const REGIONS = {
+    us: '미국', gb: '영국', au: '호주', ie: '아일랜드', in: '인도',
+    za: '남아공', nz: '뉴질랜드', ca: '캐나다', sg: '싱가포르',
+  };
+  const MAX_PICKS = 20;
 
-  const FALLBACK_SETTINGS = { voice: { accent: 'us', gender: 'female', rate: 1 }, autoScore: true };
+  const FALLBACK_SETTINGS = { voice: { accent: 'us', gender: 'female', rate: 1, picks: [] }, autoScore: true };
   const ACCENTS = ['us', 'uk', 'mix'];
   const GENDERS = ['female', 'male', 'mix'];
   const PREVIEW_TEXT = 'Hello, this is how I will sound when you practise.';
 
   let cache = [];
+  let hidden = 0;
   let lastStudyName = '';
   let watched = false;
 
@@ -71,6 +96,34 @@
     return '';
   }
 
+  // 화면에 보여 줄 지역 이름. 스코틀랜드(Fiona)는 iOS가 en-scotland 같은 값을 준다.
+  function regionOf(voice) {
+    const lang = langOf(voice);
+    if (/sct|scotland/.test(lang)) return '스코틀랜드';
+    const match = lang.match(/^en-([a-z]{2})/);
+    return (match && REGIONS[match[1]]) || '기타 영어';
+  }
+
+  function isNoise(voice) {
+    if (String((voice && voice.voiceURI) || '').toLowerCase().includes('eloquence')) return true;
+    return NOISE_SET.has(normalize(voice && voice.name));
+  }
+
+  // iOS·macOS는 품질을 이름이 아니라 voiceURI(com.apple.voice.premium.en-US.Zoe 등)에 적는다.
+  function qualityOf(voice) {
+    if (!voice) return 'default';
+    const key = `${voice.voiceURI || ''} ${voice.name || ''}`.toLowerCase();
+    if (key.includes('premium')) return 'premium';
+    if (key.includes('enhanced') || key.includes('siri')) return 'enhanced';
+    if (LEGACY_SET.has(normalize(voice.name))) return 'legacy';
+    return 'default';
+  }
+
+  function idOf(voice) {
+    if (!voice) return '';
+    return String(voice.voiceURI || `${voice.name || ''}|${voice.lang || ''}`);
+  }
+
   function readSettings() {
     const api = window.AppSettings;
     if (api && typeof api.get === 'function') {
@@ -91,14 +144,18 @@
       accent: ACCENTS.includes(voice.accent) ? voice.accent : 'us',
       gender: GENDERS.includes(voice.gender) ? voice.gender : 'female',
       rate: Number.isFinite(Number(voice.rate)) ? Number(voice.rate) : 1,
+      picks: Array.isArray(voice.picks) ? voice.picks.filter((id) => typeof id === 'string').slice(0, MAX_PICKS) : [],
     };
   }
 
+  // 영어 목소리만, 장난감·Eloquence 목소리는 빼고 돌려준다. 뺀 개수는 hidden 에 남긴다.
   function read() {
     if (!('speechSynthesis' in window)) return [];
     try {
-      const list = window.speechSynthesis.getVoices() || [];
-      return list.filter((voice) => accentOf(voice) !== '');
+      const english = (window.speechSynthesis.getVoices() || []).filter((voice) => accentOf(voice) !== '');
+      const clean = english.filter((voice) => !isNoise(voice));
+      if (english.length) hidden = english.length - clean.length;
+      return clean;
     } catch (error) {
       return [];
     }
@@ -153,14 +210,51 @@
   }
 
   function voiceRank(voice) {
-    const name = normalize(voice.name);
-    if (name.includes('premium')) return 3;
-    if (name.includes('enhanced')) return 2;
-    return 1;
+    return QUALITY_RANK[qualityOf(voice)];
   }
 
   function bestOf(list) {
     return list.slice().sort((a, b) => voiceRank(b) - voiceRank(a))[0] || null;
+  }
+
+  // 가장 좋은 품질 단계의 목소리만 남긴다(프리미엄이 있으면 기본 목소리는 쓰지 않는다).
+  function topTier(list) {
+    if (!list.length) return list;
+    const best = Math.max(...list.map(voiceRank));
+    return list.filter((voice) => voiceRank(voice) === best);
+  }
+
+  // 설정에서 직접 고른 목소리 중 이 기기에 있는 것. 고른 순서를 지킨다.
+  function picked() {
+    const ids = wanted().picks;
+    if (!ids.length) return [];
+    const list = all();
+    return ids.map((id) => list.find((voice) => idOf(voice) === id)).filter(Boolean);
+  }
+
+  // 설정 화면 목록: 미국 → 영국 → 그 밖, 같은 지역 안에서는 품질 → 이름 순.
+  function catalog() {
+    const order = { us: 0, uk: 1, en: 2 };
+    const ids = wanted().picks;
+    return all()
+      .map((voice) => ({
+        id: idOf(voice),
+        name: String(voice.name || '').replace(/\s*\([^)]*\)\s*$/, '') || String(voice.name || ''),
+        lang: voice.lang || '',
+        region: regionOf(voice),
+        gender: genderOf(voice),
+        quality: qualityOf(voice),
+        pickOrder: ids.indexOf(idOf(voice)),
+        voice,
+      }))
+      .sort((a, b) => (order[accentOf(a.voice)] - order[accentOf(b.voice)])
+        || (QUALITY_RANK[b.quality] - QUALITY_RANK[a.quality])
+        || a.name.localeCompare(b.name));
+  }
+
+  function hiddenCount() {
+    if (!cache.length) cache = read();
+    return hidden;
   }
 
   function countByAccent(list) {
@@ -238,6 +332,23 @@
 
   function examPair() {
     const setting = wanted();
+    const chosen = picked();
+    if (chosen.length) {
+      const narrator = chosen[0];
+      const interviewer = chosen[1] || chosen[0];
+      return {
+        narrator,
+        interviewer,
+        meta: {
+          manual: true,
+          rate: setting.rate,
+          pair: {
+            differentVoice: narrator.name !== interviewer.name,
+            differentGender: Boolean(genderOf(narrator) && genderOf(interviewer) && genderOf(narrator) !== genderOf(interviewer)),
+          },
+        },
+      };
+    }
     const accent = accentPool(setting.accent);
     const meta = {
       accent: { requested: setting.accent, used: accent.used, fallback: accent.fallback, reason: accent.reason },
@@ -282,8 +393,17 @@
   }
 
   // 공부: 카드마다 성별 랜덤(설정이 섞기일 때), 고정이면 그 성별만. 직전 목소리는 피한다.
+  // 직접 고른 목소리가 있으면 그중에서만 돌아가며 읽는다.
   function study() {
     const setting = wanted();
+    const chosen = picked();
+    if (chosen.length) {
+      const fresh = chosen.filter((voice) => voice.name !== lastStudyName);
+      const candidates = fresh.length ? fresh : chosen;
+      const next = candidates[Math.floor(Math.random() * candidates.length)] || chosen[0];
+      lastStudyName = next.name;
+      return next;
+    }
     const accent = accentPool(setting.accent);
     if (!accent.pool.length) return null;
     const gender = genderPool(accent.pool, setting.gender);
@@ -299,12 +419,13 @@
     } else if (setting.gender === 'male' && male.length) {
       bucket = male;
     }
+    bucket = topTier(bucket);
 
     const fresh = bucket.filter((voice) => voice.name !== lastStudyName);
     const candidates = fresh.length ? fresh : bucket;
-    const picked = candidates[Math.floor(Math.random() * candidates.length)] || pool[0];
-    lastStudyName = picked.name;
-    return picked;
+    const choice = candidates[Math.floor(Math.random() * candidates.length)] || pool[0];
+    lastStudyName = choice.name;
+    return choice;
   }
 
   function rate() {
@@ -330,10 +451,17 @@
     const gender = genderPool(accent.pool, setting.gender);
     const counts = countByAccent(list);
     const available = accent.used === 'mix' ? counts.us + counts.uk : counts[accent.used] || 0;
+    const chosen = picked();
     return {
       ready: list.length > 0,
       total: list.length,
+      hidden,
       counts,
+      manual: {
+        requested: setting.picks.length,
+        found: chosen.length,
+        names: chosen.map((voice) => voice.name),
+      },
       settings: { accent: setting.accent, gender: setting.gender, rate: setting.rate },
       accent: {
         requested: setting.accent,
@@ -351,7 +479,7 @@
       },
       hint: list.length
         ? ''
-        : '목소리 목록이 아직 비어 있습니다. iPad는 설정 → 손쉬운 사용 → 음성 콘텐츠에서 고품질 음성을 받을 수 있습니다.',
+        : '목소리 목록이 아직 비어 있습니다. 잠시 뒤 다시 확인해 주세요.',
     };
   }
 
@@ -368,9 +496,13 @@
     } catch (error) {
       return Promise.resolve(false);
     }
-    const voice = (options && options.gender && options.gender !== 'mix')
-      ? pickByGender(accentPool(wanted().accent).pool, options.gender)
-      : study();
+    const chosen = picked();
+    const byId = options && options.voiceId ? all().find((item) => idOf(item) === options.voiceId) : null;
+    const voice = byId
+      || (chosen.length ? chosen[0] : null)
+      || ((options && options.gender && options.gender !== 'mix')
+        ? pickByGender(accentPool(wanted().accent).pool, options.gender)
+        : study());
     if (voice) {
       utter.voice = voice;
       utter.lang = voice.lang || (wanted().accent === 'uk' ? 'en-GB' : 'en-US');
@@ -405,5 +537,8 @@
     /* noop */
   }
 
-  window.SpeechVoice = { load, all, examPair, study, genderOf, rate, applyRate, status, preview, accentOf };
+  window.SpeechVoice = {
+    load, all, catalog, hiddenCount, idOf, picked, examPair, study,
+    genderOf, qualityOf, rate, applyRate, status, preview, accentOf,
+  };
 })();

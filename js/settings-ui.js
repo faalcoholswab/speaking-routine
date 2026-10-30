@@ -8,7 +8,7 @@
   'use strict';
 
   const DEFAULTS = {
-    voice: { accent: 'us', gender: 'female', rate: 1 },
+    voice: { accent: 'us', gender: 'female', rate: 1, picks: [] },
     autoScore: true,
   };
   const KEYS = {
@@ -20,6 +20,7 @@
   };
   const AUDIO_DB = 'speaking-routine-audio';
   const STT_CACHE_PREFIX = 'speaking-routine-stt-';
+  const VOICE_SAMPLE = 'In this part of the test, you will read aloud the text on the screen.';
   const TABS = [
     ['voice', '음성'],
     ['records', '기록 관리'],
@@ -38,6 +39,8 @@
   let storageLoading = false;
   let statusLine = '';
   let local = null;
+  // 목소리 목록을 그린 순서. 버튼의 data-value 는 이 배열의 위치다.
+  let voiceRows = [];
 
   /* ---------------- 설정값 ---------------- */
   function clone(value) {
@@ -52,6 +55,7 @@
       if (['us', 'uk', 'mix'].includes(patch.voice.accent)) next.voice.accent = patch.voice.accent;
       if (['female', 'male', 'mix'].includes(patch.voice.gender)) next.voice.gender = patch.voice.gender;
       if (Number.isFinite(Number(patch.voice.rate))) next.voice.rate = clampRate(patch.voice.rate);
+      if (Array.isArray(patch.voice.picks)) next.voice.picks = patch.voice.picks.filter((id) => typeof id === 'string').slice(0, 20);
     }
     if (typeof patch.autoScore === 'boolean') next.autoScore = patch.autoScore;
     if (typeof patch.rate === 'number') next.voice.rate = clampRate(patch.rate);
@@ -133,6 +137,23 @@
     const { list, matches } = matchesFor(pref);
     if (!list.length) {
       return { tone: 'warn', text: '목소리 목록을 아직 받지 못했어요. 잠시 뒤 이 화면을 다시 열면 기기 목소리를 확인해요. (iPad는 목소리 목록이 늦게 도착해요.)' };
+    }
+    const api = window.SpeechVoice;
+    if (api && typeof api.examPair === 'function') {
+      const pair = api.examPair();
+      const meta = pair.meta || {};
+      const names = pair.narrator
+        ? `모의고사 안내 ${pair.narrator.name} · 질문 ${pair.interviewer ? pair.interviewer.name : pair.narrator.name}`
+        : '';
+      if (meta.manual) {
+        const count = typeof api.picked === 'function' ? api.picked().length : 0;
+        return { tone: 'ok', text: `직접 고른 목소리 ${count}개를 써요. ${names}` };
+      }
+      if (pref.picks.length) {
+        return { tone: 'warn', text: `직접 고른 목소리를 이 기기에서 찾지 못해 억양·성별에 맞춰 자동으로 골라요. ${names}` };
+      }
+      const reason = [meta.accent && meta.accent.reason, meta.gender && meta.gender.reason].filter(Boolean).join(' ');
+      if (names) return { tone: reason ? 'warn' : 'ok', text: `자동으로 고른 목소리: ${names}${reason ? ` (${reason})` : ''}` };
     }
     if (!matches.length) {
       return { tone: 'warn', text: '고른 조건에 맞는 목소리가 이 기기에 없어 가장 가까운 목소리로 재생해요.' };
@@ -442,7 +463,7 @@
     const status = voiceStatus();
     return `<section class="st-card">
       <h3 class="st-h3">목소리</h3>
-      <p class="st-desc">학습과 모의고사에 같은 목소리 설정을 써요. 기기에 없는 목소리는 가장 가까운 목소리로 대신해요.</p>
+      <p class="st-desc">학습과 모의고사에 같은 목소리 설정을 써요. 아래 목록에서 목소리를 직접 고르면 억양·성별 대신 그 목소리를 써요.</p>
 
       <div class="st-row">
         <div class="st-row-main">
@@ -483,8 +504,78 @@
         <button class="st-btn ghost" type="button" data-si="preview">미리 듣기</button>
       </div>
       <p class="st-note ${status.tone}">${esc(status.text)}</p>
-      <p class="st-note">iPad에서 더 좋은 목소리를 쓰려면 설정 → 손쉬운 사용 → 음성 콘텐츠에서 고품질 음성을 내려받아 주세요.</p>
+    </section>
+    ${sectionVoicePicker()}`;
+  }
+
+  function qualityBadge(quality) {
+    if (quality === 'premium') return '<span class="st-badge premium">프리미엄</span>';
+    if (quality === 'enhanced') return '<span class="st-badge enhanced">고품질</span>';
+    if (quality === 'legacy') return '<span class="st-badge">옛 음성</span>';
+    return '<span class="st-badge">기본</span>';
+  }
+
+  // 이 기기 브라우저가 알려 준 영어 목소리를 그대로 보여 주고, 쓸 목소리를 체크하게 한다.
+  function sectionVoicePicker() {
+    const api = window.SpeechVoice;
+    voiceRows = api && typeof api.catalog === 'function' ? api.catalog() : [];
+    const head = '<h3 class="st-h3">목소리 직접 고르기</h3>';
+    if (!voiceRows.length) {
+      return `<section class="st-card">${head}<p class="st-desc">이 기기에서 영어 목소리를 아직 받지 못했어요. 잠시 뒤 이 화면을 다시 열어 주세요.</p></section>`;
+    }
+    const hiddenNum = typeof api.hiddenCount === 'function' ? api.hiddenCount() : 0;
+    const count = { premium: 0, enhanced: 0, default: 0, legacy: 0 };
+    voiceRows.forEach((row) => { count[row.quality] += 1; });
+    const chosen = voiceRows.filter((row) => row.pickOrder >= 0).sort((a, b) => a.pickOrder - b.pickOrder);
+    const roleOf = (row) => {
+      const at = chosen.indexOf(row);
+      if (at === 0) return chosen.length > 1 ? '안내' : '안내·질문';
+      if (at === 1) return '질문';
+      return '';
+    };
+    const genderLabel = { f: '여성', m: '남성' };
+    const items = voiceRows.map((row, index) => {
+      const on = row.pickOrder >= 0;
+      const role = roleOf(row);
+      const meta = [row.region, genderLabel[row.gender]].filter(Boolean).join(' · ');
+      return `<li>
+        <button class="st-check" type="button" role="checkbox" aria-checked="${on ? 'true' : 'false'}" aria-label="${esc(row.name)} 쓰기" data-si="pick-voice" data-value="${index}"></button>
+        <div class="st-list-main">
+          <p class="st-list-title">${esc(row.name)} ${qualityBadge(row.quality)}${role ? ` <span class="st-role">${role}</span>` : ''}</p>
+          <p class="st-list-meta">${esc(meta)}</p>
+        </div>
+        <button class="st-btn ghost small" type="button" data-si="hear-voice" data-value="${index}" aria-label="${esc(row.name)} 듣기">듣기</button>
+      </li>`;
+    }).join('');
+    const summary = `영어 목소리 ${voiceRows.length}개 · 프리미엄 ${count.premium} · 고품질 ${count.enhanced} · 기본 ${count.default + count.legacy}`
+      + (hiddenNum ? ` · 장난감·효과음 목소리 ${hiddenNum}개는 뺐어요.` : '');
+    const noGood = !count.premium && !count.enhanced;
+    return `<section class="st-card">
+      ${head}
+      <p class="st-desc">이 기기 브라우저가 알려 준 목소리예요. 듣기로 확인하고 쓸 목소리를 체크하세요. 처음 체크한 목소리가 모의고사 안내, 두 번째가 질문을 읽고, 학습 문장은 체크한 목소리가 돌아가며 읽어요. 아무것도 체크하지 않으면 위 억양·성별에 맞춰 자동으로 골라요.</p>
+      <p class="st-note">${esc(summary)}</p>
+      <ul class="st-list st-voices">${items}</ul>
+      ${chosen.length ? '<div class="st-actions"><button class="st-btn ghost small" type="button" data-si="clear-picks">자동 선택으로 되돌리기</button></div>' : ''}
+      ${noGood ? '<p class="st-note warn">프리미엄·고품질 목소리가 목록에 없어요. iPad 설정의 음성 목록에서 하나만 먼저 내려받은 뒤 이 화면을 다시 열어 보세요. 그래도 여기에 없으면 Safari가 웹 앱에 넘겨주지 않는 것이라 더 내려받지 않아도 돼요.</p>' : ''}
     </section>`;
+  }
+
+  function togglePick(index) {
+    const row = voiceRows[Number(index)];
+    if (!row) return;
+    const picks = current().voice.picks.slice();
+    const at = picks.indexOf(row.id);
+    if (at >= 0) picks.splice(at, 1);
+    else picks.push(row.id);
+    save({ voice: { picks } });
+    paint();
+  }
+
+  function hearVoice(index) {
+    const row = voiceRows[Number(index)];
+    const api = window.SpeechVoice;
+    if (!row || !api || typeof api.preview !== 'function') return;
+    api.preview(VOICE_SAMPLE, { voiceId: row.id, rate: current().voice.rate });
   }
 
   function seg(field, value, label, currentValue) {
@@ -745,6 +836,9 @@
     if (action === 'set-accent') { save({ voice: { accent: value } }); paint(); return; }
     if (action === 'set-gender') { save({ voice: { gender: value } }); paint(); return; }
     if (action === 'preview') { previewVoice(); return; }
+    if (action === 'pick-voice') { togglePick(value); return; }
+    if (action === 'hear-voice') { hearVoice(value); return; }
+    if (action === 'clear-picks') { save({ voice: { picks: [] } }); statusLine = '자동 선택으로 되돌렸어요.'; paint(); return; }
     if (action === 'backup') { exportBackup(); return; }
     if (action === 'import') {
       const file = sheet.querySelector('[data-si-import]');

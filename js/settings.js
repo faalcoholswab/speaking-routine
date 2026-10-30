@@ -1,5 +1,5 @@
 /* =========================================================
-   앱 설정 저장소 — 음성(억양·성별·속도)과 자동 채점
+   앱 설정 저장소 — 음성(억양·성별·속도·직접 고른 목소리)과 자동 채점
    window.AppSettings 계약 (Muse 설정 화면과 공유):
      KEY, DEFAULTS, load(), get(), set(patch), subscribe(fn),
      reset(), export(), import(value), persisted
@@ -12,7 +12,7 @@
   const KEY = 'speaking-routine-app-settings-v1';
 
   const DEFAULTS = {
-    voice: { accent: 'us', gender: 'female', rate: 1 },
+    voice: { accent: 'us', gender: 'female', rate: 1, picks: [] },
     autoScore: true,
   };
 
@@ -20,6 +20,7 @@
   const GENDERS = ['female', 'male', 'mix'];
   const RATE_MIN = 0.5;
   const RATE_MAX = 2;
+  const MAX_PICKS = 20;
   const EVENT = 'app-settings-change';
 
   let storage = null;
@@ -63,6 +64,18 @@
     return Math.round(clamped * 100) / 100;
   }
 
+  // 직접 고른 목소리의 voiceURI 목록. 기기마다 다르므로 없는 목소리는 재생 때 건너뛴다.
+  function fixPicks(value) {
+    if (!Array.isArray(value)) return [];
+    const out = [];
+    for (const id of value) {
+      if (typeof id !== 'string' || !id || id.length > 200 || out.includes(id)) continue;
+      out.push(id);
+      if (out.length >= MAX_PICKS) break;
+    }
+    return out;
+  }
+
   function fixAutoScore(value) {
     return typeof value === 'boolean' ? value : DEFAULTS.autoScore;
   }
@@ -75,6 +88,7 @@
     base.voice.accent = fixAccent(voice.accent);
     base.voice.gender = fixGender(voice.gender);
     base.voice.rate = fixRate(voice.rate);
+    base.voice.picks = fixPicks(voice.picks);
     base.autoScore = fixAutoScore(raw.autoScore);
     return base;
   }
@@ -87,6 +101,7 @@
       if ('accent' in voice) out.voice.accent = voice.accent;
       if ('gender' in voice) out.voice.gender = voice.gender;
       if ('rate' in voice) out.voice.rate = voice.rate;
+      if ('picks' in voice) out.voice.picks = voice.picks;
     }
     if ('autoScore' in patch) out.autoScore = patch.autoScore;
     return out;
