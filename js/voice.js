@@ -4,7 +4,7 @@
    - 미국식/영국식/섞기, 여성/남성/섞기를 지원하고, 없는 목소리는 가장 가까운 것으로 대체한다.
    - 설정에서 목소리를 직접 고르면(voice.picks) 억양·성별 대신 그 목소리만 쓴다.
      처음 고른 목소리가 모의고사 안내, 두 번째가 질문을 읽는다.
-   - 장난감·효과음 목소리(Bad News, Bahh…)와 Eloquence(Eddy, Grandpa…)는 목록에서 뺀다.
+   - 미국·영국·호주 목소리만 쓴다. 장난감·효과음 목소리(Bad News, Bahh…)와 Eloquence(Eddy, Grandpa…)는 뺀다.
    - window.SpeechVoice = { load, all, catalog, hiddenCount, idOf, picked, examPair, study,
                             genderOf, qualityOf, rate, applyRate, status, preview }
    ========================================================= */
@@ -46,6 +46,8 @@
     za: '남아공', nz: '뉴질랜드', ca: '캐나다', sg: '싱가포르',
   };
   const MAX_PICKS = 20;
+  // 시험 대비용으로 쓰는 지역. 스코틀랜드(Fiona)는 en-GB 계열이지만 regionOf 에서 따로 갈라져 빠진다.
+  const ALLOWED_REGIONS = new Set(['미국', '영국', '호주']);
 
   const FALLBACK_SETTINGS = { voice: { accent: 'us', gender: 'female', rate: 1, picks: [] }, autoScore: true };
   const ACCENTS = ['us', 'uk', 'mix'];
@@ -148,12 +150,12 @@
     };
   }
 
-  // 영어 목소리만, 장난감·Eloquence 목소리는 빼고 돌려준다. 뺀 개수는 hidden 에 남긴다.
+  // 미국·영국·호주 목소리만, 장난감·Eloquence 목소리는 빼고 돌려준다. 뺀 영어 목소리 개수는 hidden 에 남긴다.
   function read() {
     if (!('speechSynthesis' in window)) return [];
     try {
       const english = (window.speechSynthesis.getVoices() || []).filter((voice) => accentOf(voice) !== '');
-      const clean = english.filter((voice) => !isNoise(voice));
+      const clean = english.filter((voice) => !isNoise(voice) && ALLOWED_REGIONS.has(regionOf(voice)));
       if (english.length) hidden = english.length - clean.length;
       return clean;
     } catch (error) {

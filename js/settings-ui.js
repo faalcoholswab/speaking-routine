@@ -508,11 +508,12 @@
     ${sectionVoicePicker()}`;
   }
 
+  // 기본 목소리는 표시하지 않는다. iPad Safari는 기본 목소리만 넘겨주므로 모든 줄에 같은 글자가 붙는다.
   function qualityBadge(quality) {
     if (quality === 'premium') return '<span class="st-badge premium">프리미엄</span>';
     if (quality === 'enhanced') return '<span class="st-badge enhanced">고품질</span>';
     if (quality === 'legacy') return '<span class="st-badge">옛 음성</span>';
-    return '<span class="st-badge">기본</span>';
+    return '';
   }
 
   // 이 기기 브라우저가 알려 준 영어 목소리를 그대로 보여 주고, 쓸 목소리를 체크하게 한다.
@@ -521,7 +522,7 @@
     voiceRows = api && typeof api.catalog === 'function' ? api.catalog() : [];
     const head = '<h3 class="st-h3">목소리 직접 고르기</h3>';
     if (!voiceRows.length) {
-      return `<section class="st-card">${head}<p class="st-desc">이 기기에서 영어 목소리를 아직 받지 못했어요. 잠시 뒤 이 화면을 다시 열어 주세요.</p></section>`;
+      return `<section class="st-card">${head}<p class="st-desc">이 기기에서 미국·영국·호주 목소리를 아직 받지 못했어요. 잠시 뒤 이 화면을 다시 열어 주세요.</p></section>`;
     }
     const hiddenNum = typeof api.hiddenCount === 'function' ? api.hiddenCount() : 0;
     const count = { premium: 0, enhanced: 0, default: 0, legacy: 0 };
@@ -541,22 +542,23 @@
       return `<li>
         <button class="st-check" type="button" role="checkbox" aria-checked="${on ? 'true' : 'false'}" aria-label="${esc(row.name)} 쓰기" data-si="pick-voice" data-value="${index}"></button>
         <div class="st-list-main">
-          <p class="st-list-title">${esc(row.name)} ${qualityBadge(row.quality)}${role ? ` <span class="st-role">${role}</span>` : ''}</p>
+          <p class="st-list-title">${esc(row.name)}${row.quality === 'default' ? '' : ` ${qualityBadge(row.quality)}`}${role ? ` <span class="st-role">${role}</span>` : ''}</p>
           <p class="st-list-meta">${esc(meta)}</p>
         </div>
         <button class="st-btn ghost small" type="button" data-si="hear-voice" data-value="${index}" aria-label="${esc(row.name)} 듣기">듣기</button>
       </li>`;
     }).join('');
-    const summary = `영어 목소리 ${voiceRows.length}개 · 프리미엄 ${count.premium} · 고품질 ${count.enhanced} · 기본 ${count.default + count.legacy}`
-      + (hiddenNum ? ` · 장난감·효과음 목소리 ${hiddenNum}개는 뺐어요.` : '');
+    const summary = `미국·영국·호주 목소리 ${voiceRows.length}개`
+      + (count.premium || count.enhanced ? ` · 프리미엄 ${count.premium} · 고품질 ${count.enhanced}` : '')
+      + (hiddenNum ? ` · 다른 지역과 장난감·효과음 목소리 ${hiddenNum}개는 뺐어요.` : '');
     const noGood = !count.premium && !count.enhanced;
     return `<section class="st-card">
       ${head}
-      <p class="st-desc">이 기기 브라우저가 알려 준 목소리예요. 듣기로 확인하고 쓸 목소리를 체크하세요. 처음 체크한 목소리가 모의고사 안내, 두 번째가 질문을 읽고, 학습 문장은 체크한 목소리가 돌아가며 읽어요. 아무것도 체크하지 않으면 위 억양·성별에 맞춰 자동으로 골라요.</p>
+      <p class="st-desc">이 기기 브라우저가 알려 준 미국·영국·호주 목소리예요. 듣기로 확인하고 쓸 목소리를 체크하세요. 처음 체크한 목소리가 모의고사 안내, 두 번째가 질문을 읽고, 학습 문장은 체크한 목소리가 돌아가며 읽어요. 아무것도 체크하지 않으면 위 억양·성별에 맞춰 자동으로 골라요.</p>
       <p class="st-note">${esc(summary)}</p>
       <ul class="st-list st-voices">${items}</ul>
       ${chosen.length ? '<div class="st-actions"><button class="st-btn ghost small" type="button" data-si="clear-picks">자동 선택으로 되돌리기</button></div>' : ''}
-      ${noGood ? '<p class="st-note warn">프리미엄·고품질 목소리가 목록에 없어요. iPad 설정의 음성 목록에서 하나만 먼저 내려받은 뒤 이 화면을 다시 열어 보세요. 그래도 여기에 없으면 Safari가 웹 앱에 넘겨주지 않는 것이라 더 내려받지 않아도 돼요.</p>' : ''}
+      ${noGood ? '<p class="st-note">iPad Safari는 내려받은 고품질·프리미엄 목소리를 웹 앱에 넘겨주지 않아요. iPad 설정에서 더 내려받아도 이 목록은 달라지지 않아요.</p>' : ''}
     </section>`;
   }
 
