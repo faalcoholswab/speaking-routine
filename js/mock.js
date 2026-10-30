@@ -355,30 +355,71 @@
   }
 
   // ---------- 소리 ----------
-  function beep(kind) {
+  // 시험장 효과음처럼 또렷한 단음. go: 준비·응답 시작, end: 응답·시험 끝.
+  const BEEPS = {
+    go: { freq: 1000, seconds: 0.45, level: 0.4 },
+    end: { freq: 760, seconds: 0.7, level: 0.35 },
+  };
+  let audioUnlocked = false;
+
+  function audio() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!audioCtx) audioCtx = new Ctx();
+    return audioCtx;
+  }
+
+  // 계속 켜 두면 다른 앱 소리를 들은 뒤 iPad에서 지직거릴 수 있어, 울린 뒤에는 장치를 쉬게 한다.
+  function sleepAudioSoon() {
+    window.clearTimeout(beepSleepTimer);
+    beepSleepTimer = window.setTimeout(() => {
+      if (audioCtx && audioCtx.state === 'running') audioCtx.suspend().catch(() => {});
+    }, 1200);
+  }
+
+  // iPad Safari는 화면을 누른 순간에 한 번 소리 장치를 열어 둬야, 질문이 끝난 뒤처럼
+  // 화면을 누르지 않은 때에도 삐 소리를 낼 수 있다. 첫 터치에서 소리 없는 아주 짧은 소리를 튼다.
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    const ctx = audio();
+    if (!ctx) return;
+    audioUnlocked = true;
     try {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return;
-      audioCtx = audioCtx || new Ctx();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      const now = audioCtx.currentTime;
-      osc.type = 'sine';
-      osc.frequency.value = kind === 'end' ? 620 : 840;
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.1, now + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + (kind === 'end' ? 0.5 : 0.22));
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start(now);
-      osc.stop(now + (kind === 'end' ? 0.55 : 0.26));
-      // 계속 켜 두면 다른 앱 소리를 들은 뒤 iPad에서 지직거릴 수 있어, 울린 뒤에는 장치를 쉬게 한다.
-      window.clearTimeout(beepSleepTimer);
-      beepSleepTimer = window.setTimeout(() => {
-        if (audioCtx && audioCtx.state === 'running') audioCtx.suspend().catch(() => {});
-      }, 1200);
+      if (ctx.state !== 'running') ctx.resume().catch(() => {});
+      const source = ctx.createBufferSource();
+      source.buffer = ctx.createBuffer(1, 1, 22050);
+      source.connect(ctx.destination);
+      source.start(0);
     } catch (error) { /* noop */ }
+    sleepAudioSoon();
+  }
+
+  document.addEventListener('pointerdown', unlockAudio, true);
+  document.addEventListener('keydown', unlockAudio, true);
+
+  async function beep(kind) {
+    const ctx = audio();
+    if (!ctx) return;
+    const tone = BEEPS[kind] || BEEPS.go;
+    try {
+      // 쉬고 있던 장치는 완전히 깨어난 뒤에 울린다. 깨우지 못하면 조용히 넘어간다.
+      if (ctx.state !== 'running') await ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+      const end = now + tone.seconds;
+      osc.type = 'sine';
+      osc.frequency.value = tone.freq;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(tone.level, now + 0.012);
+      gain.gain.setValueAtTime(tone.level, end - 0.04);
+      gain.gain.linearRampToValueAtTime(0, end);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(end + 0.02);
+    } catch (error) { /* noop */ }
+    sleepAudioSoon();
   }
 
   function voicesFor(key) {
