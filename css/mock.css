@@ -256,6 +256,39 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 .ex-dock.respond.hurry .ex-time { color: #ffd6b8; }
 .ex-dock.idle { opacity: .55; }
 
+/* ---------- 문제 아래 타이머 (실제 시험 화면처럼) ---------- */
+.ex-clock-slot:empty { display: none; }
+.ex-clock {
+  width: min(100%, 360px); margin: 0 auto;
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 14px;
+  padding: 12px 18px; border-radius: 14px;
+  background: var(--surface); color: var(--text);
+  box-shadow: inset 0 0 0 1.5px var(--g200);
+  transition: background .25s ease, color .25s ease;
+}
+.ex-clock-label { font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--g700); }
+.ex-clock-time { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ex-clock-track { grid-column: 1 / -1; height: 5px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.ex-clock-track > span { display: block; height: 100%; width: 100%; background: var(--g600); border-radius: 99px; }
+.ex-clock.respond { background: var(--g900); color: #fff; box-shadow: none; }
+.ex-clock.respond .ex-clock-label { color: #cfe3bd; }
+.ex-clock.respond .ex-clock-track { background: rgba(255, 255, 255, .18); }
+.ex-clock.respond .ex-clock-track > span { background: #cfe3bd; }
+.ex-clock.hurry .ex-clock-time { color: #b4622f; }
+.ex-clock.hurry .ex-clock-track > span { background: #c2703f; }
+.ex-clock.respond.hurry .ex-clock-time { color: #ffd6b8; }
+.ex-clock.respond.hurry .ex-clock-track > span { background: #f0b18a; }
+/* 시간은 문제 아래 상자에서만 보여 준다. 아래 막대는 단계 표시와 버튼만 남긴다. */
+.ex-dock .ex-time, .ex-dock .ex-track { display: none; }
+/* 그림·표는 아래 타이머까지 한 화면에 들어오게 화면 높이에 맞춰 줄인다(iPad Safari 가로 약 690px 기준).
+   타이머 자리가 있는 문제 화면에만 적용하고, 해설 화면의 그림 크기는 그대로 둔다. */
+.ex-q:has(.ex-clock-slot) .ex-figure img { max-height: min(46vh, max(160px, calc(100dvh - 440px))); }
+.ex-q:has(.ex-clock-slot) .ex-figure.wide img { max-height: min(40vh, max(160px, calc(100dvh - 440px))); }
+@media (max-height: 760px) {
+  .ex-stage-in { padding-top: 18px; padding-bottom: 18px; }
+  .ex-q { gap: 12px; }
+}
+
 /* ---------- 결과 ---------- */
 .ex-done { padding: 36px 0 56px; }
 .ex-done-head { text-align: center; margin-bottom: 26px; }
@@ -412,8 +445,14 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 @media (max-height: 560px) and (orientation: landscape) {
   .ex-stage-in { padding-top: 16px; padding-bottom: 16px; }
   .ex-figure img { max-height: 40vh; }
+  .ex-q:has(.ex-clock-slot) .ex-figure img,
+  .ex-q:has(.ex-clock-slot) .ex-figure.wide img { max-height: 40vh; }
   .ex-time { font-size: 30px; }
   .ex-dock { padding-top: 8px; padding-bottom: 8px; }
+  /* 너무 낮은 화면은 그림을 더 줄일 수 없어 타이머를 아래 막대에 둔다. */
+  .ex-clock { display: none; }
+  .ex-dock .ex-time { display: inline; }
+  .ex-dock .ex-track { display: block; }
 }
 
 @media (prefers-reduced-motion: reduce) {

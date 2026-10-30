@@ -361,6 +361,12 @@
     end: { freq: 760, seconds: 0.7, level: 0.35 },
   };
   let audioUnlocked = false;
+  // 마지막으로 소리가 난 때. 한동안 조용했다가 말을 시작하면 iPad(특히 블루투스 이어폰)가 앞부분을 잘라 먹는다.
+  let lastSoundAt = 0;
+  const WAKE_AFTER_MS = 1500;
+  const WAKE_LEAD_MS = 350;
+  // stopSpeech 가 부를 때마다 늘린다. 출력을 깨우는 동안 멈추거나 넘어가면 그 말은 읽지 않는다.
+  let speechEpoch = 0;
 
   function audio() {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -391,6 +397,10 @@
       source.connect(ctx.destination);
       source.start(0);
     } catch (error) { /* noop */ }
+    // 음성 읽기도 화면을 누른 순간에 한 번 열어 둔다. 말을 시작하기 전에 출력을 깨우느라 잠깐 기다려도 막히지 않게.
+    try {
+      if (synth && !synth.speaking && !synth.pending) synth.speak(new window.SpeechSynthesisUtterance(''));
+    } catch (error) { /* noop */ }
     sleepAudioSoon();
   }
 
@@ -418,7 +428,25 @@
       gain.connect(ctx.destination);
       osc.start(now);
       osc.stop(end + 0.02);
+      lastSoundAt = Date.now() + tone.seconds * 1000;
     } catch (error) { /* noop */ }
+    sleepAudioSoon();
+  }
+
+  // 한동안 소리가 없었다면 소리 없는 짧은 소리로 출력을 깨우고 잠깐 기다린다.
+  async function wakeOutput() {
+    if (Date.now() - lastSoundAt < WAKE_AFTER_MS) return;
+    const ctx = audio();
+    if (ctx) {
+      try {
+        if (ctx.state !== 'running') await ctx.resume();
+        const source = ctx.createBufferSource();
+        source.buffer = ctx.createBuffer(1, Math.round(ctx.sampleRate * ((WAKE_LEAD_MS + 150) / 1000)), ctx.sampleRate);
+        source.connect(ctx.destination);
+        source.start(0);
+      } catch (error) { /* noop */ }
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, WAKE_LEAD_MS));
     sleepAudioSoon();
   }
 
@@ -428,9 +456,20 @@
     examVoices = window.SpeechVoice.examPair();
   }
 
-  function speak(text, role) {
+  async function speak(text, role) {
+    if (!synth || !text || SPEED > 1) return false;
+    let speaking = false;
+    try { speaking = Boolean(synth.speaking || synth.pending); } catch (error) { /* noop */ }
+    if (!speaking) {
+      const epoch = speechEpoch;
+      await wakeOutput();
+      if (epoch !== speechEpoch) return false;
+    }
+    return speakNow(text, role);
+  }
+
+  function speakNow(text, role) {
     return new Promise((resolve) => {
-      if (!synth || !text || SPEED > 1) { resolve(false); return; }
       let busy = false;
       try { busy = Boolean(synth.speaking || synth.pending); } catch (error) { /* noop */ }
       if (busy) {
@@ -459,6 +498,7 @@
         if (done) return;
         done = true;
         window.clearTimeout(timer);
+        lastSoundAt = Date.now();
         resolve(started);
       };
 
@@ -477,6 +517,7 @@
   }
 
   function stopSpeech() {
+    speechEpoch += 1;
     if (!synth) return;
     try { synth.cancel(); } catch (error) { /* noop */ }
   }
@@ -1031,6 +1072,31 @@
     els.phase.textContent = label || '대기';
     els.time.textContent = '--';
     els.fill.style.width = '0%';
+    const clock = els.stage.querySelector('.ex-clock');
+    if (clock) clock.remove();
+  }
+
+  const CLOCK_SLOT = '<div class="ex-clock-slot"></div>';
+
+  // 실제 시험 화면처럼 문제(글·그림·표) 바로 아래에 남은 시간을 보여 준다. 그림 위에 겹치지 않는다.
+  function clockFor(label, kind) {
+    const slot = els.stage.querySelector('.ex-clock-slot') || els.stage.querySelector('.ex-q') || els.stage.firstElementChild || els.stage;
+    let clock = els.stage.querySelector('.ex-clock');
+    if (!clock) {
+      clock = document.createElement('div');
+      clock.innerHTML = '<span class="ex-clock-label"></span><span class="ex-clock-time"></span><span class="ex-clock-track"><span></span></span>';
+      clock.setAttribute('role', 'timer');
+      slot.appendChild(clock);
+      if (clock.offsetParent && typeof clock.scrollIntoView === 'function') clock.scrollIntoView({ block: 'nearest' });
+    }
+    clock.className = `ex-clock ${kind === 'respond' ? 'respond' : 'prep'}`;
+    clock.querySelector('.ex-clock-label').textContent = `${label} 시간`;
+    return clock;
+  }
+
+  function clockText(ms) {
+    const total = Math.ceil(Math.max(0, ms) / 1000);
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
   }
 
   function countdown(seconds, label, token, dockKind) {
@@ -1039,11 +1105,20 @@
       const start = Date.now();
       els.dock.className = dockClasses(dockKind === 'respond' ? 'respond' : 'prep');
       els.phase.textContent = label;
+      const clock = clockFor(label, dockKind);
+      const clockTime = clock.querySelector('.ex-clock-time');
+      const clockFill = clock.querySelector('.ex-clock-track > span');
 
       const paint = (left) => {
+        const width = `${((Math.max(0, left) / total) * 100).toFixed(1)}%`;
+        const hurry = left <= 3000 && total >= 6000;
         els.time.textContent = String(Math.ceil(Math.max(0, left) / 1000));
-        els.fill.style.width = `${((Math.max(0, left) / total) * 100).toFixed(1)}%`;
-        els.dock.classList.toggle('hurry', left <= 3000 && total >= 6000);
+        els.fill.style.width = width;
+        els.dock.classList.toggle('hurry', hurry);
+        // 시간을 배속으로 줄인 검증(?speed=)에서도 화면에는 실제 시험 시간을 보여 준다.
+        clockTime.textContent = clockText(left * SPEED);
+        clockFill.style.width = width;
+        clock.classList.toggle('hurry', hurry);
       };
 
       paint(total);
@@ -1103,26 +1178,27 @@
       <span class="ex-q-kind">${esc(KIND_LABEL[part.part] || '')}</span>
     </div>${stepper(part, q.no)}`;
 
+    // 타이머(CLOCK_SLOT)는 실제 시험처럼 글·그림·표 바로 아래에 둔다.
     let body = '';
     if (part.part === 1) {
-      body = `<p class="ex-text">${esc(q.text)}</p>`;
+      body = `<p class="ex-text">${esc(q.text)}</p>${CLOCK_SLOT}`;
     } else if (part.part === 2) {
       body = `<figure class="ex-figure">
         <img src="assets/mock/${esc(q.image)}" alt="묘사할 그림">
-      </figure>`;
+      </figure>${CLOCK_SLOT}`;
     } else if (part.part === 3) {
       // 실제 시험처럼 상황 지문과 질문을 함께 보여준다.
       body = `${part.context ? `<div class="ex-context">${esc(part.context)}</div>` : ''}
-        <p class="ex-prompt">${esc(q.prompt)}</p>`;
+        <p class="ex-prompt">${esc(q.prompt)}</p>${CLOCK_SLOT}`;
     } else if (part.part === 4) {
       // 음성이 없거나 실제로 재생되지 않으면 질문을 화면에 노출한다.
       body = `<figure class="ex-figure wide">
           <img src="assets/mock/${esc(part.tableImage)}" alt="행사 일정표" tabindex="0" role="button" aria-label="일정표 확대해서 보기">
-        </figure>
+        </figure>${CLOCK_SLOT}
         ${(synth && !forceText) ? '' : `<p class="ex-prompt">${esc(q.prompt)}</p>`}
         ${listenBlock(q, phase)}`;
     } else {
-      body = `<p class="ex-prompt">${esc(q.prompt)}</p>`;
+      body = `<p class="ex-prompt">${esc(q.prompt)}</p>${CLOCK_SLOT}`;
     }
 
     return `<div class="ex-q">${head}${body}</div>`;
@@ -1141,27 +1217,27 @@
 
     let body = '';
     if (part.part === 1) {
-      body = `<p class="ex-text">${esc(q.text)}</p>`;
+      body = `<p class="ex-text">${esc(q.text)}</p>${CLOCK_SLOT}`;
     } else if (part.part === 2) {
       body = `<figure class="ex-figure">
           <img src="assets/mock/${esc(q.image)}" alt="묘사할 그림">
-        </figure>`;
+        </figure>${CLOCK_SLOT}`;
     } else if (part.part === 3) {
       body = `${part.context ? `<div class="ex-context">${esc(part.context)}</div>` : ''}
-        <p class="ex-prompt">${esc(q.prompt)}</p>
+        <p class="ex-prompt">${esc(q.prompt)}</p>${CLOCK_SLOT}
         <div class="ex-actions ex-actions-left">
           <button class="ex-btn ghost sm" data-act="play-q" type="button">질문 듣기</button>
         </div>`;
     } else if (part.part === 4) {
       body = `<figure class="ex-figure wide">
           <img src="assets/mock/${esc(part.tableImage)}" alt="행사 일정표" tabindex="0" role="button" aria-label="일정표 확대해서 보기">
-        </figure>
+        </figure>${CLOCK_SLOT}
         <p class="ex-prompt">${esc(q.prompt)}</p>
         <div class="ex-actions ex-actions-left">
           <button class="ex-btn ghost sm" data-act="play-q" type="button">질문 듣기</button>
         </div>`;
     } else {
-      body = `<p class="ex-prompt">${esc(q.prompt)}</p>
+      body = `<p class="ex-prompt">${esc(q.prompt)}</p>${CLOCK_SLOT}
         <div class="ex-actions ex-actions-left">
           <button class="ex-btn ghost sm" data-act="play-q" type="button">질문 듣기</button>
         </div>`;
@@ -1825,6 +1901,7 @@
       <figure class="ex-figure wide">
         <img src="assets/mock/${esc(part.tableImage)}" alt="행사 일정표" tabindex="0" role="button" aria-label="일정표 확대해서 보기">
       </figure>
+      ${CLOCK_SLOT}
       <p class="ex-note-sm">${part.readingSeconds}초 동안 표를 읽습니다. 이어서 3개 질문이 재생됩니다.</p>
     </div>`;
   }
