@@ -1832,10 +1832,7 @@
       session.voiceFor = { index: session.index, voice: window.SpeechVoice ? window.SpeechVoice.study() : null };
     }
     const voice = session.voiceFor.voice;
-    if (voice) {
-      utterance.voice = voice;
-      utterance.lang = voice.lang || utterance.lang;
-    }
+    if (voice) window.SpeechVoice.use(utterance, voice);
 
     utterance.onend = () => {
       if (token !== speechToken) return;

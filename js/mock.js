@@ -393,8 +393,7 @@
       utter.pitch = 1;
       const voice = role === 'interviewer' ? examVoices.interviewer : examVoices.narrator;
       if (voice) {
-        utter.voice = voice;
-        utter.lang = voice.lang || utter.lang;
+        window.SpeechVoice.use(utter, voice);
       } else {
         let accent = 'us';
         try {

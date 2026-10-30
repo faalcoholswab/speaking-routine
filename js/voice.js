@@ -5,7 +5,10 @@
    - 설정에서 목소리를 직접 고르면(voice.picks) 억양·성별 대신 그 목소리만 쓴다.
      처음 고른 목소리가 모의고사 안내, 두 번째가 질문을 읽는다.
    - 미국·영국·호주 목소리만 쓴다. 장난감·효과음 목소리(Bad News, Bahh…)와 Eloquence(Eddy, Grandpa…)는 뺀다.
-   - window.SpeechVoice = { load, all, catalog, hiddenCount, idOf, picked, examPair, study,
+   - 'iPad 기본 목소리'(device:en-US 등)는 voice 를 비워 두고 언어만 정해 읽는다. Safari 목록에 없는
+     고품질·프리미엄 목소리도 iPad 설정에서 그 언어의 목소리로 골라 두면 그 목소리로 읽을 수 있다(기기마다 확인 필요).
+     이런 목소리는 utterance.voice 에 넣으면 안 되므로 재생하는 쪽은 항상 use(utterance, voice)를 쓴다.
+   - window.SpeechVoice = { load, all, catalog, hiddenCount, idOf, picked, examPair, study, use,
                             genderOf, qualityOf, rate, applyRate, status, preview }
    ========================================================= */
 (() => {
@@ -48,6 +51,14 @@
   const MAX_PICKS = 20;
   // 시험 대비용으로 쓰는 지역. 스코틀랜드(Fiona)는 en-GB 계열이지만 regionOf 에서 따로 갈라져 빠진다.
   const ALLOWED_REGIONS = new Set(['미국', '영국', '호주']);
+  // WebKit은 getVoices()에 기본 설치 목소리만 넣지만, voice 없이 lang 만 주면
+  // AVSpeechSynthesisVoice voiceWithLanguage: 로 기기가 정한 그 언어의 목소리를 쓴다.
+  const DEVICE_VOICES = [['en-US', '미국'], ['en-GB', '영국'], ['en-AU', '호주']].map(([lang, region]) => Object.freeze({
+    name: `iPad 기본 목소리(${region})`,
+    lang,
+    voiceURI: `device:${lang}`,
+    deviceDefault: true,
+  }));
 
   const FALLBACK_SETTINGS = { voice: { accent: 'us', gender: 'female', rate: 1, picks: [] }, autoScore: true };
   const ACCENTS = ['us', 'uk', 'mix'];
@@ -226,19 +237,46 @@
     return list.filter((voice) => voiceRank(voice) === best);
   }
 
+  function findById(id) {
+    if (!id) return null;
+    return DEVICE_VOICES.find((voice) => voice.voiceURI === id) || all().find((voice) => idOf(voice) === id) || null;
+  }
+
   // 설정에서 직접 고른 목소리 중 이 기기에 있는 것. 고른 순서를 지킨다.
+  // iPad 기본 목소리는 목록이 비어 있어도(목소리를 아직 못 받았어도) 쓸 수 있다.
   function picked() {
     const ids = wanted().picks;
     if (!ids.length) return [];
-    const list = all();
-    return ids.map((id) => list.find((voice) => idOf(voice) === id)).filter(Boolean);
+    return ids.map(findById).filter(Boolean);
   }
 
-  // 설정 화면 목록: 미국 → 영국 → 그 밖, 같은 지역 안에서는 품질 → 이름 순.
+  // 재생할 문장에 목소리를 입힌다. iPad 기본 목소리는 voice 를 비워 두고 언어만 정한다.
+  function use(utterance, voice) {
+    if (!utterance || !voice) return utterance;
+    if (voice.deviceDefault) {
+      utterance.lang = voice.lang;
+      return utterance;
+    }
+    utterance.voice = voice;
+    utterance.lang = voice.lang || utterance.lang;
+    return utterance;
+  }
+
+  // 설정 화면 목록: iPad 기본 목소리 3개 → 미국 → 영국 → 호주, 같은 지역 안에서는 품질 → 이름 순.
   function catalog() {
     const order = { us: 0, uk: 1, en: 2 };
     const ids = wanted().picks;
-    return all()
+    const device = DEVICE_VOICES.map((voice) => ({
+      id: voice.voiceURI,
+      name: 'iPad 기본 목소리',
+      lang: voice.lang,
+      region: regionOf(voice),
+      gender: '',
+      quality: 'device',
+      pickOrder: ids.indexOf(voice.voiceURI),
+      voice,
+    }));
+    return device.concat(all()
       .map((voice) => ({
         id: idOf(voice),
         name: String(voice.name || '').replace(/\s*\([^)]*\)\s*$/, '') || String(voice.name || ''),
@@ -251,7 +289,7 @@
       }))
       .sort((a, b) => (order[accentOf(a.voice)] - order[accentOf(b.voice)])
         || (QUALITY_RANK[b.quality] - QUALITY_RANK[a.quality])
-        || a.name.localeCompare(b.name));
+        || a.name.localeCompare(b.name)));
   }
 
   function hiddenCount() {
@@ -499,16 +537,14 @@
       return Promise.resolve(false);
     }
     const chosen = picked();
-    const byId = options && options.voiceId ? all().find((item) => idOf(item) === options.voiceId) : null;
+    const byId = options && options.voiceId ? findById(options.voiceId) : null;
     const voice = byId
       || (chosen.length ? chosen[0] : null)
       || ((options && options.gender && options.gender !== 'mix')
         ? pickByGender(accentPool(wanted().accent).pool, options.gender)
         : study());
-    if (voice) {
-      utter.voice = voice;
-      utter.lang = voice.lang || (wanted().accent === 'uk' ? 'en-GB' : 'en-US');
-    }
+    utter.lang = wanted().accent === 'uk' ? 'en-GB' : 'en-US';
+    use(utter, voice);
     utter.rate = options && Number.isFinite(Number(options.rate)) ? Number(options.rate) : rate();
     return new Promise((resolve) => {
       let done = false;
@@ -540,7 +576,7 @@
   }
 
   window.SpeechVoice = {
-    load, all, catalog, hiddenCount, idOf, picked, examPair, study,
+    load, all, catalog, hiddenCount, idOf, picked, examPair, study, use,
     genderOf, qualityOf, rate, applyRate, status, preview, accentOf,
   };
 })();

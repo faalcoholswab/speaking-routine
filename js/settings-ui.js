@@ -525,8 +525,9 @@
       return `<section class="st-card">${head}<p class="st-desc">이 기기에서 미국·영국·호주 목소리를 아직 받지 못했어요. 잠시 뒤 이 화면을 다시 열어 주세요.</p></section>`;
     }
     const hiddenNum = typeof api.hiddenCount === 'function' ? api.hiddenCount() : 0;
-    const count = { premium: 0, enhanced: 0, default: 0, legacy: 0 };
+    const count = { device: 0, premium: 0, enhanced: 0, default: 0, legacy: 0 };
     voiceRows.forEach((row) => { count[row.quality] += 1; });
+    const listed = voiceRows.length - count.device;
     const chosen = voiceRows.filter((row) => row.pickOrder >= 0).sort((a, b) => a.pickOrder - b.pickOrder);
     const roleOf = (row) => {
       const at = chosen.indexOf(row);
@@ -538,7 +539,9 @@
     const items = voiceRows.map((row, index) => {
       const on = row.pickOrder >= 0;
       const role = roleOf(row);
-      const meta = [row.region, genderLabel[row.gender]].filter(Boolean).join(' · ');
+      const meta = row.quality === 'device'
+        ? `${row.region} · iPad 설정에서 고른 영어 목소리로 읽어요`
+        : [row.region, genderLabel[row.gender]].filter(Boolean).join(' · ');
       return `<li>
         <button class="st-check" type="button" role="checkbox" aria-checked="${on ? 'true' : 'false'}" aria-label="${esc(row.name)} 쓰기" data-si="pick-voice" data-value="${index}"></button>
         <div class="st-list-main">
@@ -548,7 +551,7 @@
         <button class="st-btn ghost small" type="button" data-si="hear-voice" data-value="${index}" aria-label="${esc(row.name)} 듣기">듣기</button>
       </li>`;
     }).join('');
-    const summary = `미국·영국·호주 목소리 ${voiceRows.length}개`
+    const summary = `미국·영국·호주 목소리 ${listed}개`
       + (count.premium || count.enhanced ? ` · 프리미엄 ${count.premium} · 고품질 ${count.enhanced}` : '')
       + (hiddenNum ? ` · 다른 지역과 장난감·효과음 목소리 ${hiddenNum}개는 뺐어요.` : '');
     const noGood = !count.premium && !count.enhanced;
@@ -558,7 +561,7 @@
       <p class="st-note">${esc(summary)}</p>
       <ul class="st-list st-voices">${items}</ul>
       ${chosen.length ? '<div class="st-actions"><button class="st-btn ghost small" type="button" data-si="clear-picks">자동 선택으로 되돌리기</button></div>' : ''}
-      ${noGood ? '<p class="st-note">iPad Safari는 내려받은 고품질·프리미엄 목소리를 웹 앱에 넘겨주지 않아요. iPad 설정에서 더 내려받아도 이 목록은 달라지지 않아요.</p>' : ''}
+      ${noGood ? '<p class="st-note">iPad Safari는 내려받은 고품질·프리미엄 목소리를 이 목록에 보여 주지 않아요. 대신 iPad 설정에서 그 목소리를 영어 목소리로 골라 두고 맨 위 \'iPad 기본 목소리\'를 체크하면 그 목소리로 읽을 수 있어요. 기기마다 다를 수 있으니 듣기로 먼저 확인해 주세요.</p>' : ''}
     </section>`;
   }
 
