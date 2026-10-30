@@ -6,7 +6,9 @@
    - 'iPad 기본 목소리'(device:en-US 등)는 voice 를 비워 두고 언어만 정해 읽는다. Safari 목록에 없는
      고품질·프리미엄 목소리도 iPad 설정에서 그 언어의 목소리로 골라 두면 그 목소리로 읽는다(기기마다 확인 필요).
      이런 목소리는 utterance.voice 에 넣으면 안 되므로 재생하는 쪽은 항상 use(utterance, voice)를 쓴다.
-   - window.SpeechVoice = { load, all, catalog, hiddenCount, idOf, current, auto, examPair, study, use,
+   - 같은 이름·언어의 목소리가 여러 개 오면(예: 기본판과 저용량 super-compact판) 품질이 가장 좋은 하나만 남긴다.
+     diagnostics() 는 브라우저가 준 원래 목록(식별자 포함)을 문제 확인용으로 돌려준다.
+   - window.SpeechVoice = { load, all, catalog, hiddenCount, idOf, current, auto, examPair, study, use, diagnostics,
                             genderOf, qualityOf, accentOf, rate, applyRate, status, preview }
    ========================================================= */
 (() => {
@@ -41,7 +43,7 @@
   const MALE_SET = new Set(MALE);
   const NOISE_SET = new Set(NOVELTY.concat(ELOQUENCE));
   const LEGACY_SET = new Set(LEGACY);
-  const QUALITY_RANK = { premium: 3, enhanced: 2, default: 1, legacy: 0 };
+  const QUALITY_RANK = { premium: 3, enhanced: 2, default: 1, legacy: 0, low: -1 };
   const REGIONS = {
     us: '미국', gb: '영국', au: '호주', ie: '아일랜드', in: '인도',
     za: '남아공', nz: '뉴질랜드', ca: '캐나다', sg: '싱가포르',
@@ -64,6 +66,7 @@
 
   let cache = [];
   let hidden = 0;
+  let merged = 0;
   let watched = false;
 
   function normalize(name) {
@@ -124,6 +127,8 @@
     const key = `${voice.voiceURI || ''} ${voice.name || ''}`.toLowerCase();
     if (key.includes('premium')) return 'premium';
     if (key.includes('enhanced') || key.includes('siri')) return 'enhanced';
+    // WebKit은 speechVoicesIncludingSuperCompact 로 목록을 만들어 저용량판도 함께 준다.
+    if (key.includes('super')) return 'low';
     if (LEGACY_SET.has(normalize(voice.name))) return 'legacy';
     return 'default';
   }
@@ -161,7 +166,15 @@
       const english = (window.speechSynthesis.getVoices() || []).filter((voice) => accentOf(voice) !== '');
       const clean = english.filter((voice) => !isNoise(voice) && REGION_ORDER.includes(regionOf(voice)));
       if (english.length) hidden = english.length - clean.length;
-      return clean;
+      const best = new Map();
+      for (const voice of clean) {
+        const key = `${normalize(voice.name)}|${langOf(voice)}`;
+        const kept = best.get(key);
+        if (!kept || QUALITY_RANK[qualityOf(voice)] > QUALITY_RANK[qualityOf(kept)]) best.set(key, voice);
+      }
+      const unique = clean.filter((voice) => best.get(`${normalize(voice.name)}|${langOf(voice)}`) === voice);
+      if (english.length) merged = clean.length - unique.length;
+      return unique;
     } catch (error) {
       return [];
     }
@@ -306,6 +319,29 @@
     return utterance;
   }
 
+  // 문제 확인용: 브라우저가 준 영어 목소리 전부(장난감·다른 지역 포함)와 목록에 남겼는지.
+  function diagnostics() {
+    let raw = [];
+    try { raw = window.speechSynthesis ? window.speechSynthesis.getVoices() || [] : []; } catch (error) { raw = []; }
+    const shown = new Set(all());
+    const rows = raw.filter((voice) => accentOf(voice) !== '').map((voice) => {
+      let state = '표시';
+      if (isNoise(voice)) state = '뺌(장난감·기계음)';
+      else if (!REGION_ORDER.includes(regionOf(voice))) state = '뺌(다른 지역)';
+      else if (!shown.has(voice)) state = '뺌(같은 이름 중복)';
+      return {
+        name: voice.name || '',
+        lang: voice.lang || '',
+        uri: voice.voiceURI || '',
+        local: voice.localService !== false,
+        isDefault: Boolean(voice.default),
+        quality: qualityOf(voice),
+        state,
+      };
+    });
+    return { total: raw.length, english: rows.length, merged, pick: wanted().pick, rows };
+  }
+
   function status() {
     const list = all();
     const pick = wanted().pick;
@@ -315,6 +351,7 @@
       ready: list.length > 0,
       total: list.length,
       hidden,
+      merged,
       manual: Boolean(picked),
       missing: Boolean(pick && !picked),
       name: voice ? voice.name : '',
@@ -362,7 +399,7 @@
   }
 
   window.SpeechVoice = {
-    load, all, catalog, hiddenCount, idOf, current, auto: autoVoice, examPair, study, use,
+    load, all, catalog, hiddenCount, idOf, current, auto: autoVoice, examPair, study, use, diagnostics,
     genderOf, qualityOf, accentOf, rate, applyRate, status, preview,
   };
 })();

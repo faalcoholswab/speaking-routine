@@ -1,5 +1,5 @@
 /* 스피킹 루틴 — 오프라인 앱 셸 (network-first) */
-const CACHE = 'speaking-routine-v42';
+const CACHE = 'speaking-routine-v43';
 const SHELL = [
   './',
   './index.html',

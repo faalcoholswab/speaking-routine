@@ -39,6 +39,7 @@
   let storageLoading = false;
   let statusLine = '';
   let statusWarn = false;
+  let diagOpen = false;
   let local = null;
   // 목소리 목록을 그린 순서. 버튼의 data-value 는 이 배열의 위치다.
   let voiceRows = [];
@@ -113,6 +114,44 @@
       return { tone: 'warn', text: `고른 목소리를 이 기기에서 찾지 못해 자동으로 골라요. 지금 쓰는 목소리: ${info.name || '기기 기본'}` };
     }
     return { tone: 'ok', text: `지금 쓰는 목소리: ${info.name || '기기 기본'}${info.manual ? '' : ' (자동)'}` };
+  }
+
+  function diagText() {
+    const api = voiceApi();
+    if (!api || typeof api.diagnostics !== 'function') return '';
+    const info = api.diagnostics();
+    const lines = [
+      `전체 ${info.total}개 · 영어 ${info.english}개 · 중복 합침 ${info.merged}개 · 고른 목소리 ${info.pick || '자동'}`,
+    ];
+    info.rows
+      .filter((row) => row.state !== '뺌(장난감·기계음)')
+      .forEach((row) => {
+        lines.push(`${row.name} | ${row.lang} | ${row.uri} | ${row.quality}${row.local ? '' : ' | 온라인'}${row.isDefault ? ' | default' : ''} | ${row.state}`);
+      });
+    return lines.join('\n');
+  }
+
+  function diagMarkup() {
+    const text = diagText();
+    if (!text) return '';
+    return `<details class="st-diag"${diagOpen ? ' open' : ''}>
+        <summary>목소리 정보 보기 (문제 확인용)</summary>
+        <p class="st-note">브라우저가 알려 준 목소리 이름과 식별자예요. 복사해서 보내 주시면 원인을 확인할 수 있어요.</p>
+        <pre class="st-pre">${esc(text)}</pre>
+        <div class="st-actions"><button class="st-btn ghost small" type="button" data-si="copy-diag">복사</button></div>
+      </details>`;
+  }
+
+  async function copyDiag() {
+    const text = diagText();
+    try {
+      await navigator.clipboard.writeText(text);
+      statusLine = '목소리 정보를 복사했어요.';
+    } catch (error) {
+      statusLine = '복사하지 못했어요. 글자를 길게 눌러 직접 복사해 주세요.';
+    }
+    statusWarn = false;
+    paint();
   }
 
   function pickVoice(index) {
@@ -426,13 +465,14 @@
     if (voiceRows[0].selected) voiceRows.slice(1).forEach((row) => { row.selected = false; });
     const listed = rows.filter((row) => row.quality !== 'device');
     const hiddenNum = api ? api.hiddenCount() : 0;
+    const mergedNum = auto ? auto.merged || 0 : 0;
     const goodNum = listed.filter((row) => row.quality === 'premium' || row.quality === 'enhanced').length;
 
     const items = voiceRows.map((row, index) => {
       const meta = row.auto
         ? (autoVoice ? `지금은 ${autoVoice.name} · 미국 → 영국 → 호주 순으로 기기에 있는 목소리를 골라요` : '미국 → 영국 → 호주 순으로 기기에 있는 목소리를 골라요')
         : row.quality === 'device'
-          ? `${row.region} · iPad 설정에서 고른 영어 목소리로 읽어요`
+          ? `${row.region} · iPad가 이 언어에 정한 목소리로 읽어요`
           : [row.region, genderLabel[row.gender]].filter(Boolean).join(' · ');
       const hear = row.auto && !autoVoice
         ? ''
@@ -449,7 +489,8 @@
 
     const summary = `미국·영국·호주 목소리 ${listed.length}개`
       + (goodNum ? ` · 고품질·프리미엄 ${goodNum}개` : '')
-      + (hiddenNum ? ` · 다른 지역과 장난감·효과음 목소리 ${hiddenNum}개는 뺐어요.` : '');
+      + (hiddenNum ? ` · 다른 지역과 장난감·효과음 목소리 ${hiddenNum}개는 뺐어요.` : '')
+      + (mergedNum ? ` 이름이 같은 목소리 ${mergedNum}개는 하나로 합쳤어요.` : '');
 
     return `<section class="st-card">
       <h3 class="st-h3">목소리</h3>
@@ -457,7 +498,8 @@
       <p class="st-note ${status.tone}">${esc(status.text)}</p>
       <ul class="st-list st-voices" role="radiogroup" aria-label="목소리">${items}</ul>
       <p class="st-note">${esc(summary)}</p>
-      ${goodNum ? '' : '<p class="st-note">iPad Safari는 내려받은 고품질·프리미엄 목소리를 목록에 보여 주지 않아요. iPad 설정에서 그 목소리를 영어 목소리로 골라 두고 \'iPad 기본 목소리\'를 고르면 그 목소리로 읽어요. 지역에 따라 소리가 나지 않을 수 있으니 듣기로 먼저 확인해 주세요.</p>'}
+      ${diagMarkup()}
+      ${goodNum ? '' : '<p class="st-note">iPad Safari는 내려받은 고품질·프리미엄 목소리를 목록에 보여 주지 않아요. \'iPad 기본 목소리\'는 iPad가 그 언어에 정한 목소리로 읽어요. iPad 설정에서 고른 고품질 목소리가 쓰이는지는 아직 확인 중이에요. 지역에 따라 소리가 나지 않을 수 있으니 듣기로 먼저 확인해 주세요.</p>'}
     </section>
     <section class="st-card">
       <div class="st-row">
@@ -728,6 +770,7 @@
     if (action === 'close') { close(); return; }
     if (action === 'pick-voice') { pickVoice(value); return; }
     if (action === 'hear-voice') { hearVoice(value); return; }
+    if (action === 'copy-diag') { copyDiag(); return; }
     if (action === 'backup') { exportBackup(); return; }
     if (action === 'import') {
       const file = sheet.querySelector('[data-si-import]');
@@ -749,6 +792,11 @@
       return;
     }
   });
+
+  // <details> 의 toggle 은 버블링하지 않아 캡처로 받는다. 다시 그려도 열림 상태를 지킨다.
+  document.addEventListener('toggle', (event) => {
+    if (event.target && event.target.classList && event.target.classList.contains('st-diag')) diagOpen = event.target.open;
+  }, true);
 
   document.addEventListener('input', (event) => {
     const input = event.target.closest('[data-si-input="rate"]');
