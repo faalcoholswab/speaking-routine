@@ -1177,7 +1177,8 @@
     const head = `<div class="ex-q-head">
       <span class="ex-q-no">Question ${q.no} of ${totalQuestions()}</span>
       <span class="ex-q-kind">${esc(KIND_LABEL[part.part] || '')}</span>
-    </div>${stepper(part, q.no)}`;
+      ${stepper(part, q.no)}
+    </div>`;
 
     // 타이머(CLOCK_SLOT)는 실제 시험처럼 글·그림·표 바로 아래에 둔다.
     let body = '';
@@ -1195,9 +1196,9 @@
       // 음성이 없거나 실제로 재생되지 않으면 질문을 화면에 노출한다.
       body = `<figure class="ex-figure wide">
           <img src="assets/mock/${esc(part.tableImage)}" alt="행사 일정표" tabindex="0" role="button" aria-label="일정표 확대해서 보기">
-        </figure>${CLOCK_SLOT}
+        </figure>
         ${(synth && !forceText) ? '' : `<p class="ex-prompt">${esc(q.prompt)}</p>`}
-        ${listenBlock(q, phase)}`;
+        ${listenBlock(q, phase)}${CLOCK_SLOT}`;
     } else {
       body = `<p class="ex-prompt">${esc(q.prompt)}</p>${CLOCK_SLOT}`;
     }
@@ -1214,7 +1215,8 @@
     const head = `<div class="ex-q-head">
       <span class="ex-q-no">Question ${q.no} of ${totalQuestions()}</span>
       <span class="ex-q-kind">${esc(KIND_LABEL[part.part] || '')}</span>
-    </div>${stepper(part, q.no, true)}`;
+      ${stepper(part, q.no, true)}
+    </div>`;
 
     let body = '';
     if (part.part === 1) {
@@ -1232,8 +1234,8 @@
     } else if (part.part === 4) {
       body = `<figure class="ex-figure wide">
           <img src="assets/mock/${esc(part.tableImage)}" alt="행사 일정표" tabindex="0" role="button" aria-label="일정표 확대해서 보기">
-        </figure>${CLOCK_SLOT}
-        <p class="ex-prompt">${esc(q.prompt)}</p>
+        </figure>
+        <p class="ex-prompt">${esc(q.prompt)}</p>${CLOCK_SLOT}
         <div class="ex-actions ex-actions-left">
           <button class="ex-btn ghost sm" data-act="play-q" type="button">질문 듣기</button>
         </div>`;

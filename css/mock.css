@@ -24,7 +24,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 52px; padding: 0 22px; border-radius: 14px;
   background: var(--g900); color: #fff; font-weight: 600; font-size: 16px;
-  box-shadow: 0 6px 18px rgba(29, 61, 47, .18);
+  box-shadow: 0 6px 18px rgba(var(--shadow-rgb), .18);
   transition: transform .12s ease, box-shadow .12s ease;
 }
 .ex-btn:active { transform: translateY(1px); }
@@ -150,7 +150,9 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 
 /* 문제 */
 .ex-q { display: flex; flex-direction: column; gap: 18px; }
-.ex-q-head { display: flex; align-items: baseline; gap: 10px; }
+.ex-q-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+/* 문항 번호 버튼은 머리줄 오른쪽에 둬서 한 줄을 아낀다(그림·표·타이머가 한 화면에 들어오게). */
+.ex-q-head .ex-stepper { margin-left: auto; align-self: center; }
 .ex-q-no { font-size: 13px; font-weight: 700; color: var(--g700); letter-spacing: .04em; }
 .ex-q-kind { font-size: 13px; color: var(--faint); }
 
@@ -248,12 +250,6 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 .ex-track > span { display: block; height: 100%; width: 100%; background: var(--g600); border-radius: 99px; }
 .ex-dock.hurry .ex-track > span { background: #c2703f; }
 .ex-dock.hurry .ex-time { color: #b4622f; }
-.ex-dock.respond { background: var(--g900); border-top-color: var(--g800); color: #fff; }
-.ex-dock.respond .ex-phase { background: rgba(255, 255, 255, .12); color: #e8f0e2; box-shadow: none; }
-.ex-dock.respond .ex-track { background: rgba(255, 255, 255, .18); }
-.ex-dock.respond .ex-track > span { background: #cfe3bd; }
-.ex-dock.respond.hurry .ex-track > span { background: #f0b18a; }
-.ex-dock.respond.hurry .ex-time { color: #ffd6b8; }
 .ex-dock.idle { opacity: .55; }
 
 /* ---------- 문제 아래 타이머 (실제 시험 화면처럼) ---------- */
@@ -280,7 +276,8 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 /* 그림·표는 아래 타이머까지 한 화면에 들어오게 화면 높이에 맞춰 줄인다(iPad Safari 가로 약 690px 기준).
    타이머 자리가 있는 문제 화면에만 적용하고, 해설 화면의 그림 크기는 그대로 둔다. */
 .ex-q:has(.ex-clock-slot) .ex-figure img { max-height: min(46vh, max(160px, calc(100dvh - 440px))); }
-.ex-q:has(.ex-clock-slot) .ex-figure.wide img { max-height: min(40vh, max(160px, calc(100dvh - 440px))); }
+/* 표는 아래에 질문 글까지 있어 조금 더 줄인다. 눌러서 크게 볼 수 있다. */
+.ex-q:has(.ex-clock-slot) .ex-figure.wide img { max-height: min(40vh, max(160px, calc(100dvh - 460px))); }
 @media (max-height: 760px) {
   .ex-stage-in { padding-top: 18px; padding-bottom: 18px; }
   .ex-q { gap: 12px; }
@@ -380,10 +377,6 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   font-size: 12px; letter-spacing: .02em; color: var(--g700);
 }
 .ex-timer-btn .ex-time { font-size: 20px; min-width: auto; }
-.ex-dock.respond .ex-nav,
-.ex-dock.respond .ex-timer-btn { background: rgba(255, 255, 255, .14); color: #fff; box-shadow: none; }
-.ex-dock.respond .ex-timer-btn .ex-phase { color: #cfe3bd; }
-.ex-dock.respond .ex-track-top { background: rgba(255, 255, 255, .18); }
 
 /* ---------- 해설 ---------- */
 .gd-block {
@@ -616,7 +609,7 @@ mark.missed { background: var(--peach); color: var(--peach-text); border-radius:
 .scoring-label { font-size: 14px; font-weight: 700; color: var(--g800); }
 .scoring-track {
   height: 6px; margin: 8px 0 6px; border-radius: 999px; overflow: hidden;
-  background: rgba(29, 61, 47, .12);
+  background: rgba(var(--shadow-rgb), .12);
 }
 .scoring-track i { display: block; height: 100%; background: var(--g600); transition: width .3s ease; }
 .scoring-sub { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--muted); }

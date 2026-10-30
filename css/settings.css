@@ -19,7 +19,7 @@
   width: 44px; height: 44px; border-radius: 12px;
   display: grid; place-items: center;
   font-size: 19px; line-height: 1; color: var(--g900);
-  background: var(--surface); box-shadow: inset 0 0 0 1px var(--line), 0 4px 14px rgba(29, 61, 47, .10);
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--line), 0 4px 14px rgba(var(--shadow-rgb), .10);
 }
 .ex-settings-btn:hover { background: var(--surface-2); }
 body.ex-locked .ex-settings-btn { display: none; }
@@ -110,7 +110,7 @@ body.ex-locked .ex-settings-btn { display: none; }
 }
 .st-seg button[aria-pressed="true"] {
   color: var(--g900); background: var(--surface);
-  box-shadow: 0 1px 3px rgba(29, 61, 47, .14), inset 0 0 0 1px var(--g200);
+  box-shadow: 0 1px 3px rgba(var(--shadow-rgb), .14), inset 0 0 0 1px var(--g200);
 }
 
 .st-slider { display: flex; align-items: center; gap: 10px; width: 100%; }
