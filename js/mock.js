@@ -1079,24 +1079,28 @@
   const CLOCK_SLOT = '<div class="ex-clock-slot"></div>';
 
   // 실제 시험 화면처럼 문제(글·그림·표) 바로 아래에 남은 시간을 보여 준다. 그림 위에 겹치지 않는다.
+  // 생김새도 시험 화면을 따른다: 검은 머리줄의 PREPARATION TIME / RESPONSE TIME, 아래 칸에 00:00:45.
   function clockFor(label, kind) {
     const slot = els.stage.querySelector('.ex-clock-slot') || els.stage.querySelector('.ex-q') || els.stage.firstElementChild || els.stage;
     let clock = els.stage.querySelector('.ex-clock');
     if (!clock) {
       clock = document.createElement('div');
-      clock.innerHTML = '<span class="ex-clock-label"></span><span class="ex-clock-time"></span><span class="ex-clock-track"><span></span></span>';
+      clock.innerHTML = '<span class="ex-clock-label"></span><span class="ex-clock-time"></span>';
       clock.setAttribute('role', 'timer');
       slot.appendChild(clock);
       if (clock.offsetParent && typeof clock.scrollIntoView === 'function') clock.scrollIntoView({ block: 'nearest' });
     }
-    clock.className = `ex-clock ${kind === 'respond' ? 'respond' : 'prep'}`;
-    clock.querySelector('.ex-clock-label').textContent = `${label} 시간`;
+    const respond = kind === 'respond';
+    clock.className = `ex-clock ${respond ? 'respond' : 'prep'}`;
+    clock.setAttribute('aria-label', `${label} 시간`);
+    clock.querySelector('.ex-clock-label').textContent = respond ? 'RESPONSE TIME' : 'PREPARATION TIME';
     return clock;
   }
 
   function clockText(ms) {
     const total = Math.ceil(Math.max(0, ms) / 1000);
-    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+    const two = (value) => String(value).padStart(2, '0');
+    return `${two(Math.floor(total / 3600))}:${two(Math.floor((total % 3600) / 60))}:${two(total % 60)}`;
   }
 
   function countdown(seconds, label, token, dockKind) {
@@ -1107,7 +1111,6 @@
       els.phase.textContent = label;
       const clock = clockFor(label, dockKind);
       const clockTime = clock.querySelector('.ex-clock-time');
-      const clockFill = clock.querySelector('.ex-clock-track > span');
 
       const paint = (left) => {
         const width = `${((Math.max(0, left) / total) * 100).toFixed(1)}%`;
@@ -1117,8 +1120,6 @@
         els.dock.classList.toggle('hurry', hurry);
         // 시간을 배속으로 줄인 검증(?speed=)에서도 화면에는 실제 시험 시간을 보여 준다.
         clockTime.textContent = clockText(left * SPEED);
-        clockFill.style.width = width;
-        clock.classList.toggle('hurry', hurry);
       };
 
       paint(total);
@@ -2216,6 +2217,16 @@
       ? summary
       : fallbackInsights(scores, items);
     const rated = Object.keys(attempt.ratings || {}).length;
+    const answeredCount = items.filter((item) => answered(scores[item.q.no])).length;
+    const noAnswerNote = '녹음된 답변이 없어 판단하지 않았어요.';
+    const insightEmpty = (kind) => {
+      if (!autoScoreEnabled()) return `자동 채점을 켜면 ${kind}을 계산해요.`;
+      if (scoring.error === 'no-recording') return noAnswerNote;
+      if (scoring.error) return `채점하지 못해 ${kind}을 계산하지 않았어요.`;
+      if (!scoring.done) return `채점이 끝나면 ${kind}이 표시돼요.`;
+      if (!answeredCount) return noAnswerNote;
+      return kind === '강점' ? '아직 뚜렷한 강점이 없어요. 답변을 조금 더 길게 해 보세요.' : '눈에 띄는 보완점이 없어요.';
+    };
 
     root.innerHTML = `
       <div class="ex-done ex-report">
@@ -2234,8 +2245,8 @@
             </div>
           </div>
           <div class="insights">
-            ${insightCard('강점', insight.strengths || [], autoScoreEnabled() ? '아직 강점을 계산하는 중이에요.' : '자동 채점을 켜면 강점을 계산해요.')}
-            ${insightCard('보완점', insight.weaknesses || [], autoScoreEnabled() ? '채점이 끝나면 보완점이 표시됩니다.' : '자동 채점을 켜면 보완점을 계산해요.')}
+            ${insightCard('강점', answeredCount ? insight.strengths || [] : [], insightEmpty('강점'))}
+            ${insightCard('보완점', answeredCount ? insight.weaknesses || [] : [], insightEmpty('보완점'))}
           </div>
           <div class="qcards">${items.map((item) => renderQCard(item, scores[item.q.no])).join('')}</div>
           <p class="report-disclaimer">${autoScoreEnabled() ? '기기 안에서 음성 인식으로 계산한 추정치예요. 실제 ETS 채점과 다를 수 있어요.' : '자동 채점이 꺼져 있어 점수는 계산하지 않았어요. 녹음과 자기평가는 기기에만 저장돼요.'}</p>
@@ -2374,7 +2385,8 @@
     const totals = {};
     items.forEach((item) => {
       const result = scores[item.q.no];
-      if (!result || !result.criteria) return;
+      // 녹음이 없거나 말소리가 없던 문항은 강점·보완점 계산에서 뺀다.
+      if (!answered(result)) return;
       Object.entries(result.criteria).forEach(([key, value]) => {
         if (!labels[key] || value === null || value === undefined || value === '') return;
         const number = Number(value);
@@ -2389,10 +2401,17 @@
       .sort((a, b) => b.value - a.value);
     if (!entries.length) return { strengths: [], weaknesses: [] };
     const take = entries.length >= 4 ? 2 : 1;
+    const strong = entries.filter((entry) => entry.value >= 1.5).slice(0, take);
     return {
-      strengths: entries.slice(0, take).map((entry) => `${entry.label} ${entry.value.toFixed(1)}`),
-      weaknesses: entries.slice(-take).reverse().map((entry) => `${entry.label} ${entry.value.toFixed(1)}`),
+      strengths: strong.map((entry) => `${entry.label} ${entry.value.toFixed(1)}`),
+      weaknesses: entries.filter((entry) => !strong.includes(entry)).slice(-take).reverse().map((entry) => `${entry.label} ${entry.value.toFixed(1)}`),
     };
+  }
+
+  // 실제로 말한 답변이 채점된 문항인지. 녹음 없음·말소리 없음·채점 불가는 아니다.
+  function answered(result) {
+    return Boolean(result && result.criteria && !result.noRecording && !result.silent && !result.unavailable && !result.pending
+      && String(result.text || '').trim());
   }
 
   function allQuestions(exam) {

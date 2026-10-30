@@ -259,25 +259,22 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 /* ---------- 문제 아래 타이머 (실제 시험 화면처럼) ---------- */
 .ex-clock-slot:empty { display: none; }
 .ex-clock {
-  width: min(100%, 360px); margin: 0 auto;
-  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 14px;
-  padding: 12px 18px; border-radius: 14px;
-  background: var(--surface); color: var(--text);
-  box-shadow: inset 0 0 0 1.5px var(--g200);
-  transition: background .25s ease, color .25s ease;
+  width: min(100%, 300px); margin: 0 auto;
+  display: flex; flex-direction: column;
+  background: #fff; color: #111;
+  border: 1px solid #6b6b6b;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
 }
-.ex-clock-label { font-size: 13px; font-weight: 700; letter-spacing: .04em; color: var(--g700); }
-.ex-clock-time { font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.ex-clock-track { grid-column: 1 / -1; height: 5px; border-radius: 99px; background: var(--line); overflow: hidden; }
-.ex-clock-track > span { display: block; height: 100%; width: 100%; background: var(--g600); border-radius: 99px; }
-.ex-clock.respond { background: var(--g900); color: #fff; box-shadow: none; }
-.ex-clock.respond .ex-clock-label { color: #cfe3bd; }
-.ex-clock.respond .ex-clock-track { background: rgba(255, 255, 255, .18); }
-.ex-clock.respond .ex-clock-track > span { background: #cfe3bd; }
-.ex-clock.hurry .ex-clock-time { color: #b4622f; }
-.ex-clock.hurry .ex-clock-track > span { background: #c2703f; }
-.ex-clock.respond.hurry .ex-clock-time { color: #ffd6b8; }
-.ex-clock.respond.hurry .ex-clock-track > span { background: #f0b18a; }
+.ex-clock-label {
+  padding: 8px 10px; text-align: center;
+  background: #111; color: #fff;
+  font-size: 16px; font-weight: 500; letter-spacing: .01em; line-height: 1.2;
+}
+.ex-clock-time {
+  padding: 6px 10px 7px; text-align: center;
+  font-size: 34px; font-weight: 400; line-height: 1.15; letter-spacing: .01em;
+  font-variant-numeric: tabular-nums;
+}
 /* 시간은 문제 아래 상자에서만 보여 준다. 아래 막대는 단계 표시와 버튼만 남긴다. */
 .ex-dock .ex-time, .ex-dock .ex-track { display: none; }
 /* 그림·표는 아래 타이머까지 한 화면에 들어오게 화면 높이에 맞춰 줄인다(iPad Safari 가로 약 690px 기준).

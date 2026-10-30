@@ -878,9 +878,22 @@
       const values = Object.values(per).map((q) => q.criteria[key]).filter((v) => v !== null && v !== undefined);
       criteriaAvg[key] = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
     }
-    const ranked = Object.entries(criteriaAvg).filter(([, v]) => v !== null).sort((a, b) => b[1] - a[1]);
-    const strengths = ranked.slice(0, 2).map(([k]) => k);
-    const weaknesses = ranked.slice(-2).reverse().map(([k]) => k);
+    // 강점·보완점은 실제로 말한 문항(인식된 단어가 있는 문항)만 보고 정한다.
+    // 아무 말도 하지 않았으면 모든 기준이 0점으로 같아져 목록 순서대로 '강점'이 뽑히므로 비워 둔다.
+    // 기준 점수는 모두 0~3 이다. 강점은 만점의 절반 이상인 것만.
+    const ratios = {};
+    for (const q of Object.values(per)) {
+      if (!(Number(q.words) > 0)) continue;
+      for (const [key, value] of Object.entries(q.criteria)) {
+        if (value === null || value === undefined) continue;
+        (ratios[key] || (ratios[key] = [])).push(clamp(Number(value) / 3, 0, 1));
+      }
+    }
+    const ranked = Object.entries(ratios)
+      .map(([key, list]) => [key, list.reduce((a, b) => a + b, 0) / list.length])
+      .sort((a, b) => b[1] - a[1]);
+    const strengths = ranked.filter(([, v]) => v >= 0.5).slice(0, 2).map(([k]) => k);
+    const weaknesses = ranked.filter(([k]) => !strengths.includes(k)).slice(-2).reverse().map(([k]) => k);
 
     return {
       version: VERSION,
