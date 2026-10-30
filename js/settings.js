@@ -1,5 +1,5 @@
 /* =========================================================
-   앱 설정 저장소 — 음성(고른 목소리·속도)과 자동 채점
+   앱 설정 저장소 — 음성(iPad 기본 목소리 또는 자동·속도)과 자동 채점
    window.AppSettings 계약 (Muse 설정 화면과 공유):
      KEY, DEFAULTS, load(), get(), set(patch), subscribe(fn),
      reset(), export(), import(value), persisted
@@ -53,13 +53,13 @@
     return Math.round(clamped * 100) / 100;
   }
 
-  // 고른 목소리의 id(voiceURI 또는 device:en-GB 같은 iPad 기본 목소리). 기기에 없으면 재생 때 자동으로 고른다.
-  // v39~v41 은 여러 개를 고르는 picks 배열이었다. 그때 값은 첫 번째 목소리로 옮긴다.
+  // 고른 목소리: iPad 기본 목소리(device:en-US·en-GB·en-AU) 중 하나, '' 는 자동(문제마다 셋 중 하나).
+  // v42~v44 에서 고른 개별 목소리(Samantha 등 voiceURI)는 자동으로 돌린다.
+  // v39~v41 은 여러 개를 고르는 picks 배열이었다. 그때 값은 그 안의 첫 iPad 기본 목소리로 옮긴다.
+  const DEVICE_PICKS = ['device:en-US', 'device:en-GB', 'device:en-AU'];
   function fixPick(value, legacyPicks) {
-    const ok = (id) => typeof id === 'string' && id.length > 0 && id.length <= 200;
-    if (ok(value)) return value;
-    if (typeof value === 'string') return '';
-    if (Array.isArray(legacyPicks)) return legacyPicks.find(ok) || '';
+    if (typeof value === 'string') return DEVICE_PICKS.includes(value) ? value : '';
+    if (Array.isArray(legacyPicks)) return legacyPicks.find((id) => DEVICE_PICKS.includes(id)) || '';
     return '';
   }
 

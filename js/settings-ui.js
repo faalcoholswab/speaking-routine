@@ -39,7 +39,6 @@
   let storageLoading = false;
   let statusLine = '';
   let statusWarn = false;
-  let diagOpen = false;
   let local = null;
   // 목소리 목록을 그린 순서. 버튼의 data-value 는 이 배열의 위치다.
   let voiceRows = [];
@@ -107,51 +106,9 @@
     const api = voiceApi();
     if (!api) return { tone: 'warn', text: '이 브라우저에서는 음성 재생을 지원하지 않아요.' };
     const info = api.status();
-    if (!info.ready && !info.manual) {
-      return { tone: 'warn', text: '목소리 목록을 아직 받지 못했어요. 잠시 뒤 이 화면을 다시 열면 기기 목소리를 확인해요. (iPad는 목소리 목록이 늦게 도착해요.)' };
-    }
-    if (info.missing) {
-      return { tone: 'warn', text: `고른 목소리를 이 기기에서 찾지 못해 자동으로 골라요. 지금 쓰는 목소리: ${info.name || '기기 기본'}` };
-    }
-    return { tone: 'ok', text: `지금 쓰는 목소리: ${info.name || '기기 기본'}${info.manual ? '' : ' (자동)'}` };
-  }
-
-  function diagText() {
-    const api = voiceApi();
-    if (!api || typeof api.diagnostics !== 'function') return '';
-    const info = api.diagnostics();
-    const lines = [
-      `전체 ${info.total}개 · 영어 ${info.english}개 · 중복 합침 ${info.merged}개 · 고른 목소리 ${info.pick || '자동'}`,
-    ];
-    info.rows
-      .filter((row) => row.state !== '뺌(장난감·기계음)')
-      .forEach((row) => {
-        lines.push(`${row.name} | ${row.lang} | ${row.uri} | ${row.quality}${row.local ? '' : ' | 온라인'}${row.isDefault ? ' | default' : ''} | ${row.state}`);
-      });
-    return lines.join('\n');
-  }
-
-  function diagMarkup() {
-    const text = diagText();
-    if (!text) return '';
-    return `<details class="st-diag"${diagOpen ? ' open' : ''}>
-        <summary>목소리 정보 보기 (문제 확인용)</summary>
-        <p class="st-note">브라우저가 알려 준 목소리 이름과 식별자예요. 복사해서 보내 주시면 원인을 확인할 수 있어요.</p>
-        <pre class="st-pre">${esc(text)}</pre>
-        <div class="st-actions"><button class="st-btn ghost small" type="button" data-si="copy-diag">복사</button></div>
-      </details>`;
-  }
-
-  async function copyDiag() {
-    const text = diagText();
-    try {
-      await navigator.clipboard.writeText(text);
-      statusLine = '목소리 정보를 복사했어요.';
-    } catch (error) {
-      statusLine = '복사하지 못했어요. 글자를 길게 눌러 직접 복사해 주세요.';
-    }
-    statusWarn = false;
-    paint();
+    const silentNote = info.silent.length ? ` ${info.silent.join(', ')}는 이 기기에서 소리가 나지 않아 자동에서 빼고 있어요.` : '';
+    if (info.manual) return { tone: 'ok', text: `지금 쓰는 목소리: ${info.name}` };
+    return { tone: info.silent.length ? 'warn' : 'ok', text: `지금 쓰는 목소리: 자동 (문제마다 미국·영국·호주 중 하나)${silentNote}` };
   }
 
   function pickVoice(index) {
@@ -166,11 +123,10 @@
   async function hearVoice(index) {
     const row = voiceRows[Number(index)];
     const api = voiceApi();
-    if (!row || !api) return;
-    const label = row.auto ? '자동' : row.quality === 'device' ? `iPad 기본 목소리(${row.region})` : row.name;
-    const result = await api.preview(VOICE_SAMPLE, { voiceId: row.voiceId, rate: current().voice.rate });
+    if (!row || !api || row.auto) return;
+    const result = await api.preview(VOICE_SAMPLE, { voiceId: row.id, rate: current().voice.rate });
     if (!result.started && host) {
-      statusLine = `${label}: 이 기기에서 소리가 나지 않았어요. 다른 목소리를 골라 주세요.`;
+      statusLine = `iPad 기본 목소리(${row.region}): 이 기기에서 소리가 나지 않았어요. 다른 목소리를 골라 주세요.`;
       statusWarn = true;
       paint();
     }
@@ -438,69 +394,36 @@
     ));
   }
 
-  // 기본 목소리는 표시하지 않는다. iPad Safari는 기본 목소리만 넘겨주므로 모든 줄에 같은 글자가 붙는다.
-  function qualityBadge(quality) {
-    if (quality === 'premium') return ' <span class="st-badge premium">프리미엄</span>';
-    if (quality === 'enhanced') return ' <span class="st-badge enhanced">고품질</span>';
-    if (quality === 'legacy') return ' <span class="st-badge">옛 음성</span>';
-    if (quality === 'low') return ' <span class="st-badge">저음질</span>';
-    return '';
-  }
-
-  // 목소리 하나를 고른다: 자동 → iPad 기본 목소리 3개 → 이 기기 브라우저가 알려 준 미국·영국·호주 목소리.
+  // 목소리 하나를 고른다: 자동(문제마다 셋 중 하나) 또는 iPad 기본 목소리(미국·영국·호주).
   function sectionVoice() {
     const pref = current().voice;
     const status = voiceStatus();
     const api = voiceApi();
     const rows = api ? api.catalog() : [];
-    const auto = api ? api.status() : null;
-    const autoVoice = api ? api.auto() : null;
-    const genderLabel = { f: '여성', m: '남성' };
-    voiceRows = [{
-      auto: true,
-      id: '',
-      voiceId: autoVoice ? api.idOf(autoVoice) : '',
-      name: '자동',
-      selected: !rows.some((row) => row.selected) || Boolean(auto && auto.missing),
-    }].concat(rows.map((row) => Object.assign({}, row, { voiceId: row.id })));
-    if (voiceRows[0].selected) voiceRows.slice(1).forEach((row) => { row.selected = false; });
-    const listed = rows.filter((row) => row.quality !== 'device');
-    const hiddenNum = api ? api.hiddenCount() : 0;
-    const mergedNum = auto ? auto.merged || 0 : 0;
-    const goodNum = listed.filter((row) => row.quality === 'premium' || row.quality === 'enhanced').length;
+    voiceRows = [{ auto: true, id: '', name: '자동', selected: !rows.some((row) => row.selected) }].concat(rows);
 
     const items = voiceRows.map((row, index) => {
       const meta = row.auto
-        ? (autoVoice ? `지금은 ${autoVoice.name} · 미국 → 영국 → 호주 순으로 기기에 있는 목소리를 골라요` : '미국 → 영국 → 호주 순으로 기기에 있는 목소리를 골라요')
-        : row.quality === 'device'
-          ? `${row.region} · iPad 설정에서 고른 목소리로 읽어요`
-          : [row.region, genderLabel[row.gender]].filter(Boolean).join(' · ');
-      const hear = row.auto && !autoVoice
+        ? '문제마다(학습은 문장마다) 미국·영국·호주 목소리 중 하나로 바꿔 읽어요'
+        : `${row.region} · iPad 설정에서 고른 목소리로 읽어요${row.silent ? ' · 이 기기에서 소리가 나지 않았어요' : ''}`;
+      const hear = row.auto
         ? ''
-        : `<button class="st-btn ghost small" type="button" data-si="hear-voice" data-value="${index}" aria-label="${esc(row.auto ? '자동' : row.name)} 듣기">듣기</button>`;
+        : `<button class="st-btn ghost small" type="button" data-si="hear-voice" data-value="${index}" aria-label="${esc(row.region)} 목소리 듣기">듣기</button>`;
       return `<li>
         <button class="st-check" type="button" role="radio" aria-checked="${row.selected ? 'true' : 'false'}" aria-label="${esc(row.auto ? '자동' : `${row.name} ${row.region}`)}" data-si="pick-voice" data-value="${index}"></button>
         <div class="st-list-main">
-          <p class="st-list-title">${esc(row.name)}${row.auto ? ' <span class="st-badge">추천</span>' : qualityBadge(row.quality)}</p>
+          <p class="st-list-title">${esc(row.auto ? '자동' : `${row.name}(${row.region})`)}</p>
           <p class="st-list-meta">${esc(meta)}</p>
         </div>
         ${hear}
       </li>`;
     }).join('');
 
-    const summary = `미국·영국·호주 목소리 ${listed.length}개`
-      + (goodNum ? ` · 고품질·프리미엄 ${goodNum}개` : '')
-      + (hiddenNum ? ` · 다른 지역과 장난감·효과음 목소리 ${hiddenNum}개는 뺐어요.` : '')
-      + (mergedNum ? ` 이름이 같은 목소리 ${mergedNum}개는 하나로 합쳤어요.` : '');
-
     return `<section class="st-card">
       <h3 class="st-h3">목소리</h3>
-      <p class="st-desc">학습 문장과 모의고사 안내·질문을 모두 이 목소리 하나로 읽어요. 듣기로 확인하고 골라 주세요.</p>
+      <p class="st-desc">학습 문장과 모의고사 안내·질문을 읽을 목소리예요. 미국·영국·호주 목소리는 iPad 설정의 음성 목록에서 지역마다 고른 목소리로 바뀌어요.</p>
       <p class="st-note ${status.tone}">${esc(status.text)}</p>
       <ul class="st-list st-voices" role="radiogroup" aria-label="목소리">${items}</ul>
-      <p class="st-note">${esc(summary)}</p>
-      ${diagMarkup()}
-      ${goodNum ? '' : '<p class="st-note">iPad Safari는 내려받은 고품질·프리미엄 목소리를 목록에 보여 주지 않아요. iPad 설정의 음성 목록에서 목소리를 고른 뒤 \'iPad 기본 목소리\'를 고르면 그 목소리로 읽어요. 다만 음질은 iPad 설정에서 들을 때보다 낮을 수 있어요. 지역에 따라 소리가 나지 않을 수 있으니 듣기로 먼저 확인해 주세요.</p>'}
     </section>
     <section class="st-card">
       <div class="st-row">
@@ -771,7 +694,6 @@
     if (action === 'close') { close(); return; }
     if (action === 'pick-voice') { pickVoice(value); return; }
     if (action === 'hear-voice') { hearVoice(value); return; }
-    if (action === 'copy-diag') { copyDiag(); return; }
     if (action === 'backup') { exportBackup(); return; }
     if (action === 'import') {
       const file = sheet.querySelector('[data-si-import]');
@@ -793,11 +715,6 @@
       return;
     }
   });
-
-  // <details> 의 toggle 은 버블링하지 않아 캡처로 받는다. 다시 그려도 열림 상태를 지킨다.
-  document.addEventListener('toggle', (event) => {
-    if (event.target && event.target.classList && event.target.classList.contains('st-diag')) diagOpen = event.target.open;
-  }, true);
 
   document.addEventListener('input', (event) => {
     const input = event.target.closest('[data-si-input="rate"]');

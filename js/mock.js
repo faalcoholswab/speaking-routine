@@ -65,6 +65,8 @@
 
   let runToken = 0;
   let examVoices = { narrator: null, interviewer: null };
+  // 자동 목소리는 안내·문제가 바뀔 때마다 새로 고른다. 같은 문제 안에서는 같은 목소리로 읽는다.
+  let voiceKey = '';
   let skipResolve = null;
   let attempt = null;
   let els = null;
@@ -377,6 +379,12 @@
         if (audioCtx && audioCtx.state === 'running') audioCtx.suspend().catch(() => {});
       }, 1200);
     } catch (error) { /* noop */ }
+  }
+
+  function voicesFor(key) {
+    if (!window.SpeechVoice || key === voiceKey) return;
+    voiceKey = key;
+    examVoices = window.SpeechVoice.examPair();
   }
 
   function speak(text, role) {
@@ -1506,6 +1514,7 @@
     if (!item || !els) return;
     revokeReportAudio();
     setChrome(item.part.part, item.q.no);
+    voicesFor(`p-${item.q.no}`);
     els.stage.innerHTML = mode === 'guide'
       ? guideMarkup(item.part, item.q)
       : practiceMarkup(item.part, item.q);
@@ -1553,9 +1562,7 @@
       ? `${exam.title} 해설 · 스피킹 루틴`
       : `${exam.title} 연습 · 스피킹 루틴`;
     if (target === 'practice') beep('go');
-    if (window.SpeechVoice) {
-      window.SpeechVoice.load().then(() => { examVoices = window.SpeechVoice.examPair(); });
-    }
+    voiceKey = '';
     paintPractice();
   }
 
@@ -1797,6 +1804,7 @@
   function runIntro(step, token) {
     const part = step.part;
     setChrome(part.part, 0);
+    voicesFor(`intro-${part.part}`);
     els.stage.innerHTML = introMarkup(part);
     dockIdle('안내');
 
@@ -1849,6 +1857,7 @@
     const audioOnly = part.part === 3 || part.part === 4;
 
     setChrome(part.part, q.no);
+    voicesFor(`q-${q.no}`);
 
     if (audioOnly) {
       // Part 3은 질문이 화면에 있고, Part 4는 표만 보이므로 상태 문구를 갱신한다.
@@ -1910,10 +1919,8 @@
     starting = true;
 
     try {
-      if (window.SpeechVoice) {
-        await window.SpeechVoice.load();
-        examVoices = window.SpeechVoice.examPair();
-      }
+      voiceKey = '';
+      if (window.SpeechVoice) examVoices = window.SpeechVoice.examPair();
     } finally {
       starting = false;
     }
@@ -3398,9 +3405,8 @@
     try {
       window.AppSettings.subscribe((value) => {
         if (window.SpeechVoice) {
-          window.SpeechVoice.load().then(() => {
-            examVoices = window.SpeechVoice.examPair();
-          }).catch(() => {});
+          voiceKey = '';
+          examVoices = window.SpeechVoice.examPair();
         }
         if (value && value.autoScore === false && document.querySelector('.scoring-banner')) paintDone();
       });
