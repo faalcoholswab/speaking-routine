@@ -8,6 +8,9 @@
      이런 목소리는 utterance.voice 에 넣으면 안 되므로 재생하는 쪽은 항상 use(utterance, voice)를 쓴다.
    - 같은 이름·언어의 목소리가 여러 개 오면(예: 기본판과 저용량 super-compact판) 품질이 가장 좋은 하나만 남긴다.
      diagnostics() 는 브라우저가 준 원래 목록(식별자 포함)을 문제 확인용으로 돌려준다.
+   - iPad Safari는 마이크를 한 번 쓰면 페이지 소리를 통화 모드로 두어 소리가 작아지고(블루투스는 지직거림) 돌아오지 않는다
+     (WebKit 버그 218012). navigator.audioSession 이 있으면 평소·다시 돌아왔을 때 'playback' 으로 둔다.
+     녹음 중에는 recorder.js 가 'play-and-record' 로 바꿨다가 되돌린다.
    - window.SpeechVoice = { load, all, catalog, hiddenCount, idOf, current, auto, examPair, study, use, diagnostics,
                             genderOf, qualityOf, accentOf, rate, applyRate, status, preview }
    ========================================================= */
@@ -396,6 +399,24 @@
         finish(false);
       }
     });
+  }
+
+  // 녹음 중(recorder.js 가 play-and-record 로 둔 동안)에는 건드리지 않는다.
+  function preferPlayback() {
+    try {
+      const session = navigator.audioSession;
+      if (session && session.type !== 'playback' && session.type !== 'play-and-record') session.type = 'playback';
+    } catch (error) {
+      /* audioSession 미지원 브라우저 */
+    }
+  }
+
+  preferPlayback();
+  try {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') preferPlayback(); });
+    window.addEventListener('pageshow', preferPlayback);
+  } catch (error) {
+    /* noop */
   }
 
   window.SpeechVoice = {

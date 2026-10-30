@@ -201,12 +201,23 @@
     }
   }
 
+  // iPad Safari: 마이크를 쓰는 동안만 녹음용 세션으로 두고, 끝나면 재생용으로 되돌린다.
+  // 되돌리지 않으면 이후 음성이 통화 모드로 작게(블루투스는 지직거리며) 나온다. WebKit 버그 218012.
+  function setSession(type) {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.audioSession && navigator.audioSession.type !== type) {
+        navigator.audioSession.type = type;
+      }
+    } catch (error) { /* audioSession 미지원 브라우저 */ }
+  }
+
   function releaseStream() {
     if (!state.stream) return;
     for (const track of state.stream.getTracks()) {
       try { track.stop(); } catch (error) { /* noop */ }
     }
     state.stream = null;
+    setSession('playback');
   }
 
   async function openMic() {
@@ -215,6 +226,7 @@
       return null;
     }
     if (state.stream && state.stream.getAudioTracks().some((track) => track.readyState === 'live')) return state.stream;
+    setSession('play-and-record');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
@@ -224,6 +236,7 @@
       startMeter(stream);
       return stream;
     } catch (error) {
+      setSession('playback');
       state.permission = 'denied';
       state.lastError = error && error.message ? error.message : '마이크를 열 수 없습니다.';
       return null;

@@ -69,6 +69,7 @@
   let attempt = null;
   let els = null;
   let audioCtx = null;
+  let beepSleepTimer = 0;
   let mode = 'exam';
   let selectedMode = 'exam';
   let practiceList = [];
@@ -370,6 +371,11 @@
       gain.connect(audioCtx.destination);
       osc.start(now);
       osc.stop(now + (kind === 'end' ? 0.55 : 0.26));
+      // 계속 켜 두면 다른 앱 소리를 들은 뒤 iPad에서 지직거릴 수 있어, 울린 뒤에는 장치를 쉬게 한다.
+      window.clearTimeout(beepSleepTimer);
+      beepSleepTimer = window.setTimeout(() => {
+        if (audioCtx && audioCtx.state === 'running') audioCtx.suspend().catch(() => {});
+      }, 1200);
     } catch (error) { /* noop */ }
   }
 
