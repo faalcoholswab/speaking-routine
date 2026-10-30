@@ -2,27 +2,29 @@
    스피킹 루틴 — 스타일
    ========================================================= */
 :root {
-  --bg: #f4f5ef;
+  /* 디자인 D: 화이트 & 블루 (v48). 밝은 흰 머리말, 또렷한 파란 강조. */
+  --bg: #f2f4f6;
   --surface: #ffffff;
-  --surface-2: #fafbf7;
+  --surface-2: #f9fafb;
 
-  --g900: #1d3d2f;
-  --g800: #24493a;
-  --g700: #2e6a51;
-  --g600: #4c7a5f;
-  --g500: #7d9b74;
-  --g300: #b4c9a9;
-  --g200: #d4e2c9;
-  --g100: #e6efdc;
-  --g50: #eff4e8;
+  /* 강조색 단계. 이름은 예전 초록 팔레트(g = green)에서 왔지만 지금은 파랑이다. */
+  --g900: #1b64da;
+  --g800: #2272eb;
+  --g700: #3182f6;
+  --g600: #4e95f8;
+  --g500: #8ab8fa;
+  --g300: #c4dcfd;
+  --g200: #dbe9fe;
+  --g100: #e8f2ff;
+  --g50: #f2f7ff;
 
-  --line: #e5e9df;
-  --line-2: #dce2d4;
+  --line: #e5e8eb;
+  --line-2: #d9dde2;
 
-  --text: #1f3a2e;
-  --text-2: #4f5d55;
-  --muted: #626d64;
-  --faint: #5f6961;
+  --text: #191f28;
+  --text-2: #4e5968;
+  --muted: #6b7684;
+  --faint: #6b7684;
 
   --peach: #f8efe6;
   --peach-line: #ecdac7;
@@ -31,18 +33,16 @@
   --sand-line: #e9ddc6;
   --sand-text: #815f30;
 
-  /* 테마마다 바뀌는 강조색 (디자인 후보를 갈아 끼울 수 있게 변수로 모았다) */
-  --accent-line: #a9bf9e;
-  --accent-ink: #3f664f;
-  --accent-ink-2: #56704f;
-  --selected-bg: #ebf2e2;
-  --step-bg: #eceee8;
-  --flash-back: #fbfbf8;
-  --header-top: #2b5141;
-  --header-glow: rgba(160, 190, 160, .35);
-  --brand-mark: #dcebc6;
-  --on-dark-tint: #e6f0d8;
-  --shadow-rgb: 29, 61, 47;
+  /* 테마마다 바뀌는 강조색 */
+  --accent-line: #a8c9fb;
+  --accent-ink: #1b64da;
+  --accent-ink-2: #3a6fc4;
+  --selected-bg: #e8f2ff;
+  --step-bg: #eef0f3;
+  --flash-back: #fafbfc;
+  --brand-mark: #3182f6;
+  --on-dark-tint: #e8f2ff;
+  --shadow-rgb: 25, 31, 40;
 
   --shadow: 0 1px 2px rgba(var(--shadow-rgb), .04), 0 8px 24px rgba(var(--shadow-rgb), .06);
 }
@@ -71,18 +71,17 @@ button, a, [role="button"] { touch-action: manipulation; }
 
 /* ---------- 헤더 ---------- */
 .site-header {
-  background:
-    radial-gradient(120% 80% at 50% -30%, var(--header-glow), transparent 60%),
-    linear-gradient(180deg, var(--header-top) 0%, var(--g900) 75%);
-  color: #fff;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 -1px 0 var(--line);
   padding-top: env(safe-area-inset-top);
 }
 .brand { display: flex; align-items: center; gap: 14px; padding: 28px 0 26px; width: max-content; }
 .brand-mark {
   width: 52px; height: 52px; border-radius: 14px;
-  background: var(--brand-mark); color: var(--g900);
+  background: var(--brand-mark); color: #fff;
   display: grid; place-items: center;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .5), 0 4px 12px rgba(0, 0, 0, .12);
+  box-shadow: 0 4px 12px rgba(var(--shadow-rgb), .12);
 }
 .brand-mark .ic { width: 26px; height: 26px; }
 .brand-text { display: flex; flex-direction: column; }
@@ -94,13 +93,13 @@ button, a, [role="button"] { touch-action: manipulation; }
   display: flex; align-items: center; justify-content: center; gap: 7px;
   padding: 17px 4px 19px;
   border-radius: 14px 14px 0 0;
-  color: rgba(255, 255, 255, .82);
+  color: var(--text-2);
   font-size: 15px; font-weight: 500; white-space: nowrap;
   transition: background .15s, color .15s;
 }
 .tab .ic { width: 19px; height: 19px; }
-.tab:hover { background: rgba(255, 255, 255, .06); }
-.tab.active { background: var(--bg); color: var(--g900); font-weight: 600; }
+.tab:hover { background: var(--surface-2); }
+.tab.active { background: var(--bg); color: var(--g700); font-weight: 600; }
 
 /* ---------- 경로/연속 ---------- */
 .crumbbar {
@@ -792,7 +791,7 @@ button, a, [role="button"] { touch-action: manipulation; }
     font-size: 14px; gap: 6px;
   }
   .tab .ic { width: 18px; height: 18px; }
-  .tab.active { background: rgba(255, 255, 255, .14); color: #fff; }
+  .tab.active { background: var(--g50); color: var(--g700); }
 
   .crumbbar { padding: 8px 0; border-bottom: 0; justify-content: flex-end; }
   .crumb { display: none; }
