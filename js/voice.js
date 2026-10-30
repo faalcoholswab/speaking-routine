@@ -1,15 +1,13 @@
 /* =========================================================
-   음성 선택 — 설정(억양·성별·속도)을 따르는 공부/모의고사 목소리
-   - 설정은 window.AppSettings 에서 읽는다. 없으면 기본값(미국식·여성·1.0).
-   - 미국식/영국식/섞기, 여성/남성/섞기를 지원하고, 없는 목소리는 가장 가까운 것으로 대체한다.
-   - 설정에서 목소리를 직접 고르면(voice.picks) 억양·성별 대신 그 목소리만 쓴다.
-     처음 고른 목소리가 모의고사 안내, 두 번째가 질문을 읽는다.
+   음성 선택 — 설정에서 고른 목소리 하나로 학습 문장과 모의고사(안내·질문)를 모두 읽는다
+   - 설정은 window.AppSettings 의 voice.pick(목소리 id)과 voice.rate 를 읽는다.
+     고르지 않았거나 이 기기에 없으면 미국 → 영국 → 호주 순으로 품질이 가장 좋은 목소리를 자동으로 쓴다.
    - 미국·영국·호주 목소리만 쓴다. 장난감·효과음 목소리(Bad News, Bahh…)와 Eloquence(Eddy, Grandpa…)는 뺀다.
    - 'iPad 기본 목소리'(device:en-US 등)는 voice 를 비워 두고 언어만 정해 읽는다. Safari 목록에 없는
-     고품질·프리미엄 목소리도 iPad 설정에서 그 언어의 목소리로 골라 두면 그 목소리로 읽을 수 있다(기기마다 확인 필요).
+     고품질·프리미엄 목소리도 iPad 설정에서 그 언어의 목소리로 골라 두면 그 목소리로 읽는다(기기마다 확인 필요).
      이런 목소리는 utterance.voice 에 넣으면 안 되므로 재생하는 쪽은 항상 use(utterance, voice)를 쓴다.
-   - window.SpeechVoice = { load, all, catalog, hiddenCount, idOf, picked, examPair, study, use,
-                            genderOf, qualityOf, rate, applyRate, status, preview }
+   - window.SpeechVoice = { load, all, catalog, hiddenCount, idOf, current, auto, examPair, study, use,
+                            genderOf, qualityOf, accentOf, rate, applyRate, status, preview }
    ========================================================= */
 (() => {
   'use strict';
@@ -48,9 +46,8 @@
     us: '미국', gb: '영국', au: '호주', ie: '아일랜드', in: '인도',
     za: '남아공', nz: '뉴질랜드', ca: '캐나다', sg: '싱가포르',
   };
-  const MAX_PICKS = 20;
-  // 시험 대비용으로 쓰는 지역. 스코틀랜드(Fiona)는 en-GB 계열이지만 regionOf 에서 따로 갈라져 빠진다.
-  const ALLOWED_REGIONS = new Set(['미국', '영국', '호주']);
+  // 시험 대비용으로 쓰는 지역과 그 순서. 스코틀랜드(Fiona)는 en-GB 계열이지만 regionOf 에서 따로 갈라져 빠진다.
+  const REGION_ORDER = ['미국', '영국', '호주'];
   // WebKit은 getVoices()에 기본 설치 목소리만 넣지만, voice 없이 lang 만 주면
   // AVSpeechSynthesisVoice voiceWithLanguage: 로 기기가 정한 그 언어의 목소리를 쓴다.
   const DEVICE_VOICES = [['en-US', '미국'], ['en-GB', '영국'], ['en-AU', '호주']].map(([lang, region]) => Object.freeze({
@@ -60,14 +57,13 @@
     deviceDefault: true,
   }));
 
-  const FALLBACK_SETTINGS = { voice: { accent: 'us', gender: 'female', rate: 1, picks: [] }, autoScore: true };
-  const ACCENTS = ['us', 'uk', 'mix'];
-  const GENDERS = ['female', 'male', 'mix'];
+  const FALLBACK_SETTINGS = { voice: { rate: 1, pick: '' }, autoScore: true };
   const PREVIEW_TEXT = 'Hello, this is how I will sound when you practise.';
+  // 듣기를 눌렀는데 이 시간 안에 읽기 시작하지 않으면 이 기기에서 소리가 나지 않는 목소리로 본다.
+  const PREVIEW_START_MS = 3000;
 
   let cache = [];
   let hidden = 0;
-  let lastStudyName = '';
   let watched = false;
 
   function normalize(name) {
@@ -80,7 +76,7 @@
   }
 
   function genderOf(voice) {
-    if (!voice) return '';
+    if (!voice || voice.deviceDefault) return '';
     const name = normalize(voice.name);
     const first = name.split(/[\s\-_]+/).filter(Boolean)[0] || '';
     if (FEMALE_SET.has(first)) return 'f';
@@ -151,13 +147,10 @@
   }
 
   function wanted() {
-    const settings = readSettings();
-    const voice = settings.voice || {};
+    const voice = readSettings().voice || {};
     return {
-      accent: ACCENTS.includes(voice.accent) ? voice.accent : 'us',
-      gender: GENDERS.includes(voice.gender) ? voice.gender : 'female',
       rate: Number.isFinite(Number(voice.rate)) ? Number(voice.rate) : 1,
-      picks: Array.isArray(voice.picks) ? voice.picks.filter((id) => typeof id === 'string').slice(0, MAX_PICKS) : [],
+      pick: typeof voice.pick === 'string' ? voice.pick : '',
     };
   }
 
@@ -166,7 +159,7 @@
     if (!('speechSynthesis' in window)) return [];
     try {
       const english = (window.speechSynthesis.getVoices() || []).filter((voice) => accentOf(voice) !== '');
-      const clean = english.filter((voice) => !isNoise(voice) && ALLOWED_REGIONS.has(regionOf(voice)));
+      const clean = english.filter((voice) => !isNoise(voice) && REGION_ORDER.includes(regionOf(voice)));
       if (english.length) hidden = english.length - clean.length;
       return clean;
     } catch (error) {
@@ -222,19 +215,16 @@
     return cache;
   }
 
-  function voiceRank(voice) {
-    return QUALITY_RANK[qualityOf(voice)];
+  function hiddenCount() {
+    if (!cache.length) cache = read();
+    return hidden;
   }
 
-  function bestOf(list) {
-    return list.slice().sort((a, b) => voiceRank(b) - voiceRank(a))[0] || null;
-  }
-
-  // 가장 좋은 품질 단계의 목소리만 남긴다(프리미엄이 있으면 기본 목소리는 쓰지 않는다).
-  function topTier(list) {
-    if (!list.length) return list;
-    const best = Math.max(...list.map(voiceRank));
-    return list.filter((voice) => voiceRank(voice) === best);
+  // 미국 → 영국 → 호주, 같은 지역 안에서는 품질 → 이름 순.
+  function compare(a, b) {
+    return (REGION_ORDER.indexOf(regionOf(a)) - REGION_ORDER.indexOf(regionOf(b)))
+      || (QUALITY_RANK[qualityOf(b)] - QUALITY_RANK[qualityOf(a)])
+      || String(a.name || '').localeCompare(String(b.name || ''));
   }
 
   function findById(id) {
@@ -242,12 +232,23 @@
     return DEVICE_VOICES.find((voice) => voice.voiceURI === id) || all().find((voice) => idOf(voice) === id) || null;
   }
 
-  // 설정에서 직접 고른 목소리 중 이 기기에 있는 것. 고른 순서를 지킨다.
+  // 설정에서 고른 목소리. 이 기기에 없으면 null.
   // iPad 기본 목소리는 목록이 비어 있어도(목소리를 아직 못 받았어도) 쓸 수 있다.
-  function picked() {
-    const ids = wanted().picks;
-    if (!ids.length) return [];
-    return ids.map(findById).filter(Boolean);
+  function chosen() {
+    return findById(wanted().pick);
+  }
+
+  // 고르지 않았을 때 쓸 목소리: 미국 → 영국 → 호주 중 품질이 가장 좋고, 같은 품질이면 여성 목소리를 먼저.
+  function autoVoice() {
+    const list = all().slice().sort(compare);
+    const best = list[0];
+    if (!best) return null;
+    const sameTier = list.filter((voice) => regionOf(voice) === regionOf(best) && qualityOf(voice) === qualityOf(best));
+    return sameTier.find((voice) => genderOf(voice) === 'f') || best;
+  }
+
+  function current() {
+    return chosen() || autoVoice();
   }
 
   // 재생할 문장에 목소리를 입힌다. iPad 기본 목소리는 voice 를 비워 두고 언어만 정한다.
@@ -262,210 +263,31 @@
     return utterance;
   }
 
-  // 설정 화면 목록: iPad 기본 목소리 3개 → 미국 → 영국 → 호주, 같은 지역 안에서는 품질 → 이름 순.
+  // 설정 화면 목록: iPad 기본 목소리 3개 → 미국 → 영국 → 호주.
   function catalog() {
-    const order = { us: 0, uk: 1, en: 2 };
-    const ids = wanted().picks;
-    const device = DEVICE_VOICES.map((voice) => ({
-      id: voice.voiceURI,
-      name: 'iPad 기본 목소리',
-      lang: voice.lang,
+    const pick = wanted().pick;
+    const row = (voice, device) => ({
+      id: idOf(voice),
+      name: device ? 'iPad 기본 목소리' : (String(voice.name || '').replace(/\s*\([^)]*\)\s*$/, '') || String(voice.name || '')),
+      lang: voice.lang || '',
       region: regionOf(voice),
-      gender: '',
-      quality: 'device',
-      pickOrder: ids.indexOf(voice.voiceURI),
+      gender: genderOf(voice),
+      quality: device ? 'device' : qualityOf(voice),
+      selected: idOf(voice) === pick,
       voice,
-    }));
-    return device.concat(all()
-      .map((voice) => ({
-        id: idOf(voice),
-        name: String(voice.name || '').replace(/\s*\([^)]*\)\s*$/, '') || String(voice.name || ''),
-        lang: voice.lang || '',
-        region: regionOf(voice),
-        gender: genderOf(voice),
-        quality: qualityOf(voice),
-        pickOrder: ids.indexOf(idOf(voice)),
-        voice,
-      }))
-      .sort((a, b) => (order[accentOf(a.voice)] - order[accentOf(b.voice)])
-        || (QUALITY_RANK[b.quality] - QUALITY_RANK[a.quality])
-        || a.name.localeCompare(b.name)));
+    });
+    return DEVICE_VOICES.map((voice) => row(voice, true))
+      .concat(all().slice().sort(compare).map((voice) => row(voice, false)));
   }
 
-  function hiddenCount() {
-    if (!cache.length) cache = read();
-    return hidden;
-  }
-
-  function countByAccent(list) {
-    const counts = { us: 0, uk: 0, en: 0 };
-    for (const voice of list) {
-      const accent = accentOf(voice);
-      if (accent) counts[accent] += 1;
-    }
-    return counts;
-  }
-
-  // 설정한 억양을 우선하되, 없으면 가장 가까운 영어 목소리로 내려간다.
-  function accentPool(accent) {
-    const list = all();
-    if (!list.length) return { pool: [], used: accent, fallback: true, reason: '기기에 영어 목소리가 없습니다.' };
-    const byUs = list.filter((voice) => accentOf(voice) === 'us');
-    const byUk = list.filter((voice) => accentOf(voice) === 'uk');
-    const byEn = list.filter((voice) => accentOf(voice) === 'en');
-    const order = accent === 'uk'
-      ? [[byUk, 'uk'], [byUs, 'us'], [byEn, 'en']]
-      : accent === 'mix'
-        ? [[byUs.concat(byUk), accent], [byEn, 'en']]
-        : [[byUs, 'us'], [byUk, 'uk'], [byEn, 'en']];
-    for (const [pool, used] of order) {
-      if (pool.length) {
-        return {
-          pool,
-          used,
-          fallback: used !== accent && !(accent === 'mix' && used === 'mix'),
-          reason: used === accent ? '' : `${label(accent)} 목소리가 없어 ${label(used)}로 대체했습니다.`,
-        };
-      }
-    }
-    return { pool: list, used: 'en', fallback: true, reason: '설정한 억양의 목소리가 없어 가까운 영어 목소리로 대체했습니다.' };
-  }
-
-  function label(accent) {
-    if (accent === 'us') return '미국식';
-    if (accent === 'uk') return '영국식';
-    if (accent === 'mix') return '섞기';
-    return '기타 영어';
-  }
-
-  function genderPool(list, gender) {
-    if (!list.length) return { pool: [], used: gender, fallback: true, reason: '기기에 영어 목소리가 없습니다.' };
-    const females = list.filter((voice) => genderOf(voice) === 'f');
-    const males = list.filter((voice) => genderOf(voice) === 'm');
-    if (gender === 'female' && females.length) return { pool: females, used: 'female', fallback: false, reason: '' };
-    if (gender === 'male' && males.length) return { pool: males, used: 'male', fallback: false, reason: '' };
-    if (gender === 'mix' && (females.length || males.length)) {
-      const pool = females.concat(males);
-      const missing = !females.length ? '여성' : !males.length ? '남성' : '';
-      return {
-        pool,
-        used: missing ? (females.length ? 'female' : 'male') : 'mix',
-        fallback: Boolean(missing),
-        reason: missing ? `${missing} 목소리가 없어 한 성별로만 재생합니다.` : '',
-      };
-    }
-    if (gender === 'female' && males.length) {
-      return { pool: males, used: 'male', fallback: true, reason: '여성 목소리가 없어 남성 목소리로 대체했습니다.' };
-    }
-    if (gender === 'male' && females.length) {
-      return { pool: females, used: 'female', fallback: true, reason: '남성 목소리가 없어 여성 목소리로 대체했습니다.' };
-    }
-    return { pool: list, used: gender, fallback: true, reason: '설정한 성별의 목소리를 찾지 못해 가까운 목소리로 대체했습니다.' };
-  }
-
-  // 두 역할에 서로 다른 목소리를 주려고 할 때 쓴다.
-  function pickDistinct(list, avoidName, preferBest) {
-    const fresh = list.filter((voice) => voice.name !== avoidName);
-    const pool = fresh.length ? fresh : list;
-    return preferBest ? bestOf(pool) : pool[Math.floor(Math.random() * pool.length)] || pool[0];
-  }
-
+  // 모의고사 안내·질문 모두 같은 목소리. meta.manual 은 설정에서 직접 고른 목소리인지.
   function examPair() {
-    const setting = wanted();
-    const chosen = picked();
-    if (chosen.length) {
-      const narrator = chosen[0];
-      const interviewer = chosen[1] || chosen[0];
-      return {
-        narrator,
-        interviewer,
-        meta: {
-          manual: true,
-          rate: setting.rate,
-          pair: {
-            differentVoice: narrator.name !== interviewer.name,
-            differentGender: Boolean(genderOf(narrator) && genderOf(interviewer) && genderOf(narrator) !== genderOf(interviewer)),
-          },
-        },
-      };
-    }
-    const accent = accentPool(setting.accent);
-    const meta = {
-      accent: { requested: setting.accent, used: accent.used, fallback: accent.fallback, reason: accent.reason },
-      gender: { requested: setting.gender, used: setting.gender, fallback: false, reason: '' },
-      rate: setting.rate,
-    };
-    if (!accent.pool.length) {
-      meta.gender = { requested: setting.gender, used: setting.gender, fallback: true, reason: '기기에 영어 목소리가 없습니다.' };
-      return { narrator: null, interviewer: null, meta };
-    }
-
-    const gender = genderPool(accent.pool, setting.gender);
-    meta.gender = { requested: setting.gender, used: gender.used, fallback: gender.fallback, reason: gender.reason };
-
-    const females = gender.pool.filter((voice) => genderOf(voice) === 'f');
-    const males = gender.pool.filter((voice) => genderOf(voice) === 'm');
-    let narrator = null;
-    let interviewer = null;
-
-    if (setting.gender === 'mix' && females.length && males.length) {
-      // 섞기: 나레이터와 면접관을 가능하면 다른 성별로.
-      const femaleFirst = examinerFlips();
-      narrator = bestOf(femaleFirst ? females : males);
-      interviewer = bestOf(femaleFirst ? males : females);
-    } else {
-      narrator = bestOf(gender.pool);
-      interviewer = pickDistinct(gender.pool, narrator ? narrator.name : '', true);
-    }
-
-    meta.pair = {
-      differentVoice: Boolean(narrator && interviewer && narrator.name !== interviewer.name),
-      differentGender: Boolean(narrator && interviewer && genderOf(narrator) !== genderOf(interviewer) && genderOf(narrator) && genderOf(interviewer)),
-    };
-    return { narrator, interviewer, meta };
+    const voice = current();
+    return { narrator: voice, interviewer: voice, meta: { manual: Boolean(chosen()), rate: wanted().rate } };
   }
 
-  // 모의고사 한 판 안에서는 같은 배정이 유지되도록, 판이 바뀔 때만 뒤집는다.
-  let examFlip = null;
-  function examinerFlips() {
-    if (examFlip === null) examFlip = Math.random() < 0.5;
-    return examFlip;
-  }
-
-  // 공부: 카드마다 성별 랜덤(설정이 섞기일 때), 고정이면 그 성별만. 직전 목소리는 피한다.
-  // 직접 고른 목소리가 있으면 그중에서만 돌아가며 읽는다.
   function study() {
-    const setting = wanted();
-    const chosen = picked();
-    if (chosen.length) {
-      const fresh = chosen.filter((voice) => voice.name !== lastStudyName);
-      const candidates = fresh.length ? fresh : chosen;
-      const next = candidates[Math.floor(Math.random() * candidates.length)] || chosen[0];
-      lastStudyName = next.name;
-      return next;
-    }
-    const accent = accentPool(setting.accent);
-    if (!accent.pool.length) return null;
-    const gender = genderPool(accent.pool, setting.gender);
-    const pool = gender.pool;
-    const female = pool.filter((voice) => genderOf(voice) === 'f');
-    const male = pool.filter((voice) => genderOf(voice) === 'm');
-
-    let bucket = pool;
-    if (setting.gender === 'mix' && female.length && male.length) {
-      bucket = Math.random() < 0.5 ? female : male;
-    } else if (setting.gender === 'female' && female.length) {
-      bucket = female;
-    } else if (setting.gender === 'male' && male.length) {
-      bucket = male;
-    }
-    bucket = topTier(bucket);
-
-    const fresh = bucket.filter((voice) => voice.name !== lastStudyName);
-    const candidates = fresh.length ? fresh : bucket;
-    const choice = candidates[Math.floor(Math.random() * candidates.length)] || pool[0];
-    lastStudyName = choice.name;
-    return choice;
+    return current();
   }
 
   function rate() {
@@ -485,48 +307,26 @@
   }
 
   function status() {
-    const setting = wanted();
     const list = all();
-    const accent = accentPool(setting.accent);
-    const gender = genderPool(accent.pool, setting.gender);
-    const counts = countByAccent(list);
-    const available = accent.used === 'mix' ? counts.us + counts.uk : counts[accent.used] || 0;
-    const chosen = picked();
+    const pick = wanted().pick;
+    const picked = chosen();
+    const voice = picked || autoVoice();
     return {
       ready: list.length > 0,
       total: list.length,
       hidden,
-      counts,
-      manual: {
-        requested: setting.picks.length,
-        found: chosen.length,
-        names: chosen.map((voice) => voice.name),
-      },
-      settings: { accent: setting.accent, gender: setting.gender, rate: setting.rate },
-      accent: {
-        requested: setting.accent,
-        used: accent.used,
-        fallback: accent.fallback,
-        reason: accent.reason,
-        available,
-      },
-      gender: {
-        requested: setting.gender,
-        used: gender.used,
-        fallback: gender.fallback,
-        reason: gender.reason,
-        available: gender.pool.length,
-      },
-      hint: list.length
-        ? ''
-        : '목소리 목록이 아직 비어 있습니다. 잠시 뒤 다시 확인해 주세요.',
+      manual: Boolean(picked),
+      missing: Boolean(pick && !picked),
+      name: voice ? voice.name : '',
+      hint: list.length ? '' : '목소리 목록이 아직 비어 있습니다. 잠시 뒤 다시 확인해 주세요.',
     };
   }
 
+  // 미리 듣기. {started, ended} 로 끝난다. started=false 면 이 기기에서 소리가 나지 않은 것이다.
   function preview(text, options) {
     const say = String(text || PREVIEW_TEXT);
     if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
-      return Promise.resolve(false);
+      return Promise.resolve({ started: false, ended: false });
     }
     const synth = window.speechSynthesis;
     try { synth.cancel(); } catch (error) { /* noop */ }
@@ -534,25 +334,23 @@
     try {
       utter = new window.SpeechSynthesisUtterance(say);
     } catch (error) {
-      return Promise.resolve(false);
+      return Promise.resolve({ started: false, ended: false });
     }
-    const chosen = picked();
-    const byId = options && options.voiceId ? findById(options.voiceId) : null;
-    const voice = byId
-      || (chosen.length ? chosen[0] : null)
-      || ((options && options.gender && options.gender !== 'mix')
-        ? pickByGender(accentPool(wanted().accent).pool, options.gender)
-        : study());
-    utter.lang = wanted().accent === 'uk' ? 'en-GB' : 'en-US';
+    const voice = (options && options.voiceId ? findById(options.voiceId) : null) || current();
+    utter.lang = 'en-US';
     use(utter, voice);
     utter.rate = options && Number.isFinite(Number(options.rate)) ? Number(options.rate) : rate();
     return new Promise((resolve) => {
+      let started = false;
       let done = false;
-      const finish = (ok) => {
+      const finish = (ended) => {
         if (done) return;
         done = true;
-        resolve(ok);
+        window.clearTimeout(timer);
+        resolve({ started, ended });
       };
+      const timer = window.setTimeout(() => { if (!started) finish(false); }, PREVIEW_START_MS);
+      utter.onstart = () => { started = true; };
       utter.onend = () => finish(true);
       utter.onerror = () => finish(false);
       try {
@@ -563,20 +361,8 @@
     });
   }
 
-  function pickByGender(list, gender) {
-    const pool = genderPool(list, gender).pool;
-    return pool.length ? bestOf(pool) : null;
-  }
-
-  // 설정이 바뀌면 모의고사 배정도 다음 판부터 새로 고른다.
-  try {
-    window.addEventListener('app-settings-change', () => { examFlip = null; });
-  } catch (error) {
-    /* noop */
-  }
-
   window.SpeechVoice = {
-    load, all, catalog, hiddenCount, idOf, picked, examPair, study, use,
-    genderOf, qualityOf, rate, applyRate, status, preview, accentOf,
+    load, all, catalog, hiddenCount, idOf, current, auto: autoVoice, examPair, study, use,
+    genderOf, qualityOf, accentOf, rate, applyRate, status, preview,
   };
 })();

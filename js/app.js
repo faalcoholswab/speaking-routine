@@ -1815,11 +1815,6 @@
 
     const utterance = new SpeechSynthesisUtterance(card.en);
     utterance.lang = 'en-US';
-    if (window.AppSettings) {
-      try {
-        if (window.AppSettings.get().voice.accent === 'uk') utterance.lang = 'en-GB';
-      } catch (error) { /* noop */ }
-    }
     // 우선순위: 학습 화면에서 1×가 아닌 속도를 골랐으면 그 값, 아니면 설정의 기본 속도.
     const studySpeed = Number(state.settings.speed) || 1;
     const voiceRate = window.SpeechVoice && typeof window.SpeechVoice.rate === 'function'

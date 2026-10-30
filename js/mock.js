@@ -392,15 +392,7 @@
       utter.rate = Math.min(2, Math.max(0.5, Number(spokenRate) || 1));
       utter.pitch = 1;
       const voice = role === 'interviewer' ? examVoices.interviewer : examVoices.narrator;
-      if (voice) {
-        window.SpeechVoice.use(utter, voice);
-      } else {
-        let accent = 'us';
-        try {
-          if (window.AppSettings) accent = window.AppSettings.get().voice.accent;
-        } catch (error) { /* noop */ }
-        utter.lang = accent === 'uk' ? 'en-GB' : 'en-US';
-      }
+      if (voice) window.SpeechVoice.use(utter, voice);
 
       const words = String(text).trim().split(/\s+/).length;
       const limit = (words / (150 * utter.rate)) * 60000 + 3500;

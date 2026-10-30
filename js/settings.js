@@ -1,5 +1,5 @@
 /* =========================================================
-   앱 설정 저장소 — 음성(억양·성별·속도·직접 고른 목소리)과 자동 채점
+   앱 설정 저장소 — 음성(고른 목소리·속도)과 자동 채점
    window.AppSettings 계약 (Muse 설정 화면과 공유):
      KEY, DEFAULTS, load(), get(), set(patch), subscribe(fn),
      reset(), export(), import(value), persisted
@@ -12,15 +12,12 @@
   const KEY = 'speaking-routine-app-settings-v1';
 
   const DEFAULTS = {
-    voice: { accent: 'us', gender: 'female', rate: 1, picks: [] },
+    voice: { rate: 1, pick: '' },
     autoScore: true,
   };
 
-  const ACCENTS = ['us', 'uk', 'mix'];
-  const GENDERS = ['female', 'male', 'mix'];
   const RATE_MIN = 0.5;
   const RATE_MAX = 2;
-  const MAX_PICKS = 20;
   const EVENT = 'app-settings-change';
 
   let storage = null;
@@ -49,14 +46,6 @@
     return storage;
   }
 
-  function fixAccent(value) {
-    return ACCENTS.includes(value) ? value : DEFAULTS.voice.accent;
-  }
-
-  function fixGender(value) {
-    return GENDERS.includes(value) ? value : DEFAULTS.voice.gender;
-  }
-
   function fixRate(value) {
     const number = Number(value);
     if (!Number.isFinite(number)) return DEFAULTS.voice.rate;
@@ -64,16 +53,14 @@
     return Math.round(clamped * 100) / 100;
   }
 
-  // 직접 고른 목소리의 voiceURI 목록. 기기마다 다르므로 없는 목소리는 재생 때 건너뛴다.
-  function fixPicks(value) {
-    if (!Array.isArray(value)) return [];
-    const out = [];
-    for (const id of value) {
-      if (typeof id !== 'string' || !id || id.length > 200 || out.includes(id)) continue;
-      out.push(id);
-      if (out.length >= MAX_PICKS) break;
-    }
-    return out;
+  // 고른 목소리의 id(voiceURI 또는 device:en-GB 같은 iPad 기본 목소리). 기기에 없으면 재생 때 자동으로 고른다.
+  // v39~v41 은 여러 개를 고르는 picks 배열이었다. 그때 값은 첫 번째 목소리로 옮긴다.
+  function fixPick(value, legacyPicks) {
+    const ok = (id) => typeof id === 'string' && id.length > 0 && id.length <= 200;
+    if (ok(value)) return value;
+    if (typeof value === 'string') return '';
+    if (Array.isArray(legacyPicks)) return legacyPicks.find(ok) || '';
+    return '';
   }
 
   function fixAutoScore(value) {
@@ -85,10 +72,8 @@
     const base = copy(DEFAULTS);
     if (!raw || typeof raw !== 'object') return base;
     const voice = raw.voice && typeof raw.voice === 'object' ? raw.voice : {};
-    base.voice.accent = fixAccent(voice.accent);
-    base.voice.gender = fixGender(voice.gender);
     base.voice.rate = fixRate(voice.rate);
-    base.voice.picks = fixPicks(voice.picks);
+    base.voice.pick = fixPick(voice.pick, voice.picks);
     base.autoScore = fixAutoScore(raw.autoScore);
     return base;
   }
@@ -98,10 +83,8 @@
     if (!patch || typeof patch !== 'object') return out;
     const voice = patch.voice;
     if (voice && typeof voice === 'object') {
-      if ('accent' in voice) out.voice.accent = voice.accent;
-      if ('gender' in voice) out.voice.gender = voice.gender;
       if ('rate' in voice) out.voice.rate = voice.rate;
-      if ('picks' in voice) out.voice.picks = voice.picks;
+      if ('pick' in voice) out.voice.pick = voice.pick;
     }
     if ('autoScore' in patch) out.autoScore = patch.autoScore;
     return out;
