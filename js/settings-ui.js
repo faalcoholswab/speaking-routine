@@ -443,6 +443,7 @@
     if (quality === 'premium') return ' <span class="st-badge premium">프리미엄</span>';
     if (quality === 'enhanced') return ' <span class="st-badge enhanced">고품질</span>';
     if (quality === 'legacy') return ' <span class="st-badge">옛 음성</span>';
+    if (quality === 'low') return ' <span class="st-badge">저음질</span>';
     return '';
   }
 
@@ -472,7 +473,7 @@
       const meta = row.auto
         ? (autoVoice ? `지금은 ${autoVoice.name} · 미국 → 영국 → 호주 순으로 기기에 있는 목소리를 골라요` : '미국 → 영국 → 호주 순으로 기기에 있는 목소리를 골라요')
         : row.quality === 'device'
-          ? `${row.region} · iPad가 이 언어에 정한 목소리로 읽어요`
+          ? `${row.region} · iPad 설정에서 고른 목소리로 읽어요`
           : [row.region, genderLabel[row.gender]].filter(Boolean).join(' · ');
       const hear = row.auto && !autoVoice
         ? ''
@@ -499,7 +500,7 @@
       <ul class="st-list st-voices" role="radiogroup" aria-label="목소리">${items}</ul>
       <p class="st-note">${esc(summary)}</p>
       ${diagMarkup()}
-      ${goodNum ? '' : '<p class="st-note">iPad Safari는 내려받은 고품질·프리미엄 목소리를 목록에 보여 주지 않아요. \'iPad 기본 목소리\'는 iPad가 그 언어에 정한 목소리로 읽어요. iPad 설정에서 고른 고품질 목소리가 쓰이는지는 아직 확인 중이에요. 지역에 따라 소리가 나지 않을 수 있으니 듣기로 먼저 확인해 주세요.</p>'}
+      ${goodNum ? '' : '<p class="st-note">iPad Safari는 내려받은 고품질·프리미엄 목소리를 목록에 보여 주지 않아요. iPad 설정의 음성 목록에서 목소리를 고른 뒤 \'iPad 기본 목소리\'를 고르면 그 목소리로 읽어요. 다만 음질은 iPad 설정에서 들을 때보다 낮을 수 있어요. 지역에 따라 소리가 나지 않을 수 있으니 듣기로 먼저 확인해 주세요.</p>'}
     </section>
     <section class="st-card">
       <div class="st-row">
