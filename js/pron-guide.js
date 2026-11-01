@@ -326,11 +326,159 @@
   const USE_DETERMINERS = new Set(['their', 'the', 'a', 'an', 'my', 'our', 'your', 'his', 'her', 'its', 'good']);
   const CLOSE_NOUNS = new Set(['friend', 'friends', 'family', 'relatives', 'coworker', 'coworkers', 'attention', 'contact', 'to']);
 
-  const DISCOURSE_RE = /^(In my opinion|In my view|From my point of view|As far as I'm concerned|Personally|Generally speaking|To be honest|First of all|Secondly|On top of that|In addition|For example|For instance|Take [^,]+, for example|On the other hand|Of course|However|As a result|Because of this[^,]*|In conclusion|All things considered|To sum up|Therefore|So, overall|For these reasons)\b/i;
-  const FRONTED_CLAUSE_RE = /^(When|If|Before|After|While|Even though|Although|Without|During|Once|According to|Thanks to|In my free time|On rainy days|On holidays|Last month|A few years ago)\b[^,]*,/i;
-  const COMPARE_RE = /\b(prefer\b|rather than\b|more [a-z-]+ than\b|[a-z]{3,}er than\b|as [a-z-]+ as\b|outweigh\b|instead of\b)/i;
-  const REASON_RE = /\b(because|so I|so we|so workers|that's why|this is because|this is the main reason)\b/i;
-  const LIST_RE = /,\s+[A-Za-z-]+,\s+and\b/;
+  // ── 끊어 읽기·억양 규칙(책 #1~#8) ────────────────────────────────
+  // 규칙을 적용한 결과는 원문에서 공백 하나를 " / "로 바꾸고 화살표만 덧붙인 것이다.
+  // 화살표를 지우고 " / "를 " "로 되돌리면 원문과 글자 단위로 같아야 한다.
+  const ABBREVIATIONS = new Set([
+    'mr', 'mrs', 'ms', 'dr', 'prof', 'st', 'jr', 'sr', 'vs', 'etc', 'inc', 'ltd', 'co',
+    'no', 'fig', 'approx', 'a.m', 'p.m', 'e.g', 'i.e', 'u.s',
+  ]);
+
+  const WH_WORDS = new Set(['what', 'where', 'when', 'who', 'whom', 'whose', 'why', 'how', 'which']);
+
+  const AUX_WORDS = new Set([
+    'is', 'are', 'was', 'were', 'am', 'be', 'been', 'being', 'do', 'does', 'did',
+    'have', 'has', 'had', 'will', 'would', 'can', 'could', 'should', 'may', 'might',
+    'must', 'shall', 'cannot',
+  ]);
+
+  const SUBJECT_WORDS = new Set([
+    'i', 'we', 'you', 'he', 'she', 'they', 'it', 'people', 'everyone', 'someone',
+    'anyone', 'nobody', 'somebody', 'there', 'this', 'that', 'these', 'those',
+  ]);
+
+  const DETERMINERS = new Set([
+    'the', 'a', 'an', 'this', 'that', 'these', 'those', 'my', 'your', 'his', 'her',
+    'its', 'our', 'their', 'some', 'any', 'many', 'much', 'more', 'less', 'most',
+    'all', 'each', 'every', 'no', 'another', 'both', 'few', 'several', 'such', 'own',
+  ]);
+
+  const ADVERBS = new Set([
+    'especially', 'also', 'then', 'now', 'often', 'usually', 'really', 'still', 'just',
+    'mostly', 'never', 'always', 'only', 'even', 'actually', 'generally', 'personally',
+    'sometimes', 'recently', 'already', 'almost', 'quite', 'rather', 'soon', 'later',
+    'probably', 'definitely', 'certainly', 'simply', 'together',
+  ]);
+
+  // 불규칙 과거형(주어+동사·정동사 판별용)
+  const IRREGULAR_PAST = new Set([
+    'went', 'made', 'took', 'gave', 'came', 'saw', 'got', 'said', 'found', 'knew',
+    'thought', 'told', 'became', 'began', 'brought', 'built', 'bought', 'held', 'kept',
+    'left', 'led', 'met', 'paid', 'ran', 'rose', 'sold', 'sent', 'sat', 'spent',
+    'stood', 'understood', 'won', 'wrote', 'spoke', 'chose', 'grew', 'fell', 'felt',
+    'heard', 'lost', 'meant', 'slept', 'wore', 'ate', 'drank', 'drove', 'rode', 'taught',
+    'caught', 'threw', 'flew', 'showed',
+  ]);
+
+  const VERB_BASE = new Set([
+    'accept', 'add', 'affect', 'agree', 'allow', 'apply', 'arrive', 'ask',
+    'attend', 'avoid', 'balance', 'become', 'begin', 'believe', 'belong', 'bicycle',
+    'book', 'boost',
+    'borrow', 'break', 'bring', 'build', 'buy', 'call', 'carry', 'catch', 'cause',
+    'change', 'check', 'choose', 'clean', 'close', 'come', 'communicate', 'compare',
+    'complete', 'concentrate', 'consider', 'continue', 'control', 'cook', 'cooperate',
+    'cover', 'create', 'cut', 'deal', 'decide', 'deliver', 'depend', 'develop', 'die',
+    'discover', 'discuss', 'draw', 'drink', 'drive', 'earn', 'eat', 'encourage',
+    'enjoy', 'enter', 'exercise', 'expect', 'explain', 'explore', 'express', 'fall',
+    'feel', 'fill', 'find', 'finish', 'fit', 'fix', 'focus', 'follow', 'forget',
+    'gain', 'get', 'give', 'go', 'grow', 'handle', 'happen', 'hear', 'help', 'hold',
+    'hope', 'imagine', 'improve', 'include', 'increase', 'introduce', 'invest', 'join',
+    'keep', 'know', 'lead', 'learn', 'leave', 'let', 'limit', 'listen', 'live', 'look',
+    'lose', 'love', 'maintain', 'make', 'manage', 'matter', 'mean', 'meet', 'move',
+    'need', 'offer', 'open', 'order', 'organize', 'pay', 'perform', 'pick', 'plan',
+    'play', 'practice', 'prefer', 'prepare', 'present', 'prevent', 'produce',
+    'promote', 'protect', 'provide', 'publish', 'put', 'reach', 'read', 'receive',
+    'reconsider', 'recycle', 'recommend', 'reduce', 'relax', 'remain', 'remember',
+    'remove', 'repeat', 'replace', 'reply', 'report', 'require', 'respond', 'rest',
+    'return', 'ride', 'rise', 'run', 'save', 'say', 'see', 'seek', 'seem', 'sell',
+    'send', 'serve', 'set', 'share', 'shop', 'show', 'sit', 'sleep', 'solve', 'spend',
+    'speak', 'start', 'stay', 'stop', 'study', 'succeed', 'suggest', 'support', 'take',
+    'talk', 'teach', 'tell', 'tend', 'think', 'throw', 'track', 'train', 'travel',
+    'try', 'turn', 'understand', 'use', 'visit', 'wait', 'wake', 'walk',
+    'want', 'watch', 'wear', 'welcome', 'win', 'wish', 'work', 'worry', 'write',
+  ]);
+
+  const CONJ_WORDS = new Set(['and', 'but', 'or', 'so', 'yet', 'nor']);
+  const CLAUSE_MARKERS = new Set([
+    'because', 'although', 'though', 'while', 'if', 'unless', 'since', 'until', 'till',
+    'whenever', 'whereas',
+  ]);
+  const RELATIVE_WORDS = new Set(['who', 'whom', 'whose', 'which', 'that', 'when', 'where', 'why', 'how']);
+
+  // 지시어 "that + 명사"를 만드는 타동사(규칙 5): I like that book …
+  const DEMONSTRATIVE_VERBS = new Set([
+    'like', 'likes', 'liked', 'love', 'loves', 'loved', 'enjoy', 'enjoys', 'enjoyed',
+    'read', 'reads', 'buy', 'buys', 'bought', 'want', 'wants', 'wanted', 'need',
+    'needs', 'needed', 'see', 'saw', 'seen', 'watch', 'watched', 'have', 'has', 'had',
+    'prefer', 'prefers', 'preferred', 'choose', 'chose', 'chosen', 'found', 'find',
+    'keep', 'kept', 'remember', 'remembered', 'recommend', 'recommended',
+  ]);
+
+  // "the statement that …"처럼 내용 명사 뒤 that절은 보충절로 본다(규칙 11 팁).
+  const CONTENT_NOUNS = new Set([
+    'statement', 'fact', 'idea', 'belief', 'reason', 'possibility', 'news',
+    'feeling', 'opinion', 'thought', 'claim', 'evidence', 'proof', 'chance',
+  ]);
+
+  const PREPOSITIONS = new Set([
+    'in', 'on', 'at', 'with', 'for', 'from', 'during', 'after', 'before', 'through',
+    'without', 'between', 'among', 'about', 'along', 'across', 'near', 'under', 'over',
+    'into', 'around', 'despite', 'toward', 'against', 'within', 'beyond', 'by',
+  ]);
+
+  // 붙어 다니는 짝은 전치사 앞에서 끊지 않는다(규칙 7).
+  const FIXED_PAIRS = new Set([
+    'interested in', 'succeed in', 'believe in', 'result in', 'engage in', 'arrive in',
+    'depend on', 'depends on', 'rely on', 'focus on', 'work on', 'spend on', 'based on',
+    'look forward to', 'looking forward to', 'due to', 'thanks to', 'according to',
+    'because of', 'instead of', 'in order to', 'as well as', 'good at', 'deal with',
+    'take care of', 'pay attention to', 'a lot of', 'lots of', 'kind of', 'part of',
+    'one of', 'some of', 'most of', 'all of', 'at least', 'on time', 'in time',
+    'by the time', 'in addition to', 'as a result of', 'on behalf of', 'in front of',
+    'close to', 'next to', 'similar to', 'compared to', 'related to', 'different from',
+    'far from', 'worried about', 'excited about', 'think about', 'talk about',
+    'ask for', 'wait for', 'looking for', 'prepare for', 'known for', 'known as',
+    'famous for', 'responsible for', 'access to', 'key to', 'respond to', 'listen to',
+    'lead to', 'contribute to', 'belong to', 'refer to', 'apply for', 'care about',
+    'caring for', 'looking at', 'worried about', 'talk with', 'meet with', 'agree with',
+    'like to', 'want to', 'need to', 'have to', 'going to', 'try to', 'plan to',
+    'hope to', 'love to', 'used to', 'able to', 'seem to', 'learn to', 'help to',
+    'prefer to', 'would like to', 'decide to', 'begin to', 'manage to',
+    'not to', 'how to', 'work for', 'try on', 'them on', 'it on', 'me on',
+    'work from', 'working from', 'come from', 'comes from',
+    'learn about', 'more about', 'good for',
+    // 동사+전치사 고정 짝(규칙 7) — 활용형은 wordStems가 표제형으로 되돌린다.
+    'forget about', 'worry about', 'hear about', 'look at', 'look for', 'pay for',
+    'care for', 'talk to', 'speak to', 'write about', 'read about', 'know about',
+    'ask about', 'hear from', 'suffer from', 'benefit from', 'protect from',
+    'prevent from', 'differ from', 'recover from', 'apologize for', 'thank for',
+    'search for', 'hope for', 'stand for', 'account for', 'call for', 'look after',
+    'look into', 'run into', 'come across', 'get over', 'go through', 'cope with',
+    'disagree with', 'comply with', 'concentrate on', 'count on', 'decide on',
+    'comment on', 'reflect on', 'insist on', 'participate in', 'take part in',
+    'specialize in', 'invest in',
+  ]);
+
+  // to 뒤에 오면 전치사로 보는 명사(규칙 6).
+  const NOUN_AFTER_TO = new Set([
+    'work', 'school', 'bed', 'church', 'lunch', 'dinner', 'breakfast', 'home', 'town',
+    'downtown', 'college', 'university', 'korea', 'seoul', 'jeju', 'japan', 'europe',
+    'me', 'him', 'her', 'us', 'them', 'you', 'it', 'one', 'two', 'three',
+  ]);
+
+  const TIP_TEXT = {
+    list: '나열 구문은 앞 항목 끝을 살짝 올리고(↗) 마지막 and 뒤 항목에서 확실히 내려(↘) 완결감을 주세요.',
+    listContinue: '나열은 앞 항목 끝을 살짝 올리고(↗) 마지막 항목이 문장 중간에서 이어지면 그 끝은 올리지 않고 유지(→)한 뒤 다음 말로 이어 가요.',
+    relative: '관계사(who·which·that·where·how) 앞에서 짧게 쉬고(/) 관계절은 한 덩어리로 이어 읽어요.',
+    complement: 'that이 관계사가 아니라 접속사로 절을 시작할 때 그 앞에서 짧게 쉬고(/) that절은 한 덩어리로 이어 읽어요.',
+    infinitive: 'to부정사 앞에서 호흡을 나누고(/) to 뒤 동사구는 한 덩어리로 읽어요.',
+    clause: '접속사로 두 절(주어+동사)이 이어질 때만 앞에서 짧게 쉬고(/) 한 절 안에서는 끊지 않아요.',
+    verbphrase: '동사구를 and·or로 나란히 이을 때는 끊지 않고 한 호흡으로 이어 읽어요(주어는 한 번만 말해요).',
+    comma: '도입어·부사구 뒤 쉼표는 살짝 유지(→)하며 반 박자 쉬고, 문장 끝은 내려(↘) 맺어요.',
+    prep: '긴 덩어리에서만 전치사 앞을 마지막 수단으로 끊고(/) 붙어 다니는 짝은 그대로 이어 읽어요(interested in, depend on).',
+  };
+  const TIP_ORDER = ['listContinue', 'list', 'relative', 'complement', 'infinitive', 'clause', 'verbphrase', 'comma', 'prep'];
+  const DEFAULT_TIP = '의미 덩어리(/)마다 호흡을 묶어 내용어(명사·동사·형용사)는 길고 또렷하게, 기능어는 약하게 줄여 끝을 내려요(↘).';
 
   function syllables(word) {
     return (word.replace(/e$/i, '').match(/[aeiouy]+/gi) || [1]).length;
@@ -409,45 +557,529 @@
     return '';
   }
 
-  function chunkSegment(segment) {
-    const clean = segment.trim();
-    const words = clean.split(/\s+/).filter(Boolean);
-    if (words.length < 8) return clean;
+  function baseWord(lower) {
+    return lower.replace(/['’](s|ll|ve|re|d|m)$/i, '');
+  }
 
-    const rules = [
-      {
-        re: /\b(because of|because|instead of|rather than|such as|even if|so that|than|when|while|before|after|until|since|where|which|that|why|but|so)\b/gi,
-        minLeft: 3,
-        minRight: 2,
-      },
-      { re: /\b(and|or)\b/gi, minLeft: 4, minRight: 3 },
-      { re: /\b(gives|helps|makes|outweigh|cannot|can|should|would|is|are)\b/gi, minLeft: 4, minRight: 4 },
-      {
-        re: /\b(in order to|at least|once a|twice a|three times|every few|about|during|through|without|between|near|along|from|with|for|by|on|at|in)\b/gi,
-        minLeft: 4,
-        minRight: 3,
-      },
-      { re: /\bto\s+[a-z]{3,}\b/gi, minLeft: 4, minRight: 3 },
-    ];
+  // 활용형(-ed/-s/-es/-ing)을 벗긴 표제형까지 돌려준다.
+  // 고정 짝 조회용: 활용형(-s·-ed·-ing)과 불규칙 과거형을 표제형까지 되돌린다(규칙 7).
+  const IRREGULAR_BASES = {
+    has: 'have', does: 'do', did: 'do', done: 'do', went: 'go', gone: 'go',
+    saw: 'see', seen: 'see', took: 'take', taken: 'take', gave: 'give', given: 'give',
+    wrote: 'write', written: 'write', spoke: 'speak', spoken: 'speak',
+    broke: 'break', broken: 'break', chose: 'choose', chosen: 'choose',
+    drove: 'drive', driven: 'drive', ate: 'eat', eaten: 'eat', fell: 'fall',
+    fallen: 'fall', knew: 'know', known: 'know', grew: 'grow', grown: 'grow',
+    threw: 'throw', thrown: 'throw', flew: 'fly', flown: 'fly', drew: 'draw',
+    drawn: 'draw', began: 'begin', begun: 'begin', drank: 'drink', drunk: 'drink',
+    sang: 'sing', sung: 'sing', swam: 'swim', swum: 'swim', rose: 'rise',
+    risen: 'rise', led: 'lead', fed: 'feed', fled: 'flee', sought: 'seek',
+    fought: 'fight', thought: 'think', brought: 'bring', bought: 'buy',
+    caught: 'catch', taught: 'teach', built: 'build', lent: 'lend', sent: 'send',
+    spent: 'spend', bent: 'bend', meant: 'mean', dealt: 'deal', heard: 'hear',
+    paid: 'pay', laid: 'lay', said: 'say', made: 'make', had: 'have',
+    hid: 'hide', hidden: 'hide', bit: 'bite', bitten: 'bite', beat: 'beat',
+    beaten: 'beat', became: 'become', came: 'come', ran: 'run', sat: 'sit',
+    stood: 'stand', understood: 'understand', wore: 'wear', worn: 'wear',
+    won: 'win', lost: 'lose', left: 'leave', felt: 'feel', kept: 'keep',
+    slept: 'sleep', met: 'meet', told: 'tell', sold: 'sell', held: 'hold',
+    got: 'get', gotten: 'get', forgot: 'forget', forgotten: 'forget',
+    froze: 'freeze', frozen: 'freeze', stole: 'steal', stolen: 'steal',
+    woke: 'wake', woken: 'wake',
+  };
 
-    for (let r = 0; r < rules.length; r += 1) {
-      const { re, minLeft, minRight } = rules[r];
-      let match;
-      while ((match = re.exec(clean)) !== null) {
-        if (match.index === 0) continue;
-        const left = clean.slice(0, match.index).trim();
-        const right = clean.slice(match.index).trim();
-        const leftWords = left.split(/\s+/).filter(Boolean).length;
-        const rightWords = right.split(/\s+/).filter(Boolean).length;
-        if (leftWords >= minLeft && rightWords >= minRight) {
-          const leftChunked = leftWords >= 10 ? chunkSegment(left) : left;
-          const rightChunked = rightWords >= 10 ? chunkSegment(right) : right;
-          return `${leftChunked} / ${rightChunked}`;
+  function wordStems(lower, rich = false) {
+    const forms = new Set([lower]);
+    if (rich && IRREGULAR_BASES[lower]) forms.add(IRREGULAR_BASES[lower]);
+    // studies → study, worried → worry
+    if (rich && /ies$/.test(lower)) forms.add(`${lower.slice(0, -3)}y`);
+    if (rich && /ied$/.test(lower)) forms.add(`${lower.slice(0, -3)}y`);
+    if (/ing$/.test(lower)) {
+      const stem = lower.slice(0, -3);
+      forms.add(stem);
+      forms.add(`${stem}e`);
+      // forgetting → forget, stopping → stop
+      if (rich && /([bcdfghjklmnpqrstvwxz])\1$/.test(stem)) forms.add(stem.slice(0, -1));
+    }
+    if (/ed$/.test(lower)) {
+      const stem = lower.slice(0, -2);
+      forms.add(stem);
+      forms.add(lower.slice(0, -1));
+      // stopped → stop, planned → plan
+      if (rich && /([bcdfghjklmnpqrstvwxz])\1$/.test(stem)) forms.add(stem.slice(0, -1));
+    }
+    if (/es$/.test(lower)) forms.add(lower.slice(0, -2));
+    if (/s$/.test(lower)) forms.add(lower.slice(0, -1));
+    return forms;
+  }
+
+  function isFixedPair(prev, next) {
+    // 전치사 짝은 불규칙·중복자음·y→i 활용형까지 표제형으로 맞춘다.
+    const rich = PREPOSITIONS.has(next);
+    for (const a of wordStems(prev, rich)) {
+      for (const b of wordStems(next, false)) {
+        if (FIXED_PAIRS.has(`${a} ${b}`)) return true;
+      }
+    }
+    return false;
+  }
+
+  // 정동사(현재·과거·3인칭)만. -ing·원형은 PP 뒤 정동사 판정에서 뺀다.
+  function isFiniteForm(lower) {
+    if (AUX_WORDS.has(lower)) return true;
+    if (/ed$/.test(lower)) return true;
+    if (/s$/.test(lower) && isVerbForm(lower)) return true;
+    return IRREGULAR_PAST.has(lower);
+  }
+
+  function isVerbForm(lower) {
+    if (AUX_WORDS.has(lower) || VERB_BASE.has(lower) || IRREGULAR_PAST.has(lower)) return true;
+    if (/ed$/.test(lower)) return true;
+    if (/ing$/.test(lower)) {
+      const stem = lower.slice(0, -3);
+      return VERB_BASE.has(stem) || VERB_BASE.has(`${stem}e`);
+    }
+    if (/s$/.test(lower)) return VERB_BASE.has(lower.slice(0, -1));
+    return false;
+  }
+
+  function tokenize(text) {
+    const re = /[A-Za-z]+(?:['’-][A-Za-z]+)*|\d+(?:[.:]\d+)*|[^\sA-Za-z0-9]/g;
+    const tokens = [];
+    let match;
+    while ((match = re.exec(text)) !== null) {
+      tokens.push({
+        text: match[0],
+        start: match.index,
+        end: match.index + match[0].length,
+        isWord: /[A-Za-z0-9]/.test(match[0].charAt(0)),
+      });
+    }
+    return tokens;
+  }
+
+  function isAbbreviationDot(text, dotIndex) {
+    const before = text.slice(Math.max(0, dotIndex - 12), dotIndex);
+    const word = (before.match(/([A-Za-z][A-Za-z.]*)$/) || [])[1];
+    if (!word) return false;
+    if (/^[A-Z]$/.test(word)) return true;
+    return ABBREVIATIONS.has(word.toLowerCase().replace(/\.+$/, ''));
+  }
+
+  // 문장 단위로 먼저 나눈다(규칙 1). 마침표·물음표·느낌표 뒤 공백에서 자른다.
+  function splitSentences(text) {
+    const out = [];
+    const re = /([.!?]+)(["'”’)\]]*)(\s+|$)/g;
+    let start = 0;
+    let match;
+    while ((match = re.exec(text)) !== null) {
+      const end = match.index + match[1].length + match[2].length;
+      if (match[1] === '.' && isAbbreviationDot(text, match.index)) continue;
+      out.push({ text: text.slice(start, end), punct: match[1], gap: match[3] });
+      start = end + match[3].length;
+    }
+    if (start < text.length) out.push({ text: text.slice(start).trim(), punct: '', gap: '' });
+    return out;
+  }
+
+  function endArrow(sentenceText) {
+    const text = sentenceText.trimEnd();
+    const match = text.match(/([.!?])["'”’)\]]*$/);
+    if (!match) return '';
+    if (match[1] !== '?') return '↘';
+    const first = (text.match(/^[A-Za-z]+/) || [''])[0].toLowerCase();
+    // 규칙 8: 의문사 의문문은 내림, 예/아니요 의문문은 올림
+    return WH_WORDS.has(first) ? '↘' : '↗';
+  }
+
+  function isClauseStart(words, start) {
+    let i = start;
+    while (i < words.length && ADVERBS.has(words[i].base)) i += 1;
+    if (i >= words.length) return false;
+    const word = words[i].base;
+    if (AUX_WORDS.has(word) || isVerbForm(word)) return true;
+    if (SUBJECT_WORDS.has(word) || DETERMINERS.has(word)) {
+      for (let j = i + 1; j < Math.min(i + 5, words.length); j += 1) {
+        const next = words[j].base;
+        if (AUX_WORDS.has(next) || isVerbForm(next)) return true;
+      }
+      return false;
+    }
+    // 명사 주어 + 동사
+    if (words[i + 1] && isVerbForm(words[i + 1].base)) return true;
+    return false;
+  }
+
+  function hasVerbBefore(words, limit) {
+    for (let i = Math.max(0, limit - 10); i < limit; i += 1) {
+      if (AUX_WORDS.has(words[i].base) || isVerbForm(words[i].base)) return true;
+    }
+    return false;
+  }
+
+  // 접속사 오른쪽에 주어가 드러나 있는지(절) 아니면 동사구 병렬인지.
+  function hasExplicitSubject(words, start) {
+    let i = start;
+    while (i < words.length && ADVERBS.has(words[i].base)) i += 1;
+    if (i >= words.length) return false;
+    const word = words[i].base;
+    if (SUBJECT_WORDS.has(word) || DETERMINERS.has(word)) {
+      for (let j = i + 1; j < Math.min(i + 5, words.length); j += 1) {
+        if (AUX_WORDS.has(words[j].base) || isVerbForm(words[j].base)) return true;
+      }
+      return false;
+    }
+    if (AUX_WORDS.has(word) || CONJ_WORDS.has(word) || RELATIVE_WORDS.has(word) || CLAUSE_MARKERS.has(word)) return false;
+    if (isVerbForm(word)) return false;
+    return Boolean(words[i + 1] && isVerbForm(words[i + 1].base));
+  }
+
+  // 지시어 "that book"은 관계사가 아니다(규칙 5).
+  function relativeFollows(words, index, total) {
+    const word = words[index].base;
+    const next = words[index + 1];
+    if (!next) return false;
+    if (word === 'that') {
+      const first = next.base;
+      const prev = index > 0 ? words[index - 1].base : '';
+      // like·read·buy 같은 타동사 뒤 "that + 명사"는 지시어다.
+      if (DEMONSTRATIVE_VERBS.has(prev) && !AUX_WORDS.has(first) && !SUBJECT_WORDS.has(first) && !DETERMINERS.has(first)) {
+        return false;
+      }
+      if (AUX_WORDS.has(first) || DETERMINERS.has(first) || SUBJECT_WORDS.has(first)) return true;
+      if (isVerbForm(first) && words[index + 2] && !PREPOSITIONS.has(words[index + 2].base)) return true;
+      for (let j = index + 1; j < Math.min(index + 9, total); j += 1) {
+        if (CONJ_WORDS.has(words[j].base) || RELATIVE_WORDS.has(words[j].base)) break;
+        if (AUX_WORDS.has(words[j].base)) return true;
+        if (isVerbForm(words[j].base) && !(j > 0 && words[j - 1].base === 'to')) return j > index + 1;
+      }
+      return false;
+    }
+    if (word === 'how') {
+      // how to + 동사 (부정사의 how절)
+      if (next.base === 'to' && words[index + 2] && isVerbForm(words[index + 2].base)) return true;
+      for (let j = index + 1; j < Math.min(index + 6, total); j += 1) {
+        if (AUX_WORDS.has(words[j].base)) return j > index + 1;
+        if (SUBJECT_WORDS.has(words[j].base) && words[j + 1] && isVerbForm(words[j + 1].base)) return true;
+        if (VERB_BASE.has(words[j].base)) return false;
+      }
+      return false;
+    }
+    return isClauseStart(words, index + 1);
+  }
+
+  // that절이 보충절이면 'complement', 관계절이면 'relative' 팁을 쓴다(규칙 11).
+  function thatClauseKind(words, index) {
+    const prev = index > 0 ? words[index - 1] : null;
+    if (!prev) return 'relative';
+    if (AUX_WORDS.has(prev.base) || isVerbForm(prev.base)) return 'complement';
+    return CONTENT_NOUNS.has(prev.base) ? 'complement' : 'relative';
+  }
+
+  function itemCategory(item) {
+    let i = 0;
+    while (i < item.length && (item[i].base === 'and' || item[i].base === 'or')) i += 1;
+    if (i >= item.length) return 'empty';
+    const word = item[i].base;
+    if (SUBJECT_WORDS.has(word) || AUX_WORDS.has(word)) return 'clause';
+    if (CONJ_WORDS.has(word) || CLAUSE_MARKERS.has(word) || RELATIVE_WORDS.has(word)) return 'clause';
+    if (DETERMINERS.has(word)) {
+      for (let j = i + 1; j < Math.min(i + 9, item.length); j += 1) {
+        if (AUX_WORDS.has(item[j].base) || isVerbForm(item[j].base)) return 'clause';
+      }
+      return 'np';
+    }
+    if (isVerbForm(word)) return 'vp';
+    if (PREPOSITIONS.has(word)) return 'pp';
+    if (item[i + 1] && isVerbForm(item[i + 1].base)) return 'clause';
+    return 'np';
+  }
+
+  // ", and/or ..." 로 끝나는 마지막 항목이 나열 항목인지 절인지 가른다(규칙 3·4).
+  function terminatorCategory(item) {
+    let i = 0;
+    while (i < item.length && (item[i].base === 'and' || item[i].base === 'or')) i += 1;
+    while (i < item.length && ADVERBS.has(item[i].base)) i += 1;
+    if (i >= item.length) return 'empty';
+    const word = item[i].base;
+    const next = item[i + 1] ? item[i + 1].base : '';
+    if (SUBJECT_WORDS.has(word) || AUX_WORDS.has(word) || CLAUSE_MARKERS.has(word) || RELATIVE_WORDS.has(word)) return 'clause';
+    if (DETERMINERS.has(word)) {
+      for (let j = i + 1; j < Math.min(i + 9, item.length); j += 1) {
+        if (AUX_WORDS.has(item[j].base) || isVerbForm(item[j].base)) return 'clause';
+      }
+      return 'np';
+    }
+    if (isVerbForm(word)) {
+      if (!next) return 'clause';
+      if (DETERMINERS.has(next) || SUBJECT_WORDS.has(next)) return 'clause';
+      return 'vp';
+    }
+    if (next && isVerbForm(next)) return 'clause';
+    return 'np';
+  }
+
+  // 한 문장을 끊어 읽기(/)·억양(↗ → ↘) 표시가 붙은 문자열로 만든다.
+  function chunkedSentence(source) {
+    const tokens = tokenize(source);
+    const words = [];
+    const wordPos = new Map();
+    tokens.forEach((token, index) => {
+      if (!token.isWord) return;
+      wordPos.set(index, words.length);
+      words.push({
+        raw: token.text,
+        lower: token.text.toLowerCase(),
+        base: baseWord(token.text.toLowerCase()),
+        tokenIndex: index,
+      });
+    });
+
+    const total = words.length;
+    const structures = [];
+    const marks = new Map();
+    if (!total) return { text: source.trim(), structures };
+
+    const gapIsSpace = (tokenIndex) => {
+      if (tokenIndex <= 0) return false;
+      return source.slice(tokens[tokenIndex - 1].end, tokens[tokenIndex].start) === ' ';
+    };
+
+    const PRONOUN_OBJECTS = new Set(['me', 'him', 'her', 'us', 'them', 'it', 'you']);
+    const isNounish = (word) => !AUX_WORDS.has(word.base)
+      && !isVerbForm(word.base)
+      && !PREPOSITIONS.has(word.base)
+      && !ADVERBS.has(word.base)
+      && !CONJ_WORDS.has(word.base)
+      && !RELATIVE_WORDS.has(word.base)
+      && !CLAUSE_MARKERS.has(word.base)
+      && word.base !== 'to';
+
+    // 2) 쉼표: 나열 항목이면 ↗, 도입어·절 경계 등은 → (규칙 2·3)
+    const commaTokens = [];
+    tokens.forEach((token, index) => { if (token.text === ',') commaTokens.push(index); });
+    const items = [];
+    let cursorToken = -1;
+    for (const commaToken of commaTokens) {
+      items.push(words.filter((word) => word.tokenIndex > cursorToken && word.tokenIndex < commaToken));
+      cursorToken = commaToken;
+    }
+    items.push(words.filter((word) => word.tokenIndex > cursorToken));
+
+    const pairMatch = [];
+    for (let k = 0; k + 1 < items.length; k += 1) {
+      const left = itemCategory(items[k]);
+      const right = itemCategory(items[k + 1]);
+      pairMatch.push(left !== 'empty' && left === right && (left === 'np' || left === 'vp'));
+    }
+    const startsWithConj = (item) => Boolean(item && item.length && (item[0].base === 'and' || item[0].base === 'or'));
+    const listComma = commaTokens.map((_, k) => {
+      if (pairMatch[k]) return true;
+      // 마지막 항목이 ", and/or ..." 로 이어지면 나열로 본다(절이면 제외).
+      if (startsWithConj(items[k + 1]) && items[k] && items[k].length && items[k].length <= 8) {
+        const category = terminatorCategory(items[k + 1]);
+        if (category === 'np' || category === 'vp') return true;
+      }
+      // 짧은 항목이 이어지면 앞 쉼표도 나열로 본다: "A, B, and C"
+      return Boolean(pairMatch[k + 1]) && items[k + 1].length > 0 && items[k + 1].length <= 4;
+    });
+    // 짧은 항목이 이어지는 한 앞쪽 쉼표도 나열로 확장한다.
+    for (let k = commaTokens.length - 2; k >= 0; k -= 1) {
+      if (listComma[k] || !listComma[k + 1]) continue;
+      const item = items[k + 1];
+      if (!item || !item.length || item.length > 6) continue;
+      const category = itemCategory(item);
+      if (category === 'np' || category === 'vp') listComma[k] = true;
+    }
+
+    let listZone = -1;
+    commaTokens.forEach((commaToken, k) => {
+      marks.set(commaToken, listComma[k] ? '↗' : '→');
+      if (listComma[k] && listZone < 0) {
+        const after = items[k + 1];
+        if (after && after.length) listZone = wordPos.get(after[0].tokenIndex);
+      }
+    });
+
+    // 3) 나열 마지막 항목이 문장 중간에서 이어지면 그 항목 끝에 → 를 붙인다.
+    let lastListComma = -1;
+    let listContinues = false;
+    listComma.forEach((flag, k) => { if (flag) lastListComma = k; });
+    if (lastListComma >= 0) {
+      const tail = items[lastListComma + 1];
+      if (tail && tail.length > 1 && (tail[0].base === 'and' || tail[0].base === 'or') && terminatorCategory(tail) === 'np') {
+        let endAt = 0;
+        for (let t = 1; t < tail.length; t += 1) {
+          if (!DETERMINERS.has(tail[t].base) && !isNounish(tail[t])) break;
+          endAt = t;
+        }
+        const nextWord = tail[endAt + 1];
+        const boundary = nextWord
+          && (PREPOSITIONS.has(nextWord.base) || RELATIVE_WORDS.has(nextWord.base) || CLAUSE_MARKERS.has(nextWord.base));
+        const endWord = tail[endAt];
+        if (endAt > 0 && boundary && endWord && !marks.has(endWord.tokenIndex)) {
+          marks.set(endWord.tokenIndex, '→');
+          listContinues = true;
         }
       }
     }
 
-    return clean;
+    // 문장 부호(;)는 유지(→)하고 그 뒤에서 한 번 쉰다.
+    const candidates = [];
+    tokens.forEach((token, index) => {
+      if (token.text !== ';') return;
+      marks.set(index, '→');
+      const nextPos = wordPos.get(index + 1);
+      if (Number.isInteger(nextPos)) candidates.push({ pos: nextPos, priority: 0, kind: 'comma' });
+    });
+
+    // 4~6) 접속사·관계사·to부정사에서 끊는다.
+    for (let i = 1; i < total; i += 1) {
+      const word = words[i];
+      // "or when ..."처럼 접속사 뒤에 접속부사가 오면 접속사 앞에서 끊는다.
+      const anchor = (i > 1 && CONJ_WORDS.has(words[i - 1].base)) ? i - 1 : i;
+      if (CONJ_WORDS.has(word.base)) {
+        // 책 규칙: 두 절(주어+동사)을 나눌 때만. 동사구·부정사·동명사 병렬은 끊지 않는다.
+        if (hasVerbBefore(words, i) && isClauseStart(words, i + 1)) {
+          if (hasExplicitSubject(words, i + 1)) {
+            candidates.push({ pos: i, priority: 3, kind: 'clause' });
+          } else if (!structures.includes('verbphrase')) {
+            structures.push('verbphrase');
+          }
+        }
+      } else if (RELATIVE_WORDS.has(word.base)) {
+        if (relativeFollows(words, i, total)) {
+          const kind = word.base === 'that' ? thatClauseKind(words, i) : 'relative';
+          candidates.push({ pos: anchor, priority: 2, kind });
+        }
+      } else if (CLAUSE_MARKERS.has(word.base)) {
+        if (isClauseStart(words, i + 1)) candidates.push({ pos: anchor, priority: 3, kind: 'clause' });
+      } else if (word.base === 'to' && i + 1 < total) {
+        const next = words[i + 1];
+        const prev = words[i - 1].base;
+        const isNoun = NOUN_AFTER_TO.has(next.base)
+          || DETERMINERS.has(next.base)
+          || /^\d/.test(next.raw)
+          || (/^[A-Z]/.test(next.raw) && next.raw !== next.raw.toLowerCase());
+        // like to·have to처럼 붙어 다니는 짝은 끊지 않는다.
+        if (!isNoun && !isFixedPair(prev, 'to') && isVerbForm(next.base)) {
+          candidates.push({ pos: i, priority: 4, kind: 'infinitive' });
+        }
+      }
+      if (PREPOSITIONS.has(word.base)) candidates.push({ pos: i, priority: 9, kind: 'prep' });
+    }
+
+    // 1) 쉼표: 나열이 아니면 그 뒤에서 쉰다. 뒤에 읽을 말이 충분할 때만.
+    commaTokens.forEach((commaToken, k) => {
+      if (listComma[k]) return;
+      const nextPos = wordPos.get(commaToken + 1);
+      if (!Number.isInteger(nextPos)) return;
+      if (total - nextPos < 4) return;
+      candidates.push({ pos: nextPos, priority: 1, kind: 'comma' });
+    });
+
+    const accepted = [];
+    const boundaryBefore = (pos) => {
+      let max = 0;
+      for (const value of accepted) if (value < pos && value > max) max = value;
+      return max;
+    };
+    const boundaryAfter = (pos) => {
+      let min = total;
+      for (const value of accepted) if (value > pos && value < min) min = value;
+      return min;
+    };
+    const place = (pos, kind) => {
+      if (pos <= 0 || pos >= total) return false;
+      if (!gapIsSpace(words[pos].tokenIndex)) return false;
+      if (listZone >= 0 && pos >= listZone) return false;
+      if (CONJ_WORDS.has(words[pos - 1].base)) return false;
+      const minLeft = kind === 'infinitive' ? 4 : 3;
+      if (pos - boundaryBefore(pos) < minLeft) return false;
+      if (boundaryAfter(pos) - pos < 3) return false;
+      accepted.push(pos);
+      accepted.sort((a, b) => a - b);
+      if (!structures.includes(kind)) structures.push(kind);
+      return true;
+    };
+
+    candidates
+      .filter((candidate) => candidate.priority < 9)
+      .sort((a, b) => a.priority - b.priority || a.pos - b.pos)
+      .forEach((candidate) => place(candidate.pos, candidate.kind));
+
+    // 7) 전치사 끊기는 마지막 수단: 다른 규칙으로 못 끊은 긴 덩어리에서만.
+    for (let pass = 0; pass < 2; pass += 1) {
+      const split = accepted.slice();
+      const bounds = [0, ...split, total];
+      let changed = false;
+      for (let b = 0; b + 1 < bounds.length; b += 1) {
+        const from = bounds[b];
+        const to = bounds[b + 1];
+        if (to - from < 10) continue;
+        const midpoint = (from + to) / 2;
+        let best = -1;
+        for (let i = from + 3; i <= to - 3; i += 1) {
+          if (!PREPOSITIONS.has(words[i].base)) continue;
+          if (listZone >= 0 && i >= listZone) continue;
+          if (isFixedPair(words[i - 1].base, words[i].base)) continue;
+          if (words[i + 1] && isFixedPair(words[i].base, words[i + 1].base)) continue;
+          if (PRONOUN_OBJECTS.has(words[i - 1].base) || words[i - 1].base === 'than') continue;
+          if (!gapIsSpace(words[i].tokenIndex)) continue;
+          // 전치사구 뒤에 정동사가 오면 그 전치사구는 앞 명사를 수식한다 → 끊지 않는다.
+          let verbAt = -1;
+          let coordinated = false;
+          for (let j = i + 1; j <= Math.min(i + 8, to - 1); j += 1) {
+            if (CONJ_WORDS.has(words[j].base)) { coordinated = true; break; }
+            if (RELATIVE_WORDS.has(words[j].base)) break;
+            // 문장 첫 단어가 아닌 대문자 단어(고유명사)는 -ed 정동사로 보지 않는다.
+            if (/^[A-Z]/.test(words[j].raw)) continue;
+            if (isFiniteForm(words[j].base) && !(j > 0 && words[j - 1].base === 'to')) { verbAt = j; break; }
+          }
+          if (verbAt > i + 1) continue;
+          // 전치사구가 and·or로 이어지는 병렬 속에 있으면 끊지 않는다.
+          if (coordinated) continue;
+          // 전치사구가 다른 명사구 속에 끼어 있으면(명사 3개 연속) 끊지 않는다.
+          let nounRun = 0;
+          for (let j = i + 1; j < to && nounRun < 3; j += 1) {
+            if (DETERMINERS.has(words[j].base)) continue;
+            if (!isNounish(words[j])) break;
+            nounRun += 1;
+          }
+          if (nounRun >= 3 && i + 4 < to) continue;
+          if (best < 0 || Math.abs(i - midpoint) < Math.abs(best - midpoint)) best = i;
+        }
+        if (best > 0) {
+          accepted.push(best);
+          accepted.sort((x, y) => x - y);
+          if (!structures.includes('prep')) structures.push('prep');
+          changed = true;
+        }
+      }
+      if (!changed) break;
+    }
+
+    // 3) 나열: 나열 안에서는 /로 끊지 않고 마지막 항목이 이어지면 → 로 둔다.
+    if (listComma.some(Boolean)) {
+      const kind = listContinues ? 'listContinue' : 'list';
+      if (!structures.includes(kind)) structures.push(kind);
+    }
+
+    const breaks = new Set(accepted.map((pos) => words[pos].tokenIndex));
+    let text = '';
+    let previousEnd = 0;
+    tokens.forEach((token, index) => {
+      const gap = source.slice(previousEnd, token.start);
+      const isBreak = breaks.has(index) && gap === ' ';
+      text += isBreak ? ' / ' : gap;
+      text += token.text;
+      previousEnd = token.end;
+      const mark = marks.get(index);
+      if (mark) text += mark;
+    });
+    text += source.slice(previousEnd);
+
+    return { text: text.trim(), structures };
   }
 
   function buildFlow(sentence) {
@@ -455,37 +1087,35 @@
     if (!en) return null;
 
     const id = sentence && typeof sentence.id === 'string' ? sentence.id : '';
-    const partBadge = /^p5-/i.test(id)
-      ? 'Part 5 (Q11 · 60초 의견)'
-      : /^p3-/i.test(id)
-        ? 'Part 3 (Q5–7 · 15–30초 응답)'
-        : 'TS 억양·호흡';
+    const isPassage = !id;
+    const partBadge = isPassage
+      ? 'Part 1 (지문 낭독)'
+      : /^p5-/i.test(id)
+        ? 'Part 5 (Q11 · 60초 의견)'
+        : /^p3-/i.test(id)
+          ? 'Part 3 (Q5–7 · 15–30초 응답)'
+          : 'TS 억양·호흡';
 
-    const withSemi = en.replace(/;\s+/g, ';↘ / ');
-    const commaParts = withSemi.split(/,\s+/);
-    const joined = commaParts
-      .map((part, idx) => {
-        const subParts = part.split(' / ').map(chunkSegment).join(' / ');
-        return idx < commaParts.length - 1 ? `${subParts},↗` : subParts;
-      })
-      .join(' / ')
-      .replace(/([.!])(?:\s*)$/, '$1↘')
-      .replace(/(\?)(?:\s*)$/, '$1↗');
+    const sentences = splitSentences(en);
+    const structures = [];
+    let chunked = '';
+    sentences.forEach((part, index) => {
+      const result = chunkedSentence(part.text);
+      if (index > 0) {
+        const gap = sentences[index - 1].gap;
+        chunked += gap === ' ' ? ' / ' : gap;
+      }
+      chunked += result.text + endArrow(part.text);
+      result.structures.forEach((kind) => {
+        if (!structures.includes(kind)) structures.push(kind);
+      });
+    });
 
-    let tip = '의미 덩어리(/)마다 호흡을 묶어 내용어(명사·동사·형용사)는 길고 또렷하게, 기능어는 약하게 줄여 끝을 내려요(↘).';
-    if (LIST_RE.test(en)) {
-      tip = '나열 구문은 앞 항목 끝을 살짝 올리고(↗) 마지막 and 뒤 항목에서 확실히 내려(↘) 완결감을 주세요.';
-    } else if (DISCOURSE_RE.test(en)) {
-      tip = '담화 표지 끝을 살짝 올린 뒤(↗) 반 박자 쉬고(/), 핵심 주장 내용어에 강세를 실어 문장 끝은 내려 맺어요(↘).';
-    } else if (FRONTED_CLAUSE_RE.test(en)) {
-      tip = '앞 절 끝을 살짝 올려(↗) 말이 이어짐을 알리고, 쉼표에서 끊어 주절 핵심어를 또렷하게 살려 내려요(↘).';
-    } else if (COMPARE_RE.test(en)) {
-      tip = '비교·선호 구문은 대비되는 두 핵심 내용어에 강세를 나누어 실어 주고, than·to·as는 약하게 흘려요(↘).';
-    } else if (REASON_RE.test(en)) {
-      tip = '이유·결과 연결어 앞에서 짧게 호흡을 나누고(/), 뒤따르는 핵심 근거 어휘를 강조해 끝을 내려요(↘).';
-    }
+    // 11) 실제로 끊은 구조에 맞는 팁만 보여 준다.
+    const first = TIP_ORDER.find((kind) => structures.includes(kind));
+    const tip = first ? TIP_TEXT[first] : DEFAULT_TIP;
 
-    return { partBadge, chunked: joined, tip };
+    return { partBadge, chunked, tip };
   }
 
   function pickDiverse(content, limit) {
@@ -505,11 +1135,85 @@
     return chosen;
   }
 
+  function pickSentencePoints(content, links, tokens, maxPoints) {
+    const contentCap = links.length && maxPoints === 3 ? 2 : (links.length && content.length > 1 ? 1 : maxPoints);
+    const picked = pickDiverse(content, contentCap);
+    if (picked.length < maxPoints && links.length) picked.push(links[0]);
+    for (let i = 0; i < content.length && picked.length < Math.min(2, maxPoints); i += 1) {
+      if (!picked.includes(content[i]) && content[i].priority >= 28) picked.push(content[i]);
+    }
+
+    if (!picked.length) {
+      const candidates = tokens
+        .map((word, index) => ({ word, index, tag: ruleTag(word.toLowerCase()) }))
+        .filter((item) => item.tag)
+        .sort((a, b) => b.word.length - a.word.length);
+      if (candidates.length) {
+        const fallback = candidates[0];
+        picked.push({
+          word: fallback.word,
+          tag: fallback.tag,
+          ipa: approxIpa(fallback.word),
+          note: '',
+          ko: '',
+          index: fallback.index,
+        });
+      } else if (tokens.length) {
+        const longest = tokens
+          .map((word, index) => ({ word, index }))
+          .sort((a, b) => b.word.length - a.word.length || a.index - b.index)[0];
+        picked.push({
+          word: longest.word,
+          tag: 'stress',
+          ipa: approxIpa(longest.word),
+          note: '',
+          ko: '',
+          index: longest.index,
+        });
+      }
+    }
+
+    return picked;
+  }
+
+  // Part 1 지문: 사전 항목 → 태그 다양성 → 나머지 → 규칙 기반 후보 순으로 5개를 채운다.
+  function pickPassagePoints(content, links, tokens, limit) {
+    const chosen = [];
+    const used = new Set();
+    const add = (item) => {
+      if (!item || chosen.length >= limit) return;
+      const key = item.word.toLowerCase();
+      if (used.has(key)) return;
+      used.add(key);
+      chosen.push(item);
+    };
+
+    const byTag = new Map();
+    for (const item of content) if (!byTag.has(item.tag)) byTag.set(item.tag, item);
+    for (const item of byTag.values()) add(item);
+    for (const item of content) add(item);
+    for (const link of links) add(link);
+
+    if (chosen.length < limit) {
+      const candidates = tokens
+        .map((word, index) => ({ word, index, tag: ruleTag(word.toLowerCase()) }))
+        .filter((item) => item.tag && !used.has(item.word.toLowerCase()))
+        .sort((a, b) => b.word.length - a.word.length || a.index - b.index);
+      for (const item of candidates) {
+        add({ word: item.word, tag: item.tag, ipa: approxIpa(item.word), note: '', ko: '', index: item.index });
+      }
+    }
+
+    return chosen;
+  }
+
   function build(sentence) {
     const en = sentence && typeof sentence.en === 'string' ? sentence.en : '';
     if (!en) return { points: [], flow: null };
 
     const pron = sentence && typeof sentence.pron === 'string' ? sentence.pron : '';
+    // Part 1 지문은 id 없이 { en }만 넘어온다(js/mock.js:1442). 지문만 발음 포인트 5개.
+    const isPassage = !(sentence && typeof sentence.id === 'string' && sentence.id);
     const tokens = tokensOf(en);
     const seen = new Set();
     const content = [];
@@ -556,43 +1260,10 @@
 
     content.sort((a, b) => b.priority - a.priority || b.word.length - a.word.length || a.index - b.index);
 
-    const maxPoints = tokens.length >= 12 ? 3 : 2;
-    const contentCap = links.length && maxPoints === 3 ? 2 : (links.length && content.length > 1 ? 1 : maxPoints);
-    const picked = pickDiverse(content, contentCap);
-    if (picked.length < maxPoints && links.length) picked.push(links[0]);
-    for (let i = 0; i < content.length && picked.length < Math.min(2, maxPoints); i += 1) {
-      if (!picked.includes(content[i]) && content[i].priority >= 28) picked.push(content[i]);
-    }
-
-    if (!picked.length) {
-      const candidates = tokens
-        .map((word, index) => ({ word, index, tag: ruleTag(word.toLowerCase()) }))
-        .filter((item) => item.tag)
-        .sort((a, b) => b.word.length - a.word.length);
-      if (candidates.length) {
-        const fallback = candidates[0];
-        picked.push({
-          word: fallback.word,
-          tag: fallback.tag,
-          ipa: approxIpa(fallback.word),
-          note: '',
-          ko: '',
-          index: fallback.index,
-        });
-      } else if (tokens.length) {
-        const longest = tokens
-          .map((word, index) => ({ word, index }))
-          .sort((a, b) => b.word.length - a.word.length || a.index - b.index)[0];
-        picked.push({
-          word: longest.word,
-          tag: 'stress',
-          ipa: approxIpa(longest.word),
-          note: '',
-          ko: '',
-          index: longest.index,
-        });
-      }
-    }
+    const maxPoints = isPassage ? 5 : (tokens.length >= 12 ? 3 : 2);
+    const picked = isPassage
+      ? pickPassagePoints(content, links, tokens, maxPoints)
+      : pickSentencePoints(content, links, tokens, maxPoints);
 
     picked.sort((a, b) => a.index - b.index);
 
@@ -609,5 +1280,7 @@
     return { points, flow: buildFlow(sentence) };
   }
 
-  window.PRON_GUIDE = { build, TAGS };
+  const MARKS_LEGEND = '/ 끊어 읽기 · ↗ 올림 · → 유지 · ↘ 내림';
+
+  window.PRON_GUIDE = { build, TAGS, MARKS_LEGEND };
 })();

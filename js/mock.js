@@ -1584,7 +1584,8 @@
     const koreanLine = pron
       ? `<div class="pg-line"><p class="pg-line-label">한글 발음</p><p class="pg-plain-pron">${renderPronMarks(pron, points)}</p></div>`
       : '';
-    return `<div class="pg-legend">${legend}</div>${englishLine}${koreanLine}${flow}<ol class="pg-list">${items}</ol>`;
+    const marksLegend = `<span class="pg-marks-legend">${esc(window.PRON_GUIDE.MARKS_LEGEND || '/ 끊어 읽기 · ↗ 올림 · → 유지 · ↘ 내림')}</span>`;
+    return `<div class="pg-legend">${legend}${marksLegend}</div>${englishLine}${koreanLine}${flow}<ol class="pg-list">${items}</ol>`;
   }
 
   function guideMarkup(part, q) {

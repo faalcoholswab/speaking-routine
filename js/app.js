@@ -681,8 +681,9 @@
     const flowMarkup = flow && flow.chunked
       ? `<div class="pg-flow"><div class="pg-flow-head"><span class="pg-flow-badge">${esc(flow.partBadge || 'TS 억양·호흡')}</span><span class="pg-flow-label">억양 · 끊어 읽기</span></div><p class="pg-flow-chunk">${esc(flow.chunked)}</p><p class="pg-flow-tip">${esc(flow.tip || '')}</p></div>`
       : '';
+    const marksLegend = `<span class="pg-marks-legend">${esc(window.PRON_GUIDE.MARKS_LEGEND || '/ 끊어 읽기 · ↗ 올림 · → 유지 · ↘ 내림')}</span>`;
     const items = points.map((point) => `<li class="pg-item"><span class="pg-idx">${point.num}</span><span class="pg-text"><b>${esc(point.word)}</b>${point.ipa ? ` <span class="pg-ipa">${esc(point.ipa)}</span>` : ''}<span class="pg-tip">${esc(point.tip)}</span></span></li>`).join('');
-    return `<div class="pg-legend" role="group" aria-label="발음 태그 범례">${legend}</div><details class="pg-details"><summary>발음 포인트 · 억양 보기</summary>${flowMarkup}<ol class="pg-list" role="list" aria-label="발음 포인트">${items}</ol></details>`;
+    return `<div class="pg-legend" role="group" aria-label="발음 태그·끊어 읽기 범례">${legend}${marksLegend}</div><details class="pg-details"><summary>발음 포인트 · 억양 보기</summary>${flowMarkup}<ol class="pg-list" role="list" aria-label="발음 포인트">${items}</ol></details>`;
   }
 
   function icon(name) {
