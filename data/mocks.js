@@ -63,4 +63,5 @@ window.MOCK_MANIFEST = [
       'assets/mock/mock-05/p4-table.webp',
     ],
   },
+  { id: 'mock-06', data: 'data/mock-06.js', guide: 'data/mock-06-guide.js', images: ['assets/mock/mock-06/p2-q3.webp', 'assets/mock/mock-06/p2-q4.webp', 'assets/mock/mock-06/p4-table.webp'] },
 ];
