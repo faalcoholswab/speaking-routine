@@ -1502,6 +1502,128 @@
     </section>`;
   }
 
+  // 문항 번호별 답변 요령. 같은 번호는 어느 세트에서나 같은 유형이라 세트와 상관없이 보여 줍니다.
+  const PART2_TIPS = {
+    frames: [
+      'This picture was taken outside. / inside.',
+      'The first thing I can see is some people.',
+      'They are standing or sitting.',
+      'She has long brown hair.',
+      'She is wearing white clothes.',
+      'In the background, I can see some trees and buildings.',
+      'It seems like they are busy working.',
+    ],
+    notes: [
+      '장소 → 사람 → 자세·동작 → 외모 → 배경 → 마무리 순서로 말하면 막히지 않아요. 두 문항에 같은 틀을 써도 돼요.',
+      '30초에 8~10문장이면 충분해요. 끝에 몇 초 남거나 마지막 문장이 잘려도 감점되지 않아요.',
+      '사람은 한 명만 자세히 묘사해도 돼요. 위치 표현(on the left, in the middle 등)은 한두 번이면 충분해요.',
+      '구체적인 장소가 떠오르지 않으면 실내(inside)·실외(outside)만 말해도 돼요. 물건 이름을 모르면 something으로, 옷은 색 + clothes로 넘어가요.',
+    ],
+  };
+  const PART3_SHORT_TIPS = {
+    frames: [
+      "I would say + 답 + because it's + 형용사.",
+      "It's easy / convenient / fast / fun / relaxing.",
+      "Well, I usually cook every day and I usually cook alone because it's convenient.",
+    ],
+    notes: [
+      '질문의 you를 I로 바꾼 답 한 문장, because + 형용사로 이유 한 문장이면 충분해요. 시간이 남아도 감점되지 않아요.',
+      'I think 뒤에는 주어와 동사가 와야 해요. 단어 하나로 답할 때는 I would say를 써요.',
+      '묻지 않은 내용까지 말할 필요는 없어요.',
+    ],
+  };
+  const ANSWER_TIPS = {
+    1: {
+      notes: [
+        '다 읽고 시간이 남으면 처음부터 다시 읽지 말고 그대로 기다려요. 남은 시간은 감점되지 않아요.',
+        '단어를 잘못 읽었으면 그 부분만 다시 고쳐 읽고 이어 가면 돼요.',
+        '끊어 읽는 위치는 채점 항목이 아니에요. 단어마다 끊지만 않으면 숨이 찰 때 쉬어도 괜찮아요.',
+      ],
+    },
+    3: PART2_TIPS,
+    5: PART3_SHORT_TIPS,
+    7: {
+      frames: [
+        'I would prefer + 보기.',
+        "Here's why.",
+        'First, ~ / Above all, ~',
+        'so I can ~',
+        "That's why I think so.",
+      ],
+      notes: [
+        '보기 하나를 고르고 이유 하나를 1~2문장으로 풀어 주면 돼요. 25초쯤에 끝나도 감점되지 않아요.',
+        '이유에서 멈추지 말고 그래서 어떻게 되는지(so I can ~)까지 말해 보세요.',
+        '내 이야기로 답하기 어려우면 이유를 대기 쉬운 보기를 고르세요. 외운 티가 나는 긴 서론은 빼요.',
+      ],
+    },
+    8: {
+      frames: [
+        'It will be held at + 장소 + on + 날짜.',
+        'The first session is + 세션명.',
+        'It starts at + 시각.',
+        "It's + 값.",
+      ],
+      notes: [
+        "무엇을 묻는지 헷갈리면 It's 뒤에 표의 값만 붙여도 돼요. 답이 여러 개면 모두 말해요.",
+        'a.m.·p.m.이나 요일은 빠뜨려도 감점되지 않아요. 답하고 시간이 남으면 그대로 기다려도 돼요.',
+        '질문을 들으며 답이 될 칸을 손가락으로 짚어 두면 덜 헤매요.',
+      ],
+    },
+    9: {
+      frames: [
+        'Actually, ~ has been canceled.',
+        'Actually, + 표에 적힌 값.',
+        'Sorry about that. / Don\'t worry about that.',
+      ],
+      notes: [
+        'No로 시작하지 않아도 돼요. 질문자가 틀리게 말한 부분만 표대로 바로잡아요. 맞게 말했다면 맞다고 답해요.',
+        '확신이 없으면 옆 칸까지 함께 읽어도 돼요(예: 비회원 가격과 회원 가격을 모두).',
+      ],
+    },
+    10: {
+      frames: [
+        'Sure, there are two.',
+        'First, from ~ to ~, there is + 제목 + by + 발표자.',
+        'Second, from ~ to ~, there is ~ by ~.',
+        "That's it. Thank you.",
+      ],
+      notes: [
+        '표에 적힌 순서(시간 → 제목 → 발표자)대로 읽으면 어순을 고민하지 않아도 돼요. 사람을 주어로 바꿔 말할 필요는 없어요.',
+        '10번 질문은 두 번 들려줘요. 8·9번에서 답한 줄은 보통 다시 나오지 않으니 남은 줄에서 찾아요.',
+        '질문을 놓쳤으면 Sure. Let me check.로 시작해요. 마지막 인사는 넣지 않아도 돼요.',
+      ],
+    },
+    11: {
+      frames: [
+        'If + 주어 + 동사, 주어 + can + 동사.',
+        'Then + 결과 한 번 더.',
+        'As a result, / Eventually, it will be beneficial.',
+        'When it comes to ~,',
+      ],
+      notes: [
+        '첫 문장은 질문 문장을 그대로 받아 내 입장으로 말해요.',
+        '이유만 나열하지 말고, 이유마다 if 문장·경험·주변 사람의 말로 근거를 붙여요.',
+        '60초에 10~12문장이면 충분해요. 결론 문장은 없어도 되고, 마지막 문장이 잘려도 감점되지 않아요.',
+      ],
+    },
+  };
+  ANSWER_TIPS[2] = ANSWER_TIPS[1];
+  ANSWER_TIPS[4] = PART2_TIPS;
+  ANSWER_TIPS[6] = PART3_SHORT_TIPS;
+
+  function answerTipsMarkup(no) {
+    const tips = ANSWER_TIPS[no];
+    if (!tips) return '';
+    const frames = tips.frames
+      ? `<ul class="gd-patterns">${tips.frames.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`
+      : '';
+    return `<section class="gd-block">
+        <h3 class="gd-title">답변 요령</h3>
+        ${frames}
+        <ul class="gd-tips">${tips.notes.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>
+      </section>`;
+  }
+
   function modelBlock(entry) {
     if (!entry || !entry.model) {
       return `<section class="gd-block"><h3 class="gd-title">모범 답안</h3><p class="ex-note-sm">준비 중입니다.</p></section>`;
@@ -1577,6 +1699,7 @@
            <div class="pg-flow-head"><span class="pg-flow-badge">${esc(built.flow.partBadge || 'TS 억양·호흡')}</span><span class="pg-flow-label">억양 · 끊어 읽기</span></div>
            <p class="pg-flow-chunk">${esc(built.flow.chunked)}</p>
            <p class="pg-flow-tip">${esc(built.flow.tip || '')}</p>
+           ${built.flow.note ? `<p class="pg-flow-note">${esc(built.flow.note)}</p>` : ''}
          </div>`
       : '';
     const items = points.map((point) => `<li class="pg-item"><span class="pg-idx">${point.num}</span><span class="pg-text"><b>${esc(point.word)}</b> <span class="pg-ipa">${esc(point.ipa)}</span><span class="pg-tip">${esc(point.tip)}</span></span></li>`).join('');
@@ -1619,7 +1742,7 @@
       body = `<p class="ex-prompt">${esc(q.prompt)}</p>${model}`;
     }
 
-    return `<div class="ex-q">${partBar(part.part)}${head}${body}${sampleAnswersMarkup(q.no)}</div>`;
+    return `<div class="ex-q">${partBar(part.part)}${head}${body}${answerTipsMarkup(q.no)}${sampleAnswersMarkup(q.no)}</div>`;
   }
 
   function partBar(current) {
@@ -2228,7 +2351,7 @@
       if (scoring.error) return `채점하지 못해 ${kind}을 계산하지 않았어요.`;
       if (!scoring.done) return `채점이 끝나면 ${kind}이 표시돼요.`;
       if (!answeredCount) return noAnswerNote;
-      return kind === '강점' ? '아직 뚜렷한 강점이 없어요. 답변을 조금 더 길게 해 보세요.' : '눈에 띄는 보완점이 없어요.';
+      return kind === '강점' ? '아직 뚜렷한 강점이 없어요. 길이보다 질문에 맞는 답과 이유를 분명하게 말하는 데 집중해 보세요.' : '눈에 띄는 보완점이 없어요.';
     };
 
     root.innerHTML = `

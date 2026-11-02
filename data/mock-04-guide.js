@@ -68,10 +68,10 @@ window.MOCK_GUIDES['mock-04'] = {
       ],
     },
     9: {
-      model: 'No, the lunch with Henry Patton, the swim champion, has been canceled. It was scheduled from 12:00 P.M. to 1:00 P.M., so it will not take place.',
-      ko: '아니요, 수영 챔피언 Henry Patton과의 점심은 취소되었습니다. 오후 12시부터 오후 1시까지 예정되어 있었지만 열리지 않습니다.',
+      model: 'Actually, the lunch with Henry Patton, the swim champion, has been canceled. It was scheduled from 12:00 P.M. to 1:00 P.M., so it will not take place.',
+      ko: '사실 수영 챔피언 Henry Patton과의 점심은 취소되었습니다. 오후 12시부터 오후 1시까지 예정되어 있었지만 열리지 않습니다.',
       patterns: [
-        'No, ~ has been canceled.',
+        'Actually, ~ has been canceled.',
         'It was scheduled from ~ to ~',
         'so it will not take place.',
       ],

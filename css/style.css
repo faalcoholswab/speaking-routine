@@ -399,6 +399,7 @@ button, a, [role="button"] { touch-action: manipulation; }
 .pg-fv { --pg: #a34a08; --pg-bg: #fef3c7; --pg-style: dotted; }
 .pg-stress { --pg: #9d174d; --pg-bg: #fce7f3; --pg-style: double; --pg-thick: 3px; }
 .pg-link { --pg: #0f766e; --pg-bg: #ccfbf1; --pg-style: dashed; }
+.pg-jz { --pg: #15803d; --pg-bg: #dcfce7; --pg-style: solid; --pg-thick: 1px; }
 
 .pg-mark, .pg-ko {
   padding: 0 3px; border-radius: 4px;
@@ -463,6 +464,10 @@ button, a, [role="button"] { touch-action: manipulation; }
   color: var(--text); overflow-wrap: anywhere;
 }
 .pg-flow-tip { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.pg-flow-note {
+  margin: 4px 0 0; padding-top: 4px; border-top: 1px dashed var(--line-2);
+  font-size: 12px; line-height: 1.5; color: var(--muted);
+}
 
 .pg-list {
   display: grid; gap: 8px; margin: 8px 0 0; padding: 8px 0 0;

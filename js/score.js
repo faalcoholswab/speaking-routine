@@ -23,7 +23,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  const VERSION = 'v34';
+  const VERSION = 'v36';
 
   /* ---------------- 어휘 ---------------- */
   const STOPWORDS = new Set(('a an the and or but if so because as of to in on at for with from by about into over after before ' +
@@ -316,21 +316,26 @@
   }
 
   /* ---------------- 사실 추출 (Part 4) ---------------- */
-  // 제목·고유명사 비교용 표기: 소문자, 따옴표·아포스트로피 제거, 앞 관사(A/An/The) 제거.
+  // 제목·고유명사 비교용 표기: 소문자, 따옴표·아포스트로피·문장부호 제거, 앞 관사(A/An/The) 제거.
+  // 표 제목의 콜론("Discussion: Teaching ...")은 소리 내어 읽지 않으므로 지웁니다.
   function plainText(value) {
     return String(value || '')
       .toLowerCase()
       .replace(/[\u2018\u2019]/g, "'")
       .replace(/["'“”‘’]/g, '')
-      .replace(/^(?:a|an|the)\s+/, '')
+      .replace(/[:;,.!?]/g, ' ')
       .replace(/\s+/g, ' ')
-      .trim();
+      .trim()
+      .replace(/^(?:a|an|the)\s+/, '');
   }
+
+  const STATUS_KEY = { canceled: /\b(cancel+ed|cancel+ation|called off)\b/i, moved: /\b(moved|rescheduled|postponed)\b/i };
+  const STATUS_SAID = { canceled: /\b(cancel\w*|called off)\b/, moved: /\b(moved?|rescheduled|postponed|changed|pushed back)\b/ };
 
   function extractFacts(question) {
     const key = String(question.answerKey || '');
-    // "not June 28"처럼 부정된 날짜는 기대 사실로 넣지 않습니다.
-    const positive = key.replace(/\b(?:not|never|isn't|is not|wasn't|was not)\s+(?:on\s+)?(?:the\s+)?(?:[A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?|\d{1,2}(?:st|nd|rd|th))\b/gi, ' ');
+    // "not June 28", "not on your July 21 schedule"처럼 부정된 날짜는 기대 사실로 넣지 않습니다.
+    const positive = key.replace(/\b(?:not|never|isn't|is not|wasn't|was not)\s+(?:on\s+)?(?:(?:the|your|my|our|their)\s+)?(?:[A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?|\d{1,2}(?:st|nd|rd|th))\b/gi, ' ');
     const norm = normalizeDigraphs(positive);
     const facts = [];
     const seen = new Set();
@@ -357,8 +362,8 @@
       push('name', value);
     }
 
-    // 수량: "two workshops", "two days"
-    const counts = norm.match(/\b(\d{1,2})\s+([a-z]{3,})\b/g) || [];
+    // 수량: "two workshops", "two days". 날짜의 일("aug 15 registration")은 수량이 아닙니다.
+    const counts = norm.match(/(?<!\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec) )\b(\d{1,2})\s+([a-z]{3,})\b/g) || [];
     for (const raw of counts) {
       const m = raw.match(/^(\d{1,2})\s+([a-z]{3,})$/);
       if (!m) continue;
@@ -366,32 +371,94 @@
       push('count', `${Number(m[1])} ${m[2]}`);
     }
 
+    // 금액("$60", "60 dollars")과 취소·변경 상태 — 강의의 9번 정정 유형(가격 정정, has been canceled)입니다.
+    for (const m of key.matchAll(/\$\s?(\d+)/g)) push('money', String(Number(m[1])));
+    for (const m of norm.matchAll(/\b(\d+)\s+dollars?\b/g)) push('money', String(Number(m[1])));
+    for (const [status, re] of Object.entries(STATUS_KEY)) if (re.test(key)) push('status', status);
+
     return facts;
   }
 
-  function matchFacts(facts, text) {
+  // AM/PM 없이 말한 시각("from 8 to 9", "at 10:30"). 강의: AM/PM은 빼고 말해도 감점이 없습니다.
+  function bareTimes(normalized) {
+    const out = new Set();
+    const patterns = [
+      /\b(?:at|from|to|until|till|starts?|begins?|ends?)\s+(\d{1,2})(?::(\d{2}))?\b(?![:\d]|am|pm)/g,
+      /\b(\d{1,2})(?::(\d{2}))?\s+(?:to|until|till)\s+(\d{1,2})(?::(\d{2}))?\b(?![:\d]|am|pm)/g,
+      /\b(\d{1,2}):(\d{2})\b(?!am|pm)/g,
+    ];
+    for (const re of patterns) {
+      for (const m of normalized.matchAll(re)) {
+        for (let i = 1; i < m.length; i += 2) {
+          const hour = Number(m[i]);
+          if (m[i] !== undefined && hour >= 1 && hour <= 12) out.add(`${hour}:${m[i + 1] || '00'}`);
+        }
+      }
+    }
+    return out;
+  }
+
+  const NAME_SKIP = new Set(['a', 'an', 'the', 'of', 'for', 'and', 'on', 'in', 'to', 'with', 'at', 'by', 'from']);
+
+  // 이름·제목이 들렸는지. 강의: 낯선 고유명사는 내 방식으로 읽어도 됩니다(음성 인식도 이름을 자주 깨뜨립니다).
+  // 두 낱말 이상이면 절반 이상(어근 기준)이 들려야 하고, 두 낱말짜리는 나머지 한 낱말도 비슷하게 들려야 합니다.
+  function nameHeard(value, plain, words) {
+    if (plain.includes(` ${value} `) || plain.includes(value)) return true;
+    const parts = value.split(' ').filter((part) => part && !NAME_SKIP.has(part));
+    if (parts.length < 2) return false;
+    const have = stemSet(words);
+    const heard = parts.filter((part) => have.has(part) || have.has(stem(part)));
+    if (heard.length < Math.ceil(parts.length / 2)) return false;
+    if (parts.length > 2 || heard.length === 2) return true;
+    const rest = parts.find((part) => !heard.includes(part));
+    return words.some((word) => editDistance(word, rest) <= Math.ceil(rest.length / 2));
+  }
+
+  // strict: 질문 문장에 이미 나온 사실을 찾을 때처럼 글자가 그대로 있어야만 인정합니다.
+  function matchFacts(facts, text, strict = false) {
     const norm = normalizeDigraphs(text);
     const times = extractTimes(norm);
     const dates = extractDates(norm);
-    const padded = ` ${norm} `;
-    // 제목·고유명사는 따옴표·아포스트로피·앞 관사를 뺀 표기로 비교합니다.
-    const plain = ` ${plainText(norm)} `;
+    const bare = strict ? new Set() : bareTimes(norm);
+    // 제목·고유명사는 따옴표·아포스트로피·문장부호·앞 관사를 뺀 표기로 비교합니다.
+    const plainNorm = plainText(norm);
+    const plain = ` ${plainNorm} `;
+    const words = plainNorm.split(' ').filter(Boolean);
     const matched = [];
     const missed = [];
     for (const fact of facts) {
       let hit = false;
-      if (fact.type === 'time') hit = times.has(fact.value);
+      if (fact.type === 'time') hit = times.has(fact.value) || bare.has(fact.value.replace(/[ap]m$/, ''));
       else if (fact.type === 'date') hit = dates.has(fact.value);
       else if (fact.type === 'count') {
         const m = fact.value.match(/^(\d+)\s+(.+)$/);
         const singular = m[2].replace(/s$/, '');
-        // "2 workshops"는 "2 scheduled workshops"처럼 사이에 수식어가 있어도 인정합니다.
+        // "2 workshops"는 "2 scheduled workshops"처럼 사이에 수식어가 있어도,
+        // 강의의 "Sure, there are two."처럼 명사 없이 개수만 말해도 인정합니다.
         const re = new RegExp(`\\b${m[1]}\\s+(?:[a-z]+\\s+){0,2}(?:${m[2]}|${singular})\\b`);
-        hit = re.test(norm);
-      } else hit = plain.includes(` ${fact.value} `) || plain.includes(fact.value);
+        const bareCount = new RegExp(`\\bthere (?:are|is|will be)\\s+${m[1]}\\b(?!:)`);
+        hit = re.test(norm) || (!strict && bareCount.test(norm));
+      } else if (fact.type === 'money') hit = new RegExp(`(?<![\\d:])\\b${fact.value}\\b(?![\\d:])`).test(norm);
+      else if (fact.type === 'status') hit = STATUS_SAID[fact.value].test(norm);
+      else hit = strict ? plain.includes(` ${fact.value} `) : nameHeard(fact.value, plain, words);
       (hit ? matched : missed).push(fact);
     }
+    // 날짜(월·일)를 말했으면 요일은 따로 말하지 않아도 됩니다("on August 15th").
+    if (!strict && matched.some((fact) => fact.type === 'date' && /\d/.test(fact.value))) {
+      for (const fact of missed.filter((item) => item.type === 'date' && !/\d/.test(item.value))) {
+        missed.splice(missed.indexOf(fact), 1);
+        matched.push(fact);
+      }
+    }
     return { matched, missed, norm, times, dates };
+  }
+
+  // 질문 문장에 이미 나온 사실. 두 낱말 사람 이름은 첫 낱말만 불러도 나온 것으로 봅니다("John" → John Doe).
+  function givenFacts(facts, prompt) {
+    const strict = matchFacts(facts, prompt, true).matched;
+    const promptWords = new Set(plainText(normalizeDigraphs(prompt)).split(' '));
+    return facts.filter((fact) => strict.includes(fact)
+      || (fact.type === 'name' && fact.value.split(' ').length === 2 && promptWords.has(fact.value.split(' ')[0])));
   }
 
   /* ---------------- 문법·어휘 신호 ---------------- */
@@ -427,26 +494,36 @@
     return n;
   }
 
-  const REASON_MARKERS = ['because', 'so that', 'that is why', "that's why", 'since', 'for example', 'for instance', 'such as', 'therefore', 'thus', 'as a result'];
-  const OPINION_MARKERS = ['i think', 'i believe', 'in my opinion', 'in my view', 'i agree', 'i disagree', 'i feel', 'for me'];
-  const CONCLUSION_MARKERS = ['therefore', 'in conclusion', 'for these reasons', 'that is why', "that's why", 'so i think', 'to sum up'];
+  // 강의의 이유·의견·마무리 틀(Here's why, First of all, I would say, Eventually)도 표지어로 셉니다.
+  const REASON_MARKERS = ['because', 'so that', 'that is why', "that's why", 'since', 'for example', 'for instance', 'such as', 'therefore', 'thus', 'as a result',
+    "here's why", 'first of all', 'firstly', 'above all', 'most of all', 'the reason is'];
+  const OPINION_MARKERS = ['i think', 'i believe', 'in my opinion', 'in my view', 'i agree', 'i disagree', 'i feel', 'for me',
+    'i would say', "i'd say", 'i would prefer', "i'd prefer"];
+  const CONCLUSION_MARKERS = ['therefore', 'in conclusion', 'for these reasons', 'that is why', "that's why", 'so i think', 'to sum up', 'eventually'];
+  // 강의의 증거·예시 틀(내 경험·리서치). Part 5 상위 점수는 결론보다 이 부분에서 갈립니다.
+  const EVIDENCE_MARKERS = ['for example', 'for instance', 'in my case', 'when i was', 'according to', 'research shows', 'studies show'];
+  // 'in my case'는 강의가 예시를 시작하는 표현으로 권하므로 상투 문장으로 보지 않습니다.
   const TEMPLATE_PHRASES = [
     'this is a very important issue', 'this is very important', 'there are several reasons for my opinion',
     'have a positive influence on our lives', 'have a positive effect on our lives', 'it is something that we should consider',
-    'in my case', 'i have had a similar experience', 'i had a similar experience', 'through that experience',
+    'i have had a similar experience', 'i had a similar experience', 'through that experience',
     'we should consider the advantages and disadvantages', 'both positive and negative effects',
     'many people think', 'it is a common belief', 'plays an important role in our lives',
   ];
 
+  function markerText(text) {
+    return ` ${String(text || '').toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ')} `;
+  }
+
   function markerCount(text, markers) {
-    const lower = ` ${String(text || '').toLowerCase().replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ')} `;
+    const lower = markerText(text);
     let n = 0;
     for (const marker of markers) if (lower.includes(` ${marker} `) || lower.includes(` ${marker},`) || lower.includes(`${marker} `)) n += 1;
     return n;
   }
 
   function templateHits(text) {
-    const lower = ` ${String(text || '').toLowerCase().replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ')} `;
+    const lower = markerText(text);
     let n = 0;
     for (const phrase of TEMPLATE_PHRASES) if (lower.includes(` ${phrase} `)) n += 1;
     return n;
@@ -549,38 +626,53 @@
     for (const element of elements) if (wordsHit(element, tokens) >= 0.6) covered.push(element);
     const ratio = elements.length ? covered.length / elements.length : 0;
 
-    const lenScore = words >= 45 ? 3 : words >= 27 ? 2 : 1;
-    const covScore = ratio >= 0.6 ? 3 : ratio >= 0.35 ? 2 : ratio > 0.1 ? 1 : 0;
-    let score = clamp(round(0.5 * lenScore + 0.5 * covScore), 0, 3);
+    // 강의: 사진마다 정해진 핵심 단어는 없고, 30초에 8~10문장이면 됩니다. 점수는 묘사한 분량으로 매기고,
+    // 핵심 요소는 사진과 관계없는 답을 거르는 데만 씁니다(하나도 맞지 않으면 최대 1점).
+    let score = words >= 45 ? 3 : words >= 27 ? 2 : 1;
+    const offPicture = elements.length > 0 && ratio === 0;
+    if (offPicture) score = Math.min(score, 1);
     if (words < 12) score = Math.min(score, 1);
-    if (ratio === 0 && words < 20) score = 0;
+    if (offPicture && words < 20) score = 0;
 
     const issues = grammarIssues(text);
     const grammar = clamp(3 - Math.min(3, issues.length), 0, 3);
     const vocab = clamp(round(1 + ([...new Set(contentWords(tokens))].length / Math.max(8, words)) * 4), 0, 3);
-    const structure = /\bthere (is|are)\b/.test(text.toLowerCase()) ? 1 : 0;
+    // 강의의 기본 틀 "I can see ~"도 "There is/are ~"와 같은 묘사 구문으로 봅니다.
+    const structure = /\b(there (is|are)|there's|i can see)\b/.test(text.toLowerCase().replace(/[\u2018\u2019]/g, "'")) ? 1 : 0;
     const cohesion = clamp(1 + (/\b(in the (background|foreground|middle)|on the (left|right)|next to|behind|in front of)\b/i.test(text) ? 1 : 0) + structure, 0, 3);
     return { score, criteria: { ...voice, grammar, vocab, cohesion }, covered };
   }
 
   function interviewScore(question, text, tokens, metrics) {
     const words = tokens.length;
-    const promptTokens = tokenize(question.prompt || '');
-    const relevance = overlapRatio(promptTokens, tokens);
+    const prompt = String(question.prompt || '');
+    const promptTokens = tokenize(prompt);
+    const reasons = markerCount(text, REASON_MARKERS);
+    // 강의: "I would say + 키워드 + because"는 무엇을 묻든 완결된 답입니다. 고르기·취향 질문에
+    // 이 틀로 답하면 질문 낱말을 되받지 않아도 질문에 답한 것으로 봅니다.
+    const keywordFrame = /\b(what|which|who|where)\b/i.test(prompt) && reasons > 0
+      && markerCount(text, ['i would say', "i'd say", 'i would prefer', "i'd prefer", 'my favorite']) > 0;
+    const relevance = keywordFrame ? Math.max(overlapRatio(promptTokens, tokens), 0.2) : overlapRatio(promptTokens, tokens);
 
-    const parts = String(question.prompt || '').split('?').map((p) => p.trim()).filter((p) => p.length > 3 && topicWords(tokenize(p)).length > 0);
+    const parts = prompt.split('?').map((p) => p.trim()).filter((p) => p.length > 3 && topicWords(tokenize(p)).length > 0);
     let answered = 0;
     for (const part of parts) if (overlapRatio(tokenize(part), tokens) >= 0.2) answered += 1;
-    const partsAnswered = parts.length ? answered / parts.length : relevance > 0 ? 1 : 0;
+    const asked = parts.length ? answered / parts.length : relevance > 0 ? 1 : 0;
+    const partsAnswered = keywordFrame ? Math.max(asked, 0.5) : asked;
 
     const seconds = question.responseSeconds || 15;
     const target = (seconds / 15) * 25;
     const ratio = words / target;
-    // 30초 문항(Q7)은 "고르고 이유 설명" 두 부분이라 25초 기준보다 짧게 말해도 완성도가 높습니다.
-    const fullRatio = seconds >= 30 ? 0.82 : 0.9;
+    // 15초 문항은 19단어(목표의 0.75)면 충분합니다. 강의는 7~8초만 말해도 된다고 하고,
+    // 실제 수험자 AL 답변(19~20단어)도 High였습니다. 30초 문항(Q7)은 고르기+이유 두 부분이라 0.82.
+    const fullRatio = seconds >= 30 ? 0.82 : 0.75;
+    // 강의의 15초 공식: 질문을 받은 완전한 한 문장 + because 이유면 12단어 안팎이어도 완결된 답입니다.
+    // 낱말을 끊어 말한 답("Uh, last week. Cooking at home.")은 여기에 넣지 않습니다.
+    const longest = Math.max(0, ...String(text).split(/[.!?]+/).map((sentence) => tokenize(sentence).length));
+    const compact = seconds < 30 && (words >= 12 || keywordFrame) && relevance >= 0.2 && reasons > 0 && longest >= 6;
     let score;
     if (words < 9) score = 0;
-    else if (ratio >= fullRatio && partsAnswered >= 0.5) score = 3;
+    else if ((ratio >= fullRatio || compact) && partsAnswered >= 0.5) score = 3;
     else if (ratio >= 0.65) score = 2;
     else if (ratio >= 0.25) score = 1;
     else score = 0;
@@ -592,7 +684,6 @@
     const delivery = deliveryScore(metrics && metrics.delivery);
     if (delivery === 0 && score > 2) score = 2;
 
-    const reasons = markerCount(text, REASON_MARKERS);
     const issues = grammarIssues(text);
     const voice = deliveryCriteria(metrics, words);
     return {
@@ -622,7 +713,7 @@
   }
 
   // 질문이 묻는 행사의 표 시간. 답안의 날짜로 표 행을 찾아 그 행의 시간만 기대값으로 봅니다.
-  // Q8 IH의 "9 to 8 p.m."처럼 같은 표의 다른 행에 있는 시각을 말해도, 이 행사의 시간이 아니면 틀린 값입니다.
+  // 이 행사의 시각은 하나도 말하지 않고 같은 표의 다른 행 시각만 말하면 틀린 값입니다.
   function expectedEventTimes(question) {
     const rows = Array.isArray(question.table) ? question.table.filter(Array.isArray) : [];
     if (!rows.length) return new Set();
@@ -645,33 +736,58 @@
     const facts = extractFacts(question);
     const match = matchFacts(facts, text);
     const known = knownValues(question);
+    const lower = String(text).toLowerCase().replace(/[\u2018\u2019]/g, "'").trim();
+    // 상대가 알고 있는 정보를 확인해 달라는 9번 신호(강의: I heard, I was told, confirm, right?).
+    const prompt = String(question.prompt || '').toLowerCase();
+    const correction = /\b(someone told me|i heard|i was told|i understand|i believe|is it true|confirm|supposed to be)\b|\b(right|correct)\?/.test(prompt);
+
+    // 강의: 9번 정정은 "Actually, + 틀린 부분"만 말하면 됩니다. 정정 문항에서는 질문에 이미 나온 사실과,
+    // 취소·변경된 원래 일정의 시각은 답에 다시 없어도 됩니다.
+    const given = correction ? givenFacts(facts, question.prompt || '') : [];
+    const hasStatus = facts.some((fact) => fact.type === 'status');
+    // 시작 시각만 묻는 질문("What time does registration begin?")이면 끝나는 시각은 답에 없어도 됩니다.
+    const startOnly = /\b(begin|start|open)s?\b/.test(prompt) && !/\b(end|finish|until|how long|close)\b/.test(prompt);
+    const endTimes = new Set();
+    if (startOnly) {
+      for (const m of String(question.answerKey || '').matchAll(/\b(?:to|until|till)\s+(\d{1,2}(?::\d{2})?\s*[ap]\.?\s*m\.?)/gi)) {
+        for (const time of extractTimes(normalizeDigraphs(m[1]))) endTimes.add(time);
+      }
+    }
+    let essential = facts.filter((fact) => !given.includes(fact) && !(hasStatus && fact.type === 'time')
+      && !(fact.type === 'time' && endTimes.has(fact.value)));
+    if (!essential.length) essential = facts;
+    const got = essential.filter((fact) => match.matched.includes(fact)).length;
+    const ratio = essential.length ? got / essential.length : 0;
 
     const extraTimes = [...match.times].filter((t) => !known.times.has(t));
     const extraDates = [...match.dates].filter((d) => !known.dates.has(d));
+    // 표의 다른 줄 시각은 이 행사의 시각을 하나도 말하지 않았을 때만 틀린 정보로 봅니다.
+    // 강의: 답 주변을 넉넉히 더 읽어도 감점이 없습니다.
     const eventTimes = expectedEventTimes(question);
-    const wrongTimes = eventTimes.size ? [...match.times].filter((t) => !eventTimes.has(t)) : [];
+    const saidEventTime = [...match.times].some((t) => eventTimes.has(t));
+    const wrongTimes = eventTimes.size && !saidEventTime ? [...match.times].filter((t) => !eventTimes.has(t)) : [];
 
-    // 표에 있는 시각이지만 이 문항의 답이 아닌 값을 말해도 틀린 정보입니다.
-    const prompt = String(question.prompt || '').toLowerCase();
-    const correction = /\b(someone told me|i heard|is it true|confirm|supposed to be)\b/.test(prompt);
-    const affirmative = /^(yes|yeah|that's correct|that is correct|correct|right|sure)\b/.test(String(text).toLowerCase().trim());
-    const negates = /\b(no|not|isn't|is not|wasn't|actually|instead|but|moved|changed)\b/.test(String(text).toLowerCase());
+    // 상대의 틀린 정보를 그대로 맞다고 하면 틀린 답입니다. 정답이 정말 "맞다"인 문항도 있으므로 답안이 정정일 때만 봅니다.
+    const keyCorrects = /^\s*(no|actually)\b|\b(not|but|instead)\b|n't\b|cancel|moved|changed|postponed/i.test(String(question.answerKey || ''));
+    const affirmative = /^(yes|yeah|that's correct|that is correct|correct|right|sure)\b/.test(lower);
+    const negates = /\b(no|not|isn't|is not|wasn't|actually|instead|but|moved|changed|cancel\w*)\b/.test(lower);
     const wrong = extraTimes.length > 0 || extraDates.length > 0 || wrongTimes.length > 0
-      || (correction && affirmative && !negates);
+      || (correction && keyCorrects && affirmative && !negates);
 
     let score;
-    if (words < 5) score = 0;
-    else {
-      const ratio = facts.length ? match.matched.length / facts.length : 0;
-      score = ratio >= 0.8 ? 3 : ratio >= 0.4 ? 2 : ratio > 0.1 ? 1 : 0;
-    }
+    // 강의: "It's 8 a.m."처럼 값만 말해도 답이 됩니다. 짧아도 맞힌 사실이 있으면 사실 비율로 매깁니다.
+    if (words < 2 || (words < 5 && !got)) score = 0;
+    else score = ratio >= 0.8 ? 3 : ratio >= 0.4 ? 2 : ratio > 0.1 ? 1 : 0;
+    // 꼭 필요한 사실은 놓쳤어도 질문에 나온 사실·원래 시각처럼 관련 있는 값을 말했으면 1점입니다.
+    if (!score && words >= 5 && match.matched.length) score = 1;
     // 고유명사는 음성 인식이 자주 깨뜨립니다("Emma Lewis" → "MLUIS").
     // 사실이 4개 이상이고 3개 이상 맞으며, 빠진 것이 이름·제목뿐이고 틀린 사실이 없으면 3점.
-    const onlyNamesMissed = match.missed.length > 0
-      && match.missed.every((fact) => fact.type === 'name' || fact.type === 'title');
-    const matchRatio = facts.length ? match.matched.length / facts.length : 0;
-    if (score === 2 && !wrong && facts.length >= 4 && match.matched.length >= 3 && matchRatio >= 0.7 && onlyNamesMissed) score = 3;
-    if (wrong) score = words >= 12 ? 1 : Math.min(score, 1);
+    const missedEssential = essential.filter((fact) => !match.matched.includes(fact));
+    const onlyNamesMissed = missedEssential.length > 0
+      && missedEssential.every((fact) => fact.type === 'name' || fact.type === 'title');
+    if (score === 2 && !wrong && essential.length >= 4 && got >= 3 && ratio >= 0.7 && onlyNamesMissed) score = 3;
+    // 틀린 정보는 한 단계 깎습니다. 실제 수험자 답변(Q8 IH)도 묻지 않은 시각을 틀리게 말해 Medium이었습니다.
+    if (wrong) score = Math.max(0, score - 1);
     const delivery = deliveryScore(metrics && metrics.delivery);
     if (delivery === 0 && score > 2) score = 2;
 
@@ -683,8 +799,8 @@
         ...voice, grammar: clamp(3 - Math.min(3, issues.length), 0, 3),
         vocab: clamp(3 - Math.max(0, 2 - Math.round(words / 12)), 0, 3),
         cohesion: clamp(1 + (match.matched.length ? 1 : 0) + (words >= 18 ? 1 : 0), 0, 3),
-        relevance: clamp(round((facts.length ? match.matched.length / facts.length : 0) * 3), 0, 3),
-        completeness: clamp(round((facts.length ? match.matched.length / facts.length : 0) * 3), 0, 3),
+        relevance: clamp(round(ratio * 3), 0, 3),
+        completeness: clamp(round(ratio * 3), 0, 3),
       },
       covered: match.matched.map((f) => f.value),
       wrongFacts: wrong ? [...new Set([...extraTimes, ...extraDates, ...wrongTimes])] : [],
@@ -699,6 +815,7 @@
     const opinions = markerCount(text, OPINION_MARKERS);
     const reasons = markerCount(text, REASON_MARKERS);
     const concludes = markerCount(text, CONCLUSION_MARKERS);
+    const evidence = markerCount(text, EVIDENCE_MARKERS);
 
     const ratio = words / 100;
     let score = ratio >= 1.15 ? 5 : ratio >= 0.92 ? 4 : ratio >= 0.7 ? 3 : ratio >= 0.4 ? 2 : ratio >= 0.15 ? 1 : 0;
@@ -709,9 +826,9 @@
     if (templates >= 3) score = Math.min(score, 2);
     else if (templates >= 1 && relevance < 0.2) score = Math.min(score, 2);
     if (opinions === 0 && reasons === 0 && score > 2) score = 2;
-    // 60초 문항에서 70단어 안팎이어도 결론과 높은 관련성이 있으면 상위 점수로 봅니다.
-    // (공식 모범 답안이 70~82단어 — 길이만으로 3점에 묶이지 않게)
-    if (score >= 3 && score < 5 && words >= 62 && concludes >= 1 && reasons >= 1 && relevance >= 0.8) score += 1;
+    // 60초 문항에서 70단어 안팎이어도 결론이나 증거·예시와 높은 관련성이 있으면 상위 점수로 봅니다.
+    // (공식 모범 답안이 70~82단어 — 길이만으로 3점에 묶이지 않게. 강의: 결론은 없어도 감점이 없고 고득점은 증거·예시에서 갈립니다)
+    if (score >= 3 && score < 5 && words >= 62 && (concludes >= 1 || evidence >= 1) && reasons >= 1 && relevance >= 0.8) score += 1;
 
     const delivery = deliveryScore(metrics && metrics.delivery);
     if (delivery === 0 && score > 3) score = 3;
@@ -723,7 +840,7 @@
       criteria: {
         ...voice, grammar: clamp(3 - Math.min(3, issues.length), 0, 3),
         vocab: clamp(3 - Math.max(0, 2 - Math.round(words / 25)), 0, 3),
-        cohesion: clamp(1 + (reasons ? 1 : 0) + (concludes ? 1 : 0), 0, 3),
+        cohesion: clamp(1 + (reasons ? 1 : 0) + (concludes || evidence ? 1 : 0), 0, 3),
         relevance: clamp(round(relevance * 3), 0, 3),
         completeness: clamp(round(Math.min(1, ratio) * 3), 0, 3),
       },

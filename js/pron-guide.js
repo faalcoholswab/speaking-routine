@@ -4,19 +4,23 @@
   const TAGS = {
     th: {
       label: 'TH',
-      tip: '혀끝을 윗니 끝에 가볍게 대고 바람을 내보내요. "쓰·더"로 끊거나 끝에 "으" 모음을 넣지 마세요.',
+      tip: '혀끝을 윗니 끝에 가볍게 대고 바람을 내보내요. 혀를 내밀기 어려우면 ㄷ·ㄸ에 가깝게 내도 점수 차이는 작으니, 멈칫하지 말고 자연스럽게 이어 말하는 쪽을 택해요.',
     },
     rl: {
       label: 'R·L',
-      tip: 'R은 혀끝이 입천장에 닿지 않게 당기고, L은 윗니 뒤 잇몸에 붙여요. 자음 뒤 "으" 첨가를 피해요.',
+      tip: 'L은 혀끝을 윗니 뒤 잇몸에 붙이고, R은 혀끝이 어디에도 닿지 않게 뒤로 당기며 입술을 계란형으로 모아요. 자음 뒤 "으" 첨가를 피해요.',
     },
     fv: {
       label: 'F·V',
-      tip: '윗니를 아랫입술에 살짝 대고 마찰음을 내요(V는 성대 울림). "ㅍ·ㅂ" 파열음으로 바꾸지 마세요.',
+      tip: '윗니를 아랫입술에 살짝 대고 마찰음을 내요(V는 성대 울림, PH도 F 소리예요). "ㅍ·ㅂ" 파열음으로 바꾸지 마세요.',
+    },
+    jz: {
+      label: 'J·Z',
+      tip: 'J는 입술을 앞으로 오므려 "쥐"처럼, Z는 입을 옆으로 벌린 채 진동을 내요. 둘을 같은 "ㅈ"으로 내지 않게 구분해요.',
     },
     stress: {
       label: '강세',
-      tip: '강세 음절을 길고 높게 살리고 나머지 음절은 짧고 약하게 줄여야 토익스피킹 전달력 점수가 올라가요.',
+      tip: '강세 음절을 길고 높게 살리고 나머지 음절은 짧고 약하게 줄여요. 문장에서는 숫자·고유명사·not 같은 부정어·-ly 부사를 또렷하게 살리고 기능어는 가볍게 넘겨요.',
     },
     link: {
       label: '연음',
@@ -258,6 +262,48 @@
     life: ['fv', '/laɪf/', '첫 L과 끝 무성 F 마찰을 한 음절 안에서 정확히 구분해요.', '라이프', 28],
     very: ['fv', '/ˈveri/', '윗니를 아랫입술에 대 v 유성 마찰로 시작해 바로 r로 넘겨요.', '베리', 24],
     have: ['fv', '/hæv/', '본동사 have는 끝 v를 가볍게 울리고, 뒤에 to가 오면 /hæf tə/로 이어요.', '해브|해버|해투', 20],
+
+    // J · Z (/dʒ/, /z/) — J는 입술을 오므리고 Z는 입을 옆으로 벌려요. 어말 -ge는 모음 없이 짧게 흐려요.
+    jazz: ['jz', '/dʒæz/', '앞 J는 입술을 오므려 "쥐"처럼, 끝 Z는 입을 옆으로 벌려 진동을 내요. 같은 "ㅈ" 두 번이 아니에요.', '재즈|쟤즈', 34],
+    museum: ['jz', '/mjuˈziːəm/', 'mu·SE·um — 가운데 s는 /z/ 소리예요. 입을 옆으로 벌려 진동을 내고 2음절(-SE-)에 강세를 둬요.', '뮤지엄', 34],
+    busy: ['jz', '/ˈbɪzi/', '가운데 s는 /z/예요. 입을 옆으로 벌린 채 진동을 내고, 입술을 오므리는 J와 구분해요.', '비지', 30],
+    easy: ['jz', '/ˈiːzi/', '가운데 s는 /z/예요. 입을 옆으로 벌린 채 진동을 내고, 입술을 오므리는 J와 구분해요.', '이지', 29],
+    job: ['jz', '/dʒɑːb/', '첫 J는 입술을 앞으로 오므려 내요. 입을 옆으로 벌리는 Z와 다른 소리예요.', '잡|좝', 28],
+    manager: ['jz', '/ˈmænɪdʒər/', 'MAN·a·ger — 1음절 강세, 가운데 g는 입술을 오므린 J(/dʒ/)로 내요.', '매니저|매니져', 31],
+    college: ['jz', '/ˈkɑːlɪdʒ/', '끝 -ge는 입술을 오므린 J 소리로 짧게 끝내요. 끝 "지" 모음을 또렷이 내지 말고 흐려요.', '칼리지|컬리지|칼리쥐', 32],
+    large: ['jz', '/lɑːrdʒ/', 'L에서 R로 혀를 앞에서 뒤로 당기고, 끝 -ge는 입을 모은 채 모음 없이 짧게 흐려요("라지" 주의).', '라지|라쥐', 32],
+    advantage: ['jz', '/ədˈvæntɪdʒ/', 'ad·VAN·tage — 2음절(-VAN-) 강세, 끝 -ge는 입을 모은 채 모음 없이 짧게 흐려요.', '어드밴티지', 34],
+    change: ['jz', '/tʃeɪndʒ/', '끝 -nge는 입을 모은 J 소리로 짧게 끝내요. 끝 "이" 모음을 세게 내지 마세요.', '체인지', 30],
+
+    // 단어 강세 — 품사·접미사에 따라 강세 자리가 바뀌는 단어
+    purchase: ['stress', '/ˈpɜːrtʃəs/', 'PUR·chase — 1음절(PUR-)에 강세를 두고 뒤 -chase는 "체이스"가 아니라 약한 /tʃəs/로 줄여요.', '퍼처스|퍼쳐스', 35],
+    representative: ['stress', '/ˌreprɪˈzentətɪv/', 'rep·re·SEN·ta·tive — 1차 강세는 -SEN-, 2차 강세는 rep-. 나머지 음절은 짧게 흘려요.', '레프리젠터티브|레프리젠터티브즈', 35],
+    report: ['rl', '/rɪˈpɔːrt/', 're·PORT — 앞 re-는 약하게, 뒤 -PORT에 강세를 두고 r을 살려요.', '리포트', 32],
+    update: ['stress', '/ˈʌpdeɪt/', '명사 UP·date는 앞 음절에 강세를 둬요(형용사 updated는 뒤 -DAT-에 강세).', '업데이트', 33],
+    updates: ['stress', '/ˈʌpdeɪts/', '명사 UP·dates — 앞 음절에 강세를 두고 끝 ts를 짧게 닫아요.', '업데이츠', 33],
+    updated: ['stress', '/ʌpˈdeɪtɪd/', 'up·DAT·ed — 형용사로 쓰면 뒤 -DAT-에 강세를 둬요(명사 UP·date와 반대).', '업데이티드|업데이릿', 33],
+    italy: ['stress', '/ˈɪtəli/', 'IT·a·ly — 1음절에 강세. Italian(i·TAL·ian)은 2음절로 강세가 옮겨 가요.', '이털리|이탈리', 33],
+    italian: ['stress', '/ɪˈtæliən/', 'i·TAL·ian — 2음절(-TAL-)에 강세를 둬요(Italy는 1음절 강세).', '이탤리언|이태리언', 33],
+    economy: ['stress', '/ɪˈkɑːnəmi/', 'e·CON·o·my — 2음절(-CON-)에 강세. economic은 3음절(-NOM-)로 강세가 옮겨 가요.', '이카너미|이코노미', 34],
+    economic: ['stress', '/ˌekəˈnɑːmɪk/', 'ec·o·NOM·ic — 3음절(-NOM-)에 강세를 둬요(economy는 2음절 강세).', '에커나믹|이코노믹', 34],
+    economical: ['stress', '/ˌekəˈnɑːmɪkl/', 'ec·o·NOM·i·cal — -NOM-에 강세를 두고 끝 -cal은 짧게 흘려요.', '에커나미컬|이코노미컬', 34],
+    renovation: ['stress', '/ˌrenəˈveɪʃn/', 'ren·o·VA·tion — -ation이 붙으면 바로 앞 A(-VA-)에 주강세가 와요.', '레노베이션|레너베이션', 35],
+    demonstration: ['stress', '/ˌdemənˈstreɪʃn/', 'dem·on·STRA·tion — -ation 바로 앞 A(-STRA-)에 주강세를 둬요.', '데먼스트레이션|데몬스트레이션', 35],
+    imagination: ['stress', '/ɪˌmædʒɪˈneɪʃn/', 'i·mag·i·NA·tion — -ation 바로 앞 A(-NA-)에 주강세를 둬요.', '이매지네이션', 35],
+    washington: ['stress', '/ˈwɑːʃɪŋtən/', 'WASH·ing·ton — -ton은 o를 또렷이 내지 않고 약한 /tən/으로, 강세는 첫 음절이에요.', '워싱턴', 33],
+    huntington: ['stress', '/ˈhʌntɪŋtən/', 'HUNT·ing·ton — -ton은 약한 /tən/, 강세는 첫 음절이에요.', '헌팅턴', 33],
+    general: ['rl', '/ˈdʒenrəl/', 'GEN·er·al — 1음절에 강세를 두고 끝 -eral은 /rəl/로 줄여 r에서 l로 혀를 옮겨 짧게 닫아요.', '제너럴|제너럴리', 32],
+    natural: ['rl', '/ˈnætʃrəl/', 'NAT·u·ral — 1음절 강세, 끝 -ural은 /rəl/로 줄여 r에서 l로 혀를 옮겨요.', '내추럴|내처럴', 32],
+
+    // Part 2·4 답변에 자주 나오는 단어
+    blond: ['rl', '/blɑːnd/', 'bl을 모음 없이 붙여 시작하고 R처럼 굵은 소리로 입을 세로로 열어 /ɑː/를 내요.', '블론드|블란드', 31],
+    wearing: ['rl', '/ˈwerɪŋ/', 'WEAR·ing — r을 살려 "웨어링"으로, "웰링"처럼 l로 바꾸지 마세요.', '웨어링', 31],
+    clothes: ['th', '/kloʊðz/', 'th를 약하게 넘겨 close(/kloʊz/)처럼 말해도 괜찮아요. 끝 z 울림만 살려요.', '클로즈|클로우즈', 30],
+    uniform: ['stress', '/ˈjuːnɪfɔːrm/', 'U·ni·form — 1음절(YOU-)에 강세, 끝 -form은 f 마찰과 r을 살려요. 시험 전에 몇 번 소리 내 봐요.', '유니폼', 32],
+    ladder: ['rl', '/ˈlædər/', 'LAD·der — 첫 L을 붙이고 가운데 dd는 굴리듯 약하게, 끝 -er는 r로 닫아요.', '래더', 30],
+    pizza: ['stress', '/ˈpiːtsə/', 'PIZ·za — 가운데 zz는 /ts/예요. "피자"보다 받침을 넣은 "핏자"에 가깝게, 1음절에 강세를 둬요.', '핏자|피자', 30],
+    hall: ['rl', '/hɔːl/', '입을 둥글게 열어 /ɔː/를 길게 내고 끝 l을 살려요("홀"처럼 짧게 닫지 마세요).', '허얼|홀', 30],
+    dollars: ['rl', '/ˈdɑːlərz/', 'DOL·lars — 1음절 강세, 끝 -rs의 z 울림을 살려 복수임을 들려줘요.', '달러즈|달러스', 31],
   };
 
   const STOP = new Set([
@@ -270,6 +316,7 @@
 
   // [ipa of 2nd word, linked pronunciation tip, korean chunk candidates]
   const LINK_MAP = {
+    'it will': ['/wɪl/', '"it will"은 t를 또박또박 끊지 말고 굴려 "이릴"처럼 will에 붙여요(It will be held → 이릴 비 헬드).', '이릴|잇 윌'],
     'working out': ['/aʊt/', '"working out"은 -ing 끝 코소리에 out을 부드럽게 이어 한 덩어리로 말해요.', '아웃|워킹아웃'],
     'eat out': ['/aʊt/', '"eat out"은 앞 t를 플랩(ㄹ)처럼 부드럽게 굴려 "이라웃"처럼 연결해요.', '이라웃|아웃'],
     'going out': ['/aʊt/', '"going out"은 두 단어를 끊지 말고 자연스럽게 이어 말해요.', '아웃|고잉 아웃'],
@@ -1088,13 +1135,11 @@
 
     const id = sentence && typeof sentence.id === 'string' ? sentence.id : '';
     const isPassage = !id;
-    const partBadge = isPassage
-      ? 'Part 1 (지문 낭독)'
-      : /^p5-/i.test(id)
-        ? 'Part 5 (Q11 · 60초 의견)'
-        : /^p3-/i.test(id)
-          ? 'Part 3 (Q5–7 · 15–30초 응답)'
-          : 'TS 억양·호흡';
+    const partBadge = isPassage ? 'Part 1 (지문 낭독)' : PART_BADGES[id.split('-')[0].toLowerCase()] || 'TS 억양·호흡';
+    // 강의: 끊는 위치는 채점 항목이 아니고, Part 2~5 답변은 문장 끝을 꼭 내리지 않아도 됩니다.
+    const note = isPassage
+      ? '끊는 위치(/)는 채점 항목이 아니에요. 단어마다 끊지만 않으면 숨이 찰 때 어디서 쉬어도 괜찮아요.'
+      : '끊는 위치(/)는 채점 항목이 아니에요. 대화하듯 말하는 답변은 문장 끝(↘)을 꼭 내리지 않아도 돼요.';
 
     const sentences = splitSentences(en);
     const structures = [];
@@ -1115,8 +1160,15 @@
     const first = TIP_ORDER.find((kind) => structures.includes(kind));
     const tip = first ? TIP_TEXT[first] : DEFAULT_TIP;
 
-    return { partBadge, chunked, tip };
+    return { partBadge, chunked, tip, note };
   }
+
+  const PART_BADGES = {
+    p2: 'Part 2 (Q3–4 · 30초 사진 묘사)',
+    p3: 'Part 3 (Q5–7 · 15–30초 응답)',
+    p4: 'Part 4 (Q8–10 · 표 보고 답하기)',
+    p5: 'Part 5 (Q11 · 60초 의견)',
+  };
 
   function pickDiverse(content, limit) {
     if (content.length <= limit) return content.slice();

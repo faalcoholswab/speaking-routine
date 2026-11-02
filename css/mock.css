@@ -394,6 +394,9 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   font-size: 13px; padding: 8px 8px; border-radius: 999px;
   background: var(--g50); color: var(--g700); box-shadow: inset 0 0 0 1px var(--g200);
 }
+.gd-tips { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.65; color: var(--text-2); }
+.gd-tips li + li { margin-top: 4px; }
+.gd-patterns + .gd-tips { margin-top: 12px; }
 .ex-timer-btn.static { pointer-events: none; }
 .ex-step { border: 0; cursor: pointer; }
 .ex-step:hover { color: var(--text); }

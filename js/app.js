@@ -24,7 +24,8 @@
   const DAY_MS = 24 * 60 * 60 * 1000;
   const HISTORY_PAGE_SIZE = 8;
   const ROUTES = ['home', 'study', 'review', 'records'];
-  const PART_KEYS = ['part3', 'part5'];
+  const PART_KEYS = ['part2', 'part3', 'part4', 'part5'];
+  const ALL_PARTS_LABEL = 'Part 2–5';
   const SPEEDS = [0.7, 0.85, 1, 1.15];
   // Part 5 답변 구조의 축. `topic`(소재)과 별개로 문장이 하는 일을 가리켜요.
   const FUNCTIONS = ['의견 시작', '이유', '예시', '연결', '결론'];
@@ -39,15 +40,25 @@
   const QUICK_COUNTS = [5, 10, 15, 20];
 
   const PART_INFO = {
+    part2: {
+      label: 'Part 2',
+      title: '사진 묘사',
+      desc: '장소 → 사람 → 동작 → 외모 → 배경 순서로 30초(8~10문장)를 채우는 문장을 연습해요.',
+    },
     part3: {
       label: 'Part 3',
       title: '일상 주제',
       desc: '일상적인 질문에 자연스럽게 답하는 문장을 연습해요.',
     },
+    part4: {
+      label: 'Part 4',
+      title: '표 보고 답하기',
+      desc: '표의 장소·시간·변경 사항을 전하는 답변 틀을 연습해요.',
+    },
     part5: {
       label: 'Part 5',
       title: '의견 말하기',
-      desc: '의견을 말하고 이유와 예시를 붙이는 문장을 연습해요.',
+      desc: '의견을 말하고 이유와 근거를 붙여 60초(10~12문장)를 채우는 문장을 연습해요. 결론은 없어도 돼요.',
     },
   };
 
@@ -679,7 +690,7 @@
       .map(([key, tag]) => `<span class="pg-chip pg-${esc(key)}">${esc(tag.label)}</span>`)
       .join('');
     const flowMarkup = flow && flow.chunked
-      ? `<div class="pg-flow"><div class="pg-flow-head"><span class="pg-flow-badge">${esc(flow.partBadge || 'TS 억양·호흡')}</span><span class="pg-flow-label">억양 · 끊어 읽기</span></div><p class="pg-flow-chunk">${esc(flow.chunked)}</p><p class="pg-flow-tip">${esc(flow.tip || '')}</p></div>`
+      ? `<div class="pg-flow"><div class="pg-flow-head"><span class="pg-flow-badge">${esc(flow.partBadge || 'TS 억양·호흡')}</span><span class="pg-flow-label">억양 · 끊어 읽기</span></div><p class="pg-flow-chunk">${esc(flow.chunked)}</p><p class="pg-flow-tip">${esc(flow.tip || '')}</p>${flow.note ? `<p class="pg-flow-note">${esc(flow.note)}</p>` : ''}</div>`
       : '';
     const marksLegend = `<span class="pg-marks-legend">${esc(window.PRON_GUIDE.MARKS_LEGEND || '/ 끊어 읽기 · ↗ 올림 · → 유지 · ↘ 내림')}</span>`;
     const items = points.map((point) => `<li class="pg-item"><span class="pg-idx">${point.num}</span><span class="pg-text"><b>${esc(point.word)}</b>${point.ipa ? ` <span class="pg-ipa">${esc(point.ipa)}</span>` : ''}<span class="pg-tip">${esc(point.tip)}</span></span></li>`).join('');
@@ -973,10 +984,10 @@
     const totalSessions = state.history.length;
     const totalSentences = SENTENCES.length;
 
-    return `${pageHead('TODAY · ' + prettyToday(), '오늘도 한 문장씩,<br>영어로 말해 볼까요?', '토익스피킹 파트 3·5의 핵심 문장을 내 속도에 맞춰 연습해요.')}
+    return `${pageHead('TODAY · ' + prettyToday(), '오늘도 한 문장씩,<br>영어로 말해 볼까요?', '토익스피킹 파트 2~5의 핵심 문장을 내 속도에 맞춰 연습해요.')}
       <div class="summary-bar">
         <span><strong>오늘 복습 ${dueToday}문장</strong> · 이번 주 연습 ${weekTotal}문장 · ${effectiveStreak() ? `${effectiveStreak()}일 연속` : '오늘부터 시작'}</span>
-        <span class="tag">Part 3 · Part 5</span>
+        <span class="tag">${ALL_PARTS_LABEL}</span>
       </div>
       <section class="home-cards" aria-label="학습 메뉴">
         <a class="home-card dark" href="#/study">
@@ -988,7 +999,7 @@
               <p class="hc-desc">파트와 주제를 고르고, 지금 기억에 남는 문장부터 소리 내어 연습해요.</p>
             </div>
           </div>
-          <div class="hc-foot"><span>Part 3 · Part 5 · ${totalSentences}문장</span>${icon('chevronRight')}</div>
+          <div class="hc-foot"><span>${ALL_PARTS_LABEL} · ${totalSentences}문장</span>${icon('chevronRight')}</div>
         </a>
         <a class="home-card" href="#/review">
           <div class="hc-top">
@@ -1062,7 +1073,7 @@
     const snapshot = studySnapshot();
     const counts = rangeCounts();
     const selectedParts = PART_KEYS.filter((key) => study.parts.has(key));
-    const partTag = selectedParts.length === PART_KEYS.length ? 'Part 3 + 5' : selectedParts.map((key) => PART_INFO[key].label).join(' · ');
+    const partTag = selectedParts.length === PART_KEYS.length ? ALL_PARTS_LABEL : selectedParts.map((key) => PART_INFO[key].label).join(' · ');
 
     const partCards = PART_KEYS.map((key) => {
       const selected = study.parts.has(key);
@@ -1466,7 +1477,7 @@
   }
 
   function viewDataError() {
-    return `${pageHead('DATA', '문장을 불러오지 못했어요.', 'data/part3.js와 data/part5.js가 같은 폴더 구조에 있는지 확인해 주세요.')}
+    return `${pageHead('DATA', '문장을 불러오지 못했어요.', 'data 폴더의 part2.js~part5.js가 같은 폴더 구조에 있는지 확인해 주세요.')}
       <section class="panel">
         ${emptyMarkup({ iconName: 'alert', title: '문장 데이터가 비어 있어요', text: '데이터 파일을 불러온 뒤 페이지를 새로고침해 주세요.' })}
       </section>`;
