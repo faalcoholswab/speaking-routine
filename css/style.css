@@ -381,6 +381,13 @@ button:not(:disabled):active, a[href]:active, [role="button"]:active, summary:ac
   background: var(--g50); color: var(--text-2); font-size: 14px; line-height: 1.6;
 }
 .fc-prompt-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+/* 답안을 숨긴 사진·표 카드의 안내 문구 */
+.fc-main.scene.hint { margin: 0 0 16px; color: var(--text-2); }
+/* 질문 듣기·영어 듣기가 한 줄에 같이 있을 때: 줄바꿈하고 버튼은 같은 높이로 */
+.tools-row:has(.play-btn + .play-btn) { flex-wrap: wrap; justify-content: flex-start; }
+.play-btn.ghost { background: transparent; }
+.play-btn.ghost.playing { background: var(--accent-ink); }
+.scene-modes { margin-top: 16px; }
 .fc-sub { border-top: 1px solid var(--line); padding-top: 20px; }
 .sub-label { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
 .sub-text { font-size: 18px; color: var(--text-2); margin: 0; word-break: keep-all; line-height: 1.65; }

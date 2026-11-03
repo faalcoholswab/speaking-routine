@@ -98,6 +98,23 @@
   // listen은 과거 기록 표시용으로만 남기고, 새 선택지는 3개로 줄입니다.
   const MODE_ORDER = ['en-first', 'ko-first', 'both'];
 
+  // Part 2·4 사진·표 카드만 따르는 표시 방식. 위의 MODE_INFO(영어 먼저 등)는 Part 3·5 문장용입니다.
+  const SCENE_MODES = ['answer', 'read'];
+  const SCENE_MODE_INFO = {
+    answer: {
+      label: '문제를 보고 답변하기',
+      short: '문제 보고 답하기',
+      desc: '사진이나 표·질문만 보고 먼저 소리 내어 답해 봐요. 다 말한 뒤 모범 답안을 확인해요.',
+      icon: '답',
+    },
+    read: {
+      label: '문제와 답안을 함께 보기',
+      short: '문제·답안 함께',
+      desc: '사진이나 표·질문과 모범 답안을 함께 보며 소리 내어 읽어 봐요.',
+      icon: 'Q·A',
+    },
+  };
+
   const STATUS_INFO = {
     unknown: { label: '몰라요', icon: 'refresh' },
     confused: { label: '애매해요', icon: 'help' },
@@ -159,6 +176,7 @@
           imageAlt: typeof item.imageAlt === 'string' ? item.imageAlt : '',
           prompt: typeof item.prompt === 'string' ? item.prompt : '',
           caption: typeof item.caption === 'string' ? item.caption : '',
+          seconds: Number.isFinite(Number(item.seconds)) ? Number(item.seconds) : 0,
           topic: typeof item.topic === 'string' && item.topic ? item.topic : '기타',
           // v32: Part 5는 `topic`(소재)과 `function`(답변에서의 역할)을 따로 둡니다.
           split: typeof item.function === 'string' && item.function.trim() !== '',
@@ -189,6 +207,8 @@
   let toastTimer = 0;
   let liveTimer = 0;
   let speaking = false;
+  // 지금 재생 중인 것: 'answer'(모범 답안·문장) 또는 'prompt'(Part 4 질문)
+  let speakingKind = 'answer';
   let speechToken = 0;
 
   const liveRegion = document.createElement('div');
@@ -231,7 +251,7 @@
       queue: {},
       history: [],
       streak: { current: 0, best: 0, lastDate: '' },
-      settings: { count: 10, mode: 'en-first', speed: 1, autoPlay: false, parts: PART_KEYS.slice() },
+      settings: { count: 10, mode: 'en-first', sceneMode: 'answer', speed: 1, autoPlay: false, parts: PART_KEYS.slice() },
     };
   }
 
@@ -339,6 +359,7 @@
         next.settings.autoPlay = Boolean(input.settings.autoPlay);
       }
       next.settings.speed = SPEEDS.includes(Number(input.settings.speed)) ? Number(input.settings.speed) : 1;
+      next.settings.sceneMode = SCENE_MODES.includes(input.settings.sceneMode) ? input.settings.sceneMode : 'answer';
     }
 
     return next;
@@ -928,7 +949,7 @@
     const filters = studyFilterText();
     const label = esc(filters || '전체 주제');
     const limited = snapshot.actual < study.count ? ' (가능한 문장 모두)' : '';
-    return `<strong>${snapshot.actual}문장${limited}</strong><span>${esc(snapshot.partLabel)} · ${label} · ${esc(snapshot.mode.label)}</span>`;
+    return `<strong>${snapshot.actual}문장${limited}</strong><span>${esc(snapshot.partLabel)} · ${label} · ${esc(studyModeText())}</span>`;
   }
 
   // 빠른 시작 한 줄: 지금 설정 그대로 몇 문장을 어떤 방식으로 연습하는지 요약해요.
@@ -948,7 +969,7 @@
     }
     const limited = snapshot.actual < study.count ? ' (가능한 문장 모두)' : '';
     const filters = studyFilterText();
-    return `<strong>빠른 시작 · ${snapshot.actual}문장${limited}</strong><span>${esc(snapshot.partLabel)}${filters ? ` · ${esc(filters)}` : ''} · ${esc(snapshot.mode.label)} · 지금 설정으로 바로 시작</span>`;
+    return `<strong>빠른 시작 · ${snapshot.actual}문장${limited}</strong><span>${esc(snapshot.partLabel)}${filters ? ` · ${esc(filters)}` : ''} · ${esc(studyModeText())} · 지금 설정으로 바로 시작</span>`;
   }
 
   function syncStudySummary() {
@@ -1046,6 +1067,10 @@
       const selected = study.mode === key;
       return `<button class="quick-chip ${selected ? 'active' : ''}" type="button" data-action="set-mode" data-mode="${key}" aria-pressed="${selected}">${esc(MODE_INFO[key].label)}</button>`;
     }).join('');
+    const sceneButtons = SCENE_MODES.map((key) => {
+      const selected = sceneModeNow() === key;
+      return `<button class="quick-chip ${selected ? 'active' : ''}" type="button" data-action="set-scene-mode" data-scene-mode="${key}" aria-pressed="${selected}">${esc(SCENE_MODE_INFO[key].short)}</button>`;
+    }).join('');
 
     return `<section class="panel quick-start" aria-labelledby="quick-start-title">
       <div class="qs-head">
@@ -1067,6 +1092,10 @@
         <span class="qs-label" id="qs-mode">방식</span>
         <div class="qs-chips" role="group" aria-labelledby="qs-mode">${modeButtons}</div>
       </div>
+      ${sceneSelected() ? `<div class="qs-row">
+        <span class="qs-label" id="qs-scene">사진·표</span>
+        <div class="qs-chips" role="group" aria-labelledby="qs-scene">${sceneButtons}</div>
+      </div>` : ''}
       <div class="qs-foot">
         <div class="start-copy" id="quick-summary" aria-live="polite">${quickSummaryMarkup()}</div>
         <button class="btn-primary" type="button" data-action="quick-start" ${snapshot.actual ? '' : 'disabled'}>지금 시작 ${icon('arrowRight')}</button>
@@ -1108,6 +1137,16 @@
       return `<button class="mode-card ${selected ? 'selected' : ''}" type="button" data-action="set-mode" data-mode="${key}" aria-pressed="${selected}">
         <span class="mode-icon ${mode.icon.length > 1 ? 'small' : ''}" aria-hidden="true">${mode.icon}</span>
         <span class="mode-copy"><span class="mode-title">${mode.label}</span><span class="mode-desc">${mode.desc}</span></span>
+        <span class="mode-check" aria-hidden="true">${icon('check')}</span>
+      </button>`;
+    }).join('');
+
+    const sceneCards = SCENE_MODES.map((key) => {
+      const info = SCENE_MODE_INFO[key];
+      const selected = sceneModeNow() === key;
+      return `<button class="mode-card ${selected ? 'selected' : ''}" type="button" data-action="set-scene-mode" data-scene-mode="${key}" aria-pressed="${selected}">
+        <span class="mode-icon ${info.icon.length > 1 ? 'small' : ''}" aria-hidden="true">${esc(info.icon)}</span>
+        <span class="mode-copy"><span class="mode-title">${esc(info.label)}</span><span class="mode-desc">${esc(info.desc)}</span></span>
         <span class="mode-check" aria-hidden="true">${icon('check')}</span>
       </button>`;
     }).join('');
@@ -1172,12 +1211,17 @@
         </div>
       </section>
       <section class="panel">
-        <div class="panel-head"><h2>3. 표시 방식</h2><span class="tag">${esc(MODE_INFO[study.mode].label)}</span></div>
+        <div class="panel-head"><h2>3. 표시 방식</h2><span class="tag">${esc(studyModeText())}</span></div>
         <div class="mode-list">${modeCards}</div>
         <label class="toggle-row" for="auto-play">
           <input id="auto-play" type="checkbox" ${study.autoPlay ? 'checked' : ''}>
           <span>카드가 바뀔 때 영어 자동 재생</span>
         </label>
+        ${sceneSelected() ? `<div class="custom scene-modes">
+          <label>사진·표 카드 (Part 2·4)</label>
+          <div class="mode-list" role="group" aria-label="사진·표 카드 표시 방식">${sceneCards}</div>
+          <p class="help">위 방식(영어 먼저 등)은 Part 3·5 문장에만 적용되고, Part 2·4 카드는 여기서 고른 방식으로 보여요.</p>
+        </div>` : ''}
         <p class="panel-note">방식을 고른 뒤 아래에서 연습을 시작하세요. 자동 재생은 한국어 먼저·영어+한국어에서도 쓸 수 있어요.</p>
       </section>
       </div>
@@ -1193,6 +1237,47 @@
     if (!sentence.split) return sentence.topic;
     const topic = topicLabel(sentence);
     return topic === '-' ? sentence.function : `${sentence.function} · ${topic}`;
+  }
+
+  function sceneModeNow() {
+    return state.settings.sceneMode === 'read' ? 'read' : 'answer';
+  }
+
+  // 요약·칩에 보여 줄 표시 방식 이름. 사진·표 카드(Part 2·4)만이면 그 방식, 섞여 있으면 둘 다 보여 줘요.
+  function modeText(hasScene, hasText, textMode) {
+    const sceneLabel = SCENE_MODE_INFO[sceneModeNow()].short;
+    const textLabel = (MODE_INFO[textMode] || MODE_INFO['en-first']).label;
+    if (hasScene && !hasText) return sceneLabel;
+    if (hasScene && hasText) return `${textLabel} · ${sceneLabel}`;
+    return textLabel;
+  }
+
+  function studyModeText() {
+    const parts = [...study.parts];
+    return modeText(parts.some((key) => key === 'part2' || key === 'part4'), parts.some((key) => key !== 'part2' && key !== 'part4'), study.mode);
+  }
+
+  // 지금 고른 파트에 사진·표 카드(Part 2·4)가 있는지. 있을 때만 사진·표 방식 선택지를 보여 줍니다.
+  function sceneSelected() {
+    return study.parts.has('part2') || study.parts.has('part4');
+  }
+
+  // 사진·표 카드가 "문제를 보고 답변하기"이고 아직 답안을 열지 않았는지.
+  function sceneAnswerHidden(card) {
+    return Boolean(card && card.image) && sceneModeNow() === 'answer' && !session.revealed;
+  }
+
+  // R·Space로 정답(답안)을 열 수 있는 상태인지. 사진·표 카드는 "문제를 보고 답변하기"에서 숨긴 동안에만 열 수 있어요.
+  function canRevealCurrent() {
+    const card = session.sentences[session.index];
+    if (card && card.image) return sceneAnswerHidden(card);
+    return !session.revealed && session.mode !== 'both';
+  }
+
+  // 지금 카드에서 'P'(듣기)가 읽을 내용. 답안을 숨긴 카드에서는 답안 대신 질문(Part 4)만 읽을 수 있어요.
+  function playKindFor(card) {
+    if (!sceneAnswerHidden(card)) return 'answer';
+    return card.prompt ? 'prompt' : '';
   }
 
   // Part 2(사진)·Part 4(표) 카드는 모의고사의 이미지를 보여 줍니다. 이미지를 탭하면 크게 볼 수 있어요.
@@ -1213,8 +1298,11 @@
     const total = s.sentences.length;
     const progress = Math.round((s.index / total) * 100);
     const status = state.queue[card.id]?.status || state.progress[card.id]?.status || '';
-    const isKoFirst = s.mode === 'ko-first' || s.mode === 'listen';
-    const isBoth = s.mode === 'both';
+    // 사진·표 카드(Part 2·4)는 Part 3·5의 표시 방식 대신 sceneMode를 따른다.
+    const scene = Boolean(card.image);
+    const answerHidden = sceneAnswerHidden(card);
+    const isKoFirst = !scene && (s.mode === 'ko-first' || s.mode === 'listen');
+    const isBoth = scene ? sceneModeNow() === 'read' : s.mode === 'both';
     const primary = isKoFirst ? card.ko : card.en;
     const secondary = isKoFirst ? card.en : card.ko;
     // 사진·표 카드의 답은 여러 문장이라 한 문장용 큰 글자보다 작게 보여 줍니다.
@@ -1225,7 +1313,12 @@
     const points = guide.points;
     const primaryHtml = esc(primary);
     const secondaryHtml = esc(secondary);
-    const revealLabel = isKoFirst ? '영어 문장 확인하기' : '뜻 확인하기';
+    const revealLabel = scene ? '모범 답안 확인하기' : isKoFirst ? '영어 문장 확인하기' : '뜻 확인하기';
+    const sceneHint = scene
+      ? `${card.part === 'part2' ? '사진을 보고' : '질문에 맞는 정보를 표에서 찾아'}${card.seconds ? ` ${card.seconds}초 안에` : ''} 소리 내어 답해 보세요.`
+      : '';
+    const promptPlaying = speaking && speakingKind === 'prompt';
+    const answerPlaying = speaking && speakingKind !== 'prompt';
     const revealHint = isBoth ? '' : ' · <kbd>R</kbd> 정답';
     const parts = PART_KEYS.filter((key) => s.sentences.some((sentence) => sentence.part === key));
     const partLabel = parts.map((part) => PART_INFO[part].label).join(' + ');
@@ -1237,7 +1330,7 @@
 
     return `<h1 class="sr-only">${s.source === 'review' ? '문장 복습' : '문장 학습'}</h1>
       <section class="session-bar" aria-label="학습 세션 정보">
-        <div class="chips"><span>${esc(sourceLabel)}</span><span>${esc(MODE_INFO[s.mode].label)}</span><span>${s.index + 1} / ${total}</span></div>
+        <div class="chips"><span>${esc(sourceLabel)}</span><span>${esc(modeText(s.sentences.some((item) => item.image), s.sentences.some((item) => !item.image), s.mode))}</span><span>${s.index + 1} / ${total}</span></div>
         <button type="button" data-action="finish-session">${icon('x')} 학습 마치기</button>
       </section>
       <div class="session-meta">
@@ -1255,18 +1348,22 @@
                   ${badgeMarkup(status)}
                 </div>
                 ${sceneMarkup(card)}
-                <h2 class="${primaryClass}" id="sentence-main"${primaryLang}>${primaryHtml}</h2>
+                ${answerHidden
+                  ? `<h2 class="fc-main scene hint" id="sentence-main">${esc(sceneHint)}</h2>
+                <button class="reveal-btn" type="button" data-action="reveal" aria-expanded="false">${icon('eye')} ${revealLabel}</button>`
+                  : `<h2 class="${primaryClass}" id="sentence-main"${primaryLang}>${primaryHtml}</h2>
                 ${(isBoth || s.revealed)
                   ? `<div class="fc-sub" id="answer" tabindex="-1"><p class="sub-label">${subLabel}</p><p class="${subClass}"${secondaryLang}>${secondaryHtml}</p></div>`
-                  : `<button class="reveal-btn" type="button" data-action="reveal" aria-expanded="false">${icon('eye')} ${revealLabel}</button>`}
+                  : `<button class="reveal-btn" type="button" data-action="reveal" aria-expanded="false">${icon('eye')} ${revealLabel}</button>`}`}
               </div>
               <div class="fc-tools">
                 <div class="tools-row">
-                  <button class="play-btn" type="button" data-action="speak" ${speechSupported ? '' : 'disabled title="이 브라우저에서는 음성 재생을 지원하지 않아요"'}>${icon('play')} <span>영어 듣기</span></button>
+                  ${answerHidden ? '' : `<button class="play-btn" type="button" data-action="speak" ${speechSupported ? '' : 'disabled title="이 브라우저에서는 음성 재생을 지원하지 않아요"'}>${icon(answerPlaying ? 'pause' : 'play')} <span>${answerPlaying ? '멈추기' : '영어 듣기'}</span></button>`}
+                  ${scene && card.prompt ? `<button class="play-btn${answerHidden ? '' : ' ghost'}" type="button" data-action="speak-prompt" ${speechSupported ? '' : 'disabled title="이 브라우저에서는 음성 재생을 지원하지 않아요"'}>${icon(promptPlaying ? 'pause' : 'play')} <span>${promptPlaying ? '멈추기' : '질문 듣기'}</span></button>` : ''}
                   <label class="speed"><span>속도</span><select id="speed-select" aria-label="음성 재생 속도">${speedOptions}</select></label>
                 </div>
-                <button class="toggle" type="button" data-action="toggle-pron" aria-expanded="${Boolean(s.pronOpen)}">발음 가이드 ${icon('chevronDown')}</button>
-                ${s.pronOpen ? `<div class="pron-box" role="note">
+                ${answerHidden ? '' : `<button class="toggle" type="button" data-action="toggle-pron" aria-expanded="${Boolean(s.pronOpen)}">발음 가이드 ${icon('chevronDown')}</button>`}
+                ${s.pronOpen && !answerHidden ? `<div class="pron-box" role="note">
                   <div class="pg-line">
                     <p class="pg-line-label">영어 발음 표시</p>
                     <p class="pg-annotated-line" lang="en">${renderEnglish(card.en, points)}</p>
@@ -1278,19 +1375,19 @@
                   ${renderGuide(points, guide.flow)}
                 </div>` : ''}
               </div>
-              <div class="fc-keys">
+              ${answerHidden ? '' : `<div class="fc-keys">
                 <button class="keys-toggle" type="button" data-action="toggle-keys" aria-expanded="${Boolean(s.keysOpen)}">
                   <span class="l">${icon('book')} 핵심 표현 ${card.keys.length}</span>
                   <span class="r">${s.keysOpen ? '접기' : '보기'} ${icon('chevronDown')}</span>
                 </button>
                 ${s.keysOpen ? `<ul class="key-list">${card.keys.map((key) => `<li><b>${esc(key.en)}</b><span>${esc(key.ko)}</span></li>`).join('') || '<li><span>핵심 표현이 없어요.</span></li>'}</ul>` : ''}
-              </div>
+              </div>`}
             </article>
           </section>
         </div>
         <aside class="session-side" aria-label="문장 평가">
           <div class="rate-panel">
-            <div class="rate-head"><span>이 문장, 얼마나 익숙했나요?</span></div>
+            <div class="rate-head"><span>${scene ? '이 문제, 얼마나 잘 답했나요?' : '이 문장, 얼마나 익숙했나요?'}</span></div>
             <div class="rate-row" role="group" aria-label="문장 이해도 평가">
               ${Object.entries(STATUS_INFO).map(([key, info]) => `<button class="rate-btn ${key}" type="button" data-action="rate" data-rating="${key}" aria-keyshortcuts="${key === 'unknown' ? '1' : key === 'confused' ? '2' : '3'}">${icon(info.icon)} ${info.label}</button>`).join('')}
             </div>
@@ -1823,11 +1920,16 @@
     startStudySession();
   }
 
-  function playCurrent() {
+  // kind: 'answer'는 문장·모범 답안, 'prompt'는 Part 4 질문, ''은 지금 읽을 것이 없음(답안을 숨긴 카드에 질문도 없을 때).
+  function playCurrent(kind = 'answer') {
     if (!session || session.done) return;
     const card = session.sentences[session.index];
     if (!card) return;
 
+    if (!kind) {
+      toast('모범 답안을 확인하면 들을 수 있어요.');
+      return;
+    }
     if (!speechSupported) {
       toast('이 브라우저에서는 음성 재생을 지원하지 않아요.');
       return;
@@ -1839,10 +1941,11 @@
 
     const token = ++speechToken;
     speaking = true;
+    speakingKind = kind;
     syncSpeechButton();
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(card.en);
+    const utterance = new SpeechSynthesisUtterance(kind === 'prompt' ? card.prompt : card.en);
     utterance.lang = 'en-US';
     // 우선순위: 학습 화면에서 1×가 아닌 속도를 골랐으면 그 값, 아니면 설정의 기본 속도.
     const studySpeed = Number(state.settings.speed) || 1;
@@ -1895,14 +1998,24 @@
   function maybeAutoPlay() {
     if (!session || session.done || !session.autoPlay || !speechSupported) return;
     session.autoPlay = false;
-    playCurrent();
+    // 답안을 숨긴 카드에서는 답안을 읽어 주지 않고, 질문이 있는 Part 4만 질문을 읽어 줍니다.
+    const kind = playKindFor(session.sentences[session.index]);
+    if (kind) playCurrent(kind);
   }
 
   function syncSpeechButton() {
-    const button = app.querySelector('[data-action="speak"]');
-    if (!button) return;
-    button.classList.toggle('playing', speaking);
-    button.innerHTML = `${icon(speaking ? 'pause' : 'play')} <span>${speaking ? '멈추기' : '영어 듣기'}</span>`;
+    const answerButton = app.querySelector('[data-action="speak"]');
+    if (answerButton) {
+      const playing = speaking && speakingKind !== 'prompt';
+      answerButton.classList.toggle('playing', playing);
+      answerButton.innerHTML = `${icon(playing ? 'pause' : 'play')} <span>${playing ? '멈추기' : '영어 듣기'}</span>`;
+    }
+    const promptButton = app.querySelector('[data-action="speak-prompt"]');
+    if (promptButton) {
+      const playing = speaking && speakingKind === 'prompt';
+      promptButton.classList.toggle('playing', playing);
+      promptButton.innerHTML = `${icon(playing ? 'pause' : 'play')} <span>${playing ? '멈추기' : '질문 듣기'}</span>`;
+    }
   }
 
   function resultWords(value) {
@@ -2440,6 +2553,16 @@
       case 'speak':
         playCurrent();
         break;
+      case 'speak-prompt':
+        playCurrent('prompt');
+        break;
+      case 'set-scene-mode':
+        if (!SCENE_MODES.includes(target.dataset.sceneMode)) return;
+        state.settings.sceneMode = target.dataset.sceneMode;
+        persist();
+        render();
+        focusQuicks(`[data-action="set-scene-mode"][data-scene-mode="${state.settings.sceneMode}"]`);
+        break;
       case 'rate':
         rateCurrent(target.dataset.rating);
         break;
@@ -2636,7 +2759,7 @@
     }
     if (event.code === 'KeyR' || key === 'r') {
       event.preventDefault();
-      if (!session.revealed && session.mode !== 'both') {
+      if (canRevealCurrent()) {
         session.revealed = true;
         session.autoPlay = false;
         render();
@@ -2647,12 +2770,12 @@
     }
     if (event.code === 'KeyP' || key === 'p') {
       event.preventDefault();
-      playCurrent();
+      playCurrent(playKindFor(session.sentences[session.index]));
       return;
     }
     if (event.code === 'Space') {
       event.preventDefault();
-      if (!session.revealed && session.mode !== 'both') {
+      if (canRevealCurrent()) {
         session.revealed = true;
         session.autoPlay = false;
         render();
