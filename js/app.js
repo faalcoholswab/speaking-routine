@@ -23,7 +23,7 @@
   const SRS_MAX_INTERVAL = 60;
   const DAY_MS = 24 * 60 * 60 * 1000;
   const HISTORY_PAGE_SIZE = 8;
-  const ROUTES = ['home', 'study', 'review', 'records'];
+  const ROUTES = ['home', 'study', 'review', 'records', 'tips'];
   const PART_KEYS = ['part2', 'part3', 'part4', 'part5'];
   const ALL_PARTS_LABEL = 'Part 2–5';
   const SPEEDS = [0.7, 0.85, 1, 1.15];
@@ -126,6 +126,7 @@
     study: { label: '학습하기', title: '학습하기' },
     review: { label: '복습하기', title: '복습하기' },
     records: { label: '학습 기록', title: '학습 기록' },
+    tips: { label: '학습 팁', title: '학습 팁' },
   };
 
   const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -151,6 +152,7 @@
     upload: '<path d="M12 15V3M7 8l5-5 5 5M5 21h14"/>',
     trash: '<path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14"/>',
     book: '<path d="M4 4h12a4 4 0 0 1 4 4v12H8a4 4 0 0 0-4 0Z"/><path d="M4 4v16"/>',
+    bulb: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5.9 1.2.9 2V17h5.4v-1.2c0-.8.3-1.5.9-2A6 6 0 0 0 12 3Z"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     x: '<path d="m6 6 12 12M18 6 6 18"/>',
     alert: '<path d="M12 3 2 21h20Z"/><path d="M12 9v5M12 18h.01"/>',
@@ -735,7 +737,7 @@
   }
 
   function routeFromHash() {
-    const match = location.hash.match(/^#\/(home|study|review|records)\/?$/);
+    const match = location.hash.match(/^#\/(home|study|review|records|tips)\/?$/);
     return match ? match[1] : 'home';
   }
 
@@ -1605,6 +1607,7 @@
     else if (routeFromHash() === 'home') html = viewHome();
     else if (routeFromHash() === 'study') html = viewStudy();
     else if (routeFromHash() === 'review') html = viewReview();
+    else if (routeFromHash() === 'tips') html = window.StudyTips ? window.StudyTips.render() : '<section class="panel"><div class="empty"><h2>학습 팁은 준비 중이에요</h2><p>잠시 뒤 다시 열어 주세요.</p></div></section>';
     else html = viewRecords();
 
     app.innerHTML = html;
@@ -2589,6 +2592,14 @@
       case 'restart':
         restartSession();
         break;
+      case 'tips-part': {
+        if (!window.StudyTips) return;
+        const part = toInt(target.dataset.part, 0);
+        if (!window.StudyTips.setPart(part)) return;
+        render();
+        focusElement(`[data-action="tips-part"][data-part="${part}"]`, true);
+        break;
+      }
       case 'go': {
         const route = target.dataset.route;
         if (!ROUTES.includes(route)) return;
@@ -2787,7 +2798,7 @@
 
   window.addEventListener('hashchange', () => {
     const raw = location.hash;
-    if (raw && !/^#\/(home|study|review|records)\/?$/.test(raw)) {
+    if (raw && !/^#\/(home|study|review|records|tips)\/?$/.test(raw)) {
       history.replaceState(null, '', '#/home');
     }
     const route = routeFromHash();
@@ -2867,7 +2878,7 @@
 
   hydrateIcons(document);
   if (window.SpeechVoice) window.SpeechVoice.load();
-  if (!/^#\/(home|study|review|records)\/?$/.test(location.hash)) {
+  if (!/^#\/(home|study|review|records|tips)\/?$/.test(location.hash)) {
     history.replaceState(null, '', '#/home');
   }
   render();

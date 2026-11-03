@@ -1,5 +1,5 @@
 /* 스피킹 루틴 — 오프라인 앱 셸 (network-first) */
-const CACHE = 'speaking-routine-v57';
+const CACHE = 'speaking-routine-v58';
 const SHELL = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const SHELL = [
   './js/settings.js',
   './js/settings-ui.js',
   './js/pron-guide.js',
+  './js/tips.js',
   './js/voice.js',
   './js/mock.js',
   './js/mock-common.js',
@@ -32,6 +33,11 @@ const SHELL = [
   './data/part3.js',
   './data/part4.js',
   './data/part5.js',
+  './data/tips-part1.js',
+  './data/tips-part2.js',
+  './data/tips-part3.js',
+  './data/tips-part4.js',
+  './data/tips-part5.js',
   // MOCKS:BEGIN
   './data/mocks.js',
   './data/mock-01.js',
