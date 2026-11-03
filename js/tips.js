@@ -116,7 +116,8 @@
       : part.part === 4 && part.tableImage
         ? `<img class="tip-img" src="assets/mock/${esc(part.tableImage)}" alt="Part 4 표" loading="lazy">`
         : '';
-    return `<div class="tip-q-body">${ask}${context}<p class="tip-prompt" lang="en">${esc(question.prompt || '')}</p>${image}</div>`;
+    const promptKo = example && example.promptKo ? `<p class="tip-ko">${esc(example.promptKo)}</p>` : '';
+    return `<div class="tip-q-body">${ask}${context}<p class="tip-prompt" lang="en">${esc(question.prompt || '')}</p>${promptKo}${image}</div>`;
   }
 
   function sampleMarkup(sample) {

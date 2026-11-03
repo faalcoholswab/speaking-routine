@@ -342,6 +342,7 @@ window.STUDY_TIPS[4] = {
         {
           q: 8,
           ask: '영화 상영 날짜와 영화 제목을 함께 묻는 8번',
+          promptKo: '영화 상영은 며칠에 있고, 어떤 영화인가요?',
           model: {
             note: '날짜와 제목이 둘 다 있어야 합니다. 시간은 안 물었지만, 같은 줄의 6시–8시를 맞게 붙였습니다.',
             lines: [
@@ -365,6 +366,7 @@ window.STUDY_TIPS[4] = {
         {
           q: 9,
           ask: '틀린 날짜를 확인하라는 9번 정정',
+          promptKo: '아이들과 지역 음식 축제에 가고 싶어요. 축제가 6월 28일 맞죠?',
           model: {
             note: 'Yes로 열지 않습니다. 고친 날짜를 말하고, 틀린 날짜는 not으로 붙입니다. 시간은 선택입니다.',
             lines: [
@@ -388,6 +390,7 @@ window.STUDY_TIPS[4] = {
         {
           q: 10,
           ask: 'demonstration이 들어간 줄을 모두 읽는 10번',
+          promptKo: '그곳에서 하는 시연 행사(demonstration)에 관심이 많아요. 6월에 예정된 시연 행사의 세부 내용을 모두 알려 주시겠어요?',
           model: {
             note: '6월 demonstration은 두 줄입니다. 음악 공연이나 영화 줄은 넣지 않습니다.',
             lines: [
