@@ -1,5 +1,5 @@
 /* 스피킹 루틴 — 오프라인 앱 셸 (network-first) */
-const CACHE = 'speaking-routine-v59';
+const CACHE = 'speaking-routine-v61';
 const SHELL = [
   './',
   './index.html',
@@ -46,11 +46,15 @@ const SHELL = [
   './data/mock-04.js',
   './data/mock-05.js',
   './data/mock-06.js',
+  './data/mock-07.js',
+  './data/mock-08.js',
   './data/mock-01-guide.js',
   './data/mock-02-guide.js',
   './data/mock-03-guide.js',
   './data/mock-04-guide.js',
   './data/mock-06-guide.js',
+  './data/mock-07-guide.js',
+  './data/mock-08-guide.js',
   './data/mock-05-samples.js',
   './assets/mock/mock-01/p2-q3.webp',
   './assets/mock/mock-01/p2-q4.webp',
@@ -70,6 +74,12 @@ const SHELL = [
   './assets/mock/mock-06/p2-q3.webp',
   './assets/mock/mock-06/p2-q4.webp',
   './assets/mock/mock-06/p4-table.webp',
+  './assets/mock/mock-07/p2-q3.webp',
+  './assets/mock/mock-07/p2-q4.webp',
+  './assets/mock/mock-07/p4-table.webp',
+  './assets/mock/mock-08/p2-q3.webp',
+  './assets/mock/mock-08/p2-q4.webp',
+  './assets/mock/mock-08/p4-table.webp',
   // MOCKS:END
   './assets/fonts/PretendardVariable.woff2',
   './assets/icon.svg',

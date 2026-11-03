@@ -64,4 +64,6 @@ window.MOCK_MANIFEST = [
     ],
   },
   { id: 'mock-06', data: 'data/mock-06.js', guide: 'data/mock-06-guide.js', images: ['assets/mock/mock-06/p2-q3.webp', 'assets/mock/mock-06/p2-q4.webp', 'assets/mock/mock-06/p4-table.webp'] },
+  { id: 'mock-07', data: 'data/mock-07.js', guide: 'data/mock-07-guide.js', images: ['assets/mock/mock-07/p2-q3.webp', 'assets/mock/mock-07/p2-q4.webp', 'assets/mock/mock-07/p4-table.webp'] },
+  { id: 'mock-08', data: 'data/mock-08.js', guide: 'data/mock-08-guide.js', images: ['assets/mock/mock-08/p2-q3.webp', 'assets/mock/mock-08/p2-q4.webp', 'assets/mock/mock-08/p4-table.webp'] },
 ];
