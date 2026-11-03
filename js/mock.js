@@ -4,44 +4,25 @@
 (() => {
   'use strict';
 
+  const { esc, KIND_LABEL, synth, LOCAL_ENV, SPEED } = window.MockCommon;
+  const {
+    beep, voicesFor, speak, stopSpeech, fireSkip, unlockAudio,
+    clearVoiceKey, assignExamVoices, setSkipResolve,
+  } = window.MockAudio;
+  const {
+    isSilentMetrics, silentResult, uid, fmtClock, normalizeSummary, loadStore, upsertAttempt, holdExamLock, releaseExamLock,
+    formatWhen, estimateSeconds, deliveryFor, normalizeScore, normalizeProgress, buildResponses, fallbackSummary, levelFromScaled,
+  } = window.MockStore;
+  const {
+    CLOCK_SLOT, clockText, listenBlock, stepper, buildPracticeList, introMarkup, readingMarkup, buildPlan, partAverages,
+    renderPartBar, insightCard, fallbackInsights, answered, allQuestions, findQuestion, metricsLine, originalFact,
+    highlightMissed,
+  } = window.MockScoreViews;
+  const { keyElementsMarkup, answerTipsMarkup, modelBlock, pronGuideMarkup } = window.MockGuideViews;
+
   const EXAMS = Array.isArray(window.MOCK_EXAMS) ? window.MOCK_EXAMS.filter(Boolean) : [];
   let currentExam = EXAMS[0] || null;
-  const STORE_KEY = 'speaking-routine-mock-v1';
-  const MOCK_LOCK_KEY = 'speaking-routine-mock-lock';
-  const LOCK_TTL = 30000;
-  const LOCK_BEAT = 10000;
   const ABORT = { abort: true };
-
-  const KIND_LABEL = {
-    1: '지문 읽기',
-    2: '그림 묘사',
-    3: '인터뷰',
-    4: '정보 활용',
-    5: '의견 말하기',
-  };
-
-  const SILENT_FEEDBACK = '말소리가 감지되지 않았어요. 마이크를 확인해 주세요';
-
-  function isSilentMetrics(metrics) {
-    return Boolean(metrics && Number.isFinite(Number(metrics.speechSec)) && Number(metrics.speechSec) < 1);
-  }
-
-  function silentResult(q) {
-    const max = Number(q && q.no) === 11 ? 5 : 3;
-    const result = normalizeScore({
-      score: 0,
-      max,
-      criteria: {},
-      feedback: [SILENT_FEEDBACK],
-      text: '',
-      missedWords: [],
-      covered: [],
-      wrongFacts: [],
-      silent: true,
-    }, q);
-    if (result) result.silent = true;
-    return result;
-  }
 
   const MODE_HINT = {
     exam: '실제 시험처럼 타이머가 자동으로 진행됩니다.',
@@ -56,28 +37,15 @@
   };
 
   const root = document.getElementById('ex-root');
-  const synth = 'speechSynthesis' in window ? window.speechSynthesis : null;
-  // 시험 시간을 그대로 두는 것이 기본. 로컬(사설망)에서만 ?speed= 로 배속 검증한다.
-  const LOCAL_ENV = /^(localhost|127\.0\.0\.1|\[::1\]|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})$/;
-  const SPEED = LOCAL_ENV.test(location.hostname)
-    ? Math.max(1, Math.min(60, Number(new URLSearchParams(location.search).get('speed')) || 1))
-    : 1;
 
   let runToken = 0;
-  let examVoices = { narrator: null, interviewer: null };
-  // 자동 목소리는 안내·문제가 바뀔 때마다 새로 고른다. 같은 문제 안에서는 같은 목소리로 읽는다.
-  let voiceKey = '';
-  let skipResolve = null;
   let attempt = null;
   let els = null;
-  let audioCtx = null;
-  let beepSleepTimer = 0;
   let mode = 'exam';
   let selectedMode = 'exam';
   let practiceList = [];
   let practiceIndex = 0;
   let starting = false;
-  let lockTimer = 0;
 
   // ---------- v34: 녹음·채점·마이노트 ----------
   const NOTES = window.MockNotes || null;
@@ -181,352 +149,10 @@
     return (window.MOCK_GUIDES && exam && window.MOCK_GUIDES[exam.id]) || null;
   }
 
-  // ---------- 유틸 ----------
-  const esc = (value = '') => String(value).replace(/[&<>"']/g, (ch) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
-  ));
-
-  function uid() {
-    return `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-  }
-
-  function fmtClock(seconds) {
-    const total = Math.max(0, Math.round(seconds));
-    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
-  }
-
-  function normalizeResult(value) {
-    if (!value || typeof value !== 'object') return null;
-    const criteria = {};
-    if (value.criteria && typeof value.criteria === 'object' && !Array.isArray(value.criteria)) {
-      Object.entries(value.criteria).forEach(([key, val]) => {
-        if (val === null || val === undefined || val === '') return;
-        const number = Number(val);
-        if (Number.isFinite(number) && /^[a-z]{3,14}$/.test(key)) criteria[key] = Math.max(0, Math.min(5, number));
-      });
-    }
-    const feedback = (Array.isArray(value.feedback) ? value.feedback : (typeof value.feedback === 'string' ? value.feedback.split('\n') : []))
-      .filter((line) => typeof line === 'string' && line.trim())
-      .slice(0, 6)
-      .map((line) => line.trim().slice(0, 500));
-    const words = (list) => (Array.isArray(list) ? list : [])
-      .map((item) => (typeof item === 'string' ? item : (item && (item.word || item.w || item.text)) || ''))
-      .filter(Boolean)
-      .slice(0, 80);
-    const score = Number(value.score);
-    const max = Number(value.max);
-    return {
-      score: Number.isFinite(score) ? Math.max(0, Math.round(score * 10) / 10) : 0,
-      max: Number.isFinite(max) && max > 0 ? Math.max(1, Math.round(max)) : 3,
-      criteria,
-      feedback,
-      text: typeof value.text === 'string' ? value.text.slice(0, 2000) : '',
-      missedWords: words(value.missedWords),
-      covered: words(value.covered),
-      wrongFacts: words(value.wrongFacts),
-      noRecording: Boolean(value.noRecording),
-      unavailable: Boolean(value.unavailable),
-      pending: Boolean(value.pending),
-      silent: Boolean(value.silent),
-    };
-  }
-
-  function normalizeSummary(value) {
-    if (!value || typeof value !== 'object') return null;
-    const estimate = value.estimate && typeof value.estimate === 'object' ? value.estimate : null;
-    const list = (items) => (Array.isArray(items) ? items : [])
-      .map((item) => (typeof item === 'string' ? item : (item && (item.text || item.label)) || ''))
-      .filter(Boolean)
-      .slice(0, 4)
-      .map((item) => item.slice(0, 300));
-    const toAverage = (item) => {
-      const value2 = item && typeof item === 'object' ? (item.avg ?? item.score ?? item.value) : item;
-      const number = Number(value2);
-      return Number.isFinite(number) ? Math.round(number * 100) / 100 : null;
-    };
-    let averages = null;
-    if (Array.isArray(value.partAverages)) {
-      averages = value.partAverages.slice(0, 5).map(toAverage);
-    } else if (value.partAverages && typeof value.partAverages === 'object') {
-      averages = [1, 2, 3, 4, 5].map((part) => toAverage(
-        value.partAverages[part] ?? value.partAverages[`part${part}`] ?? value.partAverages[String(part)]
-      ));
-    }
-    return {
-      estimate: estimate ? {
-        scaled: Math.max(0, Math.min(200, Math.round(Number(estimate.scaled) || 0))),
-        level: typeof estimate.level === 'string' ? estimate.level.slice(0, 8) : '',
-      } : null,
-      partAverages: averages,
-      strengths: list(value.strengths),
-      weaknesses: list(value.weaknesses),
-    };
-  }
-
-  function normalizeAttempt(entry) {
-    const next = {
-      id: typeof entry.id === 'string' && entry.id ? entry.id.slice(0, 40) : uid(),
-      examId: typeof entry.examId === 'string' && entry.examId ? entry.examId.slice(0, 40) : 'mock-01',
-      at: typeof entry.at === 'string' && !Number.isNaN(Date.parse(entry.at)) ? entry.at : new Date().toISOString(),
-      seconds: Math.max(0, Math.min(86400, Math.round(Number(entry.seconds) || 0))),
-      total: Math.max(0, Math.min(99, Math.round(Number(entry.total) || 0))),
-      ratings: entry.ratings && typeof entry.ratings === 'object' && !Array.isArray(entry.ratings)
-        ? entry.ratings
-        : {},
-    };
-    if (typeof entry.finishedAt === 'string' && !Number.isNaN(Date.parse(entry.finishedAt))) next.finishedAt = entry.finishedAt;
-    if (entry.single && typeof entry.single === 'object') {
-      const no = Math.round(Number(entry.single.no));
-      if (Number.isFinite(no) && no >= 1 && no <= 11) next.single = { no };
-    }
-    if (entry.scores && typeof entry.scores === 'object' && !Array.isArray(entry.scores)) {
-      const scores = {};
-      Object.entries(entry.scores).forEach(([key, value]) => {
-        const no = Number(key);
-        if (!Number.isInteger(no) || no < 1 || no > 11) return;
-        const result = normalizeResult(value);
-        if (result) scores[no] = result;
-      });
-      if (Object.keys(scores).length) next.scores = scores;
-    }
-    const estimate = entry.estimate && typeof entry.estimate === 'object' ? entry.estimate : null;
-    if (estimate) {
-      next.estimate = {
-        scaled: Math.max(0, Math.min(200, Math.round(Number(estimate.scaled) || 0))),
-        level: typeof estimate.level === 'string' ? estimate.level.slice(0, 8) : '',
-      };
-    }
-    const summary = normalizeSummary(entry.summary);
-    if (summary) next.summary = summary;
-    return next;
-  }
-
-  function loadStore() {
-    try {
-      const raw = localStorage.getItem(STORE_KEY);
-      const data = raw ? JSON.parse(raw) : null;
-      if (!data || !Array.isArray(data.attempts)) return { attempts: [] };
-      return {
-        attempts: data.attempts
-          .filter((entry) => entry && typeof entry === 'object')
-          .map(normalizeAttempt)
-          .slice(0, 50),
-      };
-    } catch (error) {
-      return { attempts: [] };
-    }
-  }
-
-  function saveStore(store) {
-    try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(store));
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  function upsertAttempt(entry) {
-    const store = loadStore();
-    const index = store.attempts.findIndex((item) => item.id === entry.id);
-    if (index >= 0) store.attempts[index] = entry;
-    else store.attempts.unshift(entry);
-    store.attempts = store.attempts.slice(0, 50);
-    return saveStore(store);
-  }
-
-  // ---------- 응시 잠금 ----------
-  // 응시 중 다른 탭에서 기록 초기화/가져오기를 하지 못하게 한다.
-  function holdExamLock() {
-    const write = () => {
-      try { localStorage.setItem(MOCK_LOCK_KEY, JSON.stringify({ at: Date.now() })); } catch (error) { /* noop */ }
-    };
-    write();
-    window.clearInterval(lockTimer);
-    lockTimer = window.setInterval(write, LOCK_BEAT);
-  }
-
-  function releaseExamLock() {
-    if (lockTimer) {
-      window.clearInterval(lockTimer);
-      lockTimer = 0;
-    }
-    try { localStorage.removeItem(MOCK_LOCK_KEY); } catch (error) { /* noop */ }
-  }
-
   // ---------- 소리 ----------
-  // 시험장 효과음처럼 또렷한 단음. go: 준비·응답 시작, end: 응답·시험 끝.
-  const BEEPS = {
-    go: { freq: 1000, seconds: 0.45, level: 0.4 },
-    end: { freq: 760, seconds: 0.7, level: 0.35 },
-  };
-  let audioUnlocked = false;
-  // 마지막으로 소리가 난 때. 한동안 조용했다가 말을 시작하면 iPad(특히 블루투스 이어폰)가 앞부분을 잘라 먹는다.
-  let lastSoundAt = 0;
-  const WAKE_AFTER_MS = 1500;
-  const WAKE_LEAD_MS = 350;
-  // stopSpeech 가 부를 때마다 늘린다. 출력을 깨우는 동안 멈추거나 넘어가면 그 말은 읽지 않는다.
-  let speechEpoch = 0;
-
-  function audio() {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return null;
-    if (!audioCtx) audioCtx = new Ctx();
-    return audioCtx;
-  }
-
-  // 계속 켜 두면 다른 앱 소리를 들은 뒤 iPad에서 지직거릴 수 있어, 울린 뒤에는 장치를 쉬게 한다.
-  function sleepAudioSoon() {
-    window.clearTimeout(beepSleepTimer);
-    beepSleepTimer = window.setTimeout(() => {
-      if (audioCtx && audioCtx.state === 'running') audioCtx.suspend().catch(() => {});
-    }, 1200);
-  }
-
-  // iPad Safari는 화면을 누른 순간에 한 번 소리 장치를 열어 둬야, 질문이 끝난 뒤처럼
-  // 화면을 누르지 않은 때에도 삐 소리를 낼 수 있다. 첫 터치에서 소리 없는 아주 짧은 소리를 튼다.
-  function unlockAudio() {
-    if (audioUnlocked) return;
-    const ctx = audio();
-    if (!ctx) return;
-    audioUnlocked = true;
-    try {
-      if (ctx.state !== 'running') ctx.resume().catch(() => {});
-      const source = ctx.createBufferSource();
-      source.buffer = ctx.createBuffer(1, 1, 22050);
-      source.connect(ctx.destination);
-      source.start(0);
-    } catch (error) { /* noop */ }
-    // 음성 읽기도 화면을 누른 순간에 한 번 열어 둔다. 말을 시작하기 전에 출력을 깨우느라 잠깐 기다려도 막히지 않게.
-    try {
-      if (synth && !synth.speaking && !synth.pending) synth.speak(new window.SpeechSynthesisUtterance(''));
-    } catch (error) { /* noop */ }
-    sleepAudioSoon();
-  }
 
   document.addEventListener('pointerdown', unlockAudio, true);
   document.addEventListener('keydown', unlockAudio, true);
-
-  async function beep(kind) {
-    const ctx = audio();
-    if (!ctx) return;
-    const tone = BEEPS[kind] || BEEPS.go;
-    try {
-      // 쉬고 있던 장치는 완전히 깨어난 뒤에 울린다. 깨우지 못하면 조용히 넘어간다.
-      if (ctx.state !== 'running') await ctx.resume();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const now = ctx.currentTime;
-      const end = now + tone.seconds;
-      osc.type = 'sine';
-      osc.frequency.value = tone.freq;
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(tone.level, now + 0.012);
-      gain.gain.setValueAtTime(tone.level, end - 0.04);
-      gain.gain.linearRampToValueAtTime(0, end);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(end + 0.02);
-      lastSoundAt = Date.now() + tone.seconds * 1000;
-    } catch (error) { /* noop */ }
-    sleepAudioSoon();
-  }
-
-  // 한동안 소리가 없었다면 소리 없는 짧은 소리로 출력을 깨우고 잠깐 기다린다.
-  async function wakeOutput() {
-    if (Date.now() - lastSoundAt < WAKE_AFTER_MS) return;
-    const ctx = audio();
-    if (ctx) {
-      try {
-        if (ctx.state !== 'running') await ctx.resume();
-        const source = ctx.createBufferSource();
-        source.buffer = ctx.createBuffer(1, Math.round(ctx.sampleRate * ((WAKE_LEAD_MS + 150) / 1000)), ctx.sampleRate);
-        source.connect(ctx.destination);
-        source.start(0);
-      } catch (error) { /* noop */ }
-    }
-    await new Promise((resolve) => window.setTimeout(resolve, WAKE_LEAD_MS));
-    sleepAudioSoon();
-  }
-
-  function voicesFor(key) {
-    if (!window.SpeechVoice || key === voiceKey) return;
-    voiceKey = key;
-    examVoices = window.SpeechVoice.examPair();
-  }
-
-  async function speak(text, role) {
-    if (!synth || !text || SPEED > 1) return false;
-    let speaking = false;
-    try { speaking = Boolean(synth.speaking || synth.pending); } catch (error) { /* noop */ }
-    if (!speaking) {
-      const epoch = speechEpoch;
-      await wakeOutput();
-      if (epoch !== speechEpoch) return false;
-    }
-    return speakNow(text, role);
-  }
-
-  function speakNow(text, role) {
-    return new Promise((resolve) => {
-      let busy = false;
-      try { busy = Boolean(synth.speaking || synth.pending); } catch (error) { /* noop */ }
-      if (busy) {
-        // iOS는 cancel 직후 speak를 버리는 경우가 있어 한 박자 쉰다.
-        try { synth.cancel(); } catch (error) { /* noop */ }
-      }
-
-      const utter = new window.SpeechSynthesisUtterance(text);
-      utter.lang = 'en-US';
-      // 설정의 기본 속도를 쓴다. 모의고사 안내·면접관 모두 같은 값.
-      const spokenRate = window.SpeechVoice && typeof window.SpeechVoice.rate === 'function'
-        ? window.SpeechVoice.rate()
-        : 1;
-      utter.rate = Math.min(2, Math.max(0.5, Number(spokenRate) || 1));
-      utter.pitch = 1;
-      const voice = role === 'interviewer' ? examVoices.interviewer : examVoices.narrator;
-      if (voice) window.SpeechVoice.use(utter, voice);
-
-      const words = String(text).trim().split(/\s+/).length;
-      const limit = (words / (150 * utter.rate)) * 60000 + 3500;
-      let done = false;
-      let started = false;
-      let timer = 0;
-
-      const finish = () => {
-        if (done) return;
-        done = true;
-        window.clearTimeout(timer);
-        lastSoundAt = Date.now();
-        resolve(started);
-      };
-
-      utter.onstart = () => { started = true; };
-      utter.onend = finish;
-      utter.onerror = finish;
-      timer = window.setTimeout(finish, limit);
-
-      try {
-        if (busy) window.setTimeout(() => { try { synth.speak(utter); } catch (error) { finish(); } }, 90);
-        else synth.speak(utter);
-      } catch (error) {
-        finish();
-      }
-    });
-  }
-
-  function stopSpeech() {
-    speechEpoch += 1;
-    if (!synth) return;
-    try { synth.cancel(); } catch (error) { /* noop */ }
-  }
-
-  function fireSkip() {
-    const fn = skipResolve;
-    skipResolve = null;
-    if (fn) fn();
-  }
 
   // ---------- v34: 녹음 ----------
   async function startRecording(no) {
@@ -706,25 +332,6 @@
           </p>
         </div>
       </div>`;
-  }
-
-  function formatWhen(iso) {
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) return '';
-    return date.toLocaleString('ko-KR', {
-      month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-    });
-  }
-
-  function estimateSeconds(exam) {
-    let seconds = 0;
-    exam.parts.forEach((part) => {
-      if (part.readingSeconds) seconds += part.readingSeconds;
-      part.questions.forEach((q) => {
-        seconds += q.prepSeconds + q.responseSeconds;
-      });
-    });
-    return seconds + 90;
   }
 
   // ---------- 시험 소개 ----------
@@ -1086,8 +693,6 @@
     if (clock) clock.remove();
   }
 
-  const CLOCK_SLOT = '<div class="ex-clock-slot"></div>';
-
   // 실제 시험 화면처럼 문제(글·그림·표) 바로 아래에 남은 시간을 보여 준다. 그림 위에 겹치지 않는다.
   // 생김새도 시험 화면을 따른다: 검은 머리줄의 PREPARATION TIME / RESPONSE TIME, 아래 칸에 00:00:45.
   function clockFor(label, kind) {
@@ -1105,12 +710,6 @@
     clock.setAttribute('aria-label', `${label} 시간`);
     clock.querySelector('.ex-clock-label').textContent = respond ? 'RESPONSE TIME' : 'PREPARATION TIME';
     return clock;
-  }
-
-  function clockText(ms) {
-    const total = Math.ceil(Math.max(0, ms) / 1000);
-    const two = (value) => String(value).padStart(2, '0');
-    return `${two(Math.floor(total / 3600))}:${two(Math.floor((total % 3600) / 60))}:${two(total % 60)}`;
   }
 
   function countdown(seconds, label, token, dockKind) {
@@ -1160,29 +759,6 @@
   }
 
   // ---------- 문제 화면 ----------
-  function listenBlock(q, phase) {
-    const times = q.heardTwice ? '두 번 재생됩니다.' : '한 번만 재생됩니다.';
-    if (phase === 'respond') {
-      return `<div class="ex-listen"><span>답변 중입니다. 질문은 다시 나오지 않습니다.</span></div>`;
-    }
-    const label = phase === 'replay' ? '질문을 다시 들려줍니다.' : '질문이 재생됩니다.';
-    return `<div class="ex-listen">
-      <span class="ex-wave"><i></i><i></i><i></i><i></i><i></i></span>
-      <span>${label} ${times}</span>
-    </div>`;
-  }
-
-  // 같은 지문·표가 계속 보이는 파트에서 현재 문항을 눈으로 구분할 수 있게 한다.
-  function stepper(part, currentNo, clickable) {
-    if (!part.questions || part.questions.length < 2) return '';
-    return `<div class="ex-stepper">${part.questions.map((item) => {
-      const on = item.no === currentNo;
-      const cls = `ex-step${on ? ' on' : ''}`;
-      const current = on ? 'step' : 'false';
-      if (!clickable) return `<span class="${cls}" aria-current="${current}">${item.no}</span>`;
-      return `<button class="${cls}" type="button" data-act="jump" data-no="${item.no}" aria-current="${current}" aria-label="Question ${item.no}로 이동">${item.no}</button>`;
-    }).join('')}</div>`;
-  }
 
   function questionMarkup(part, q, phase, forceText) {
     const head = `<div class="ex-q-head">
@@ -1218,9 +794,6 @@
   }
 
   // ---------- 연습 모드 ----------
-  function buildPracticeList(exam) {
-    return exam.parts.flatMap((part) => part.questions.map((q) => ({ part, q })));
-  }
 
   function practiceMarkup(part, q) {
     const head = `<div class="ex-q-head">
@@ -1267,24 +840,7 @@
     return guide && guide.questions ? guide.questions[q.no] || null : null;
   }
 
-  function keyElementsMarkup(q) {
-    if (!Array.isArray(q.keyElements) || !q.keyElements.length) return '';
-    return `<section class="gd-block">
-      <h3 class="gd-title">핵심 요소</h3>
-      <div class="ex-chips">${q.keyElements.map((item) => `<span class="ex-chip">${esc(item)}</span>`).join('')}</div>
-    </section>`;
-  }
-
   // ---------- v35: 등급별 실제 답변 ----------
-  const SAMPLE_LEVELS = ['IH', 'AL', 'AM'];
-  const SAMPLE_CATEGORY = {
-    pron: '발음', inton: '억양·강세', stress: '강세', grammar: '문법', vocab: '어휘',
-    cohesion: '응집성', relevance: '관련성', completeness: '완성도',
-    length: '길이', content: '내용', info: '정보', other: '기타',
-  };
-  const CMP_OPINION = ['i think', 'i believe', 'in my opinion', 'for me'];
-  const CMP_REASON = ['because', 'since', 'so that', 'that is why', "that's why"];
-  const CMP_EXAMPLE = ['for example', 'for instance', 'such as'];
 
   function sampleExamId() {
     return (attempt && attempt.examId) || (currentExam && currentExam.id) || '';
@@ -1292,434 +848,6 @@
 
   function activeExam() {
     return currentExam || (EXAMS || []).find((item) => item.id === sampleExamId()) || null;
-  }
-
-  function samplesFor(no) {
-    const bank = window.MOCK_SAMPLES && window.MOCK_SAMPLES[sampleExamId()];
-    const list = bank && bank.questions ? bank.questions[no] : null;
-    if (!Array.isArray(list)) return [];
-    return list
-      .filter((item) => item && typeof item.text === 'string' && item.text.trim())
-      .slice()
-      .sort((a, b) => {
-        const ai = SAMPLE_LEVELS.indexOf(a.level);
-        const bi = SAMPLE_LEVELS.indexOf(b.level);
-        return (ai < 0 ? 9 : ai) - (bi < 0 ? 9 : bi);
-      });
-  }
-
-  function tokensOf(text) {
-    const internals = window.SpeakingScore && window.SpeakingScore._internals;
-    if (internals && typeof internals.tokenize === 'function') {
-      try { return internals.tokenize(text); } catch (error) { /* noop */ }
-    }
-    return String(text || '').split(/\s+/).filter(Boolean);
-  }
-
-  function markerHas(text, markers) {
-    const internals = window.SpeakingScore && window.SpeakingScore._internals;
-    if (internals && typeof internals.markerCount === 'function') {
-      try { return internals.markerCount(text, markers) > 0; } catch (error) { /* noop */ }
-    }
-    const lower = ` ${String(text || '').toLowerCase()} `;
-    return markers.some((marker) => lower.includes(` ${marker} `) || lower.includes(` ${marker},`));
-  }
-
-  function gradeSampleText(no, text) {
-    const api = window.SpeakingScore;
-    const exam = activeExam();
-    if (!api || typeof api.gradeQuestion !== 'function' || !exam) return null;
-    try { return api.gradeQuestion({ exam, no, text }); } catch (error) { return null; }
-  }
-
-  function markSampleText(text, points, suspects) {
-    const source = String(text || '');
-    const ranges = [];
-    (Array.isArray(points) ? points : []).forEach((point) => {
-      const quote = String((point && point.quote) || '').trim();
-      if (!quote) return;
-      const at = source.toLowerCase().indexOf(quote.toLowerCase());
-      if (at < 0) return;
-      const end = at + quote.length;
-      if (ranges.some((range) => at < range.end && end > range.start)) return;
-      ranges.push({ start: at, end });
-    });
-    ranges.sort((a, b) => a.start - b.start);
-    const words = (Array.isArray(suspects) ? suspects : [])
-      .map((word) => String(word || '').trim())
-      .filter((word) => word && !/\s/.test(word));
-    const annotate = (plain) => {
-      let html = esc(plain);
-      words.forEach((word) => {
-        const pattern = new RegExp(`\\b(${escapeRegExp(word)})\\b`, 'gi');
-        html = html.replace(pattern, '<span class="sm-suspect" title="자막 인식 의심">$1</span>');
-      });
-      return html;
-    };
-    let out = '';
-    let cursor = 0;
-    ranges.forEach((range) => {
-      out += annotate(source.slice(cursor, range.start));
-      out += `<mark class="sm-quote">${annotate(source.slice(range.start, range.end))}</mark>`;
-      cursor = range.end;
-    });
-    return out + annotate(source.slice(cursor));
-  }
-
-  function sampleItemMarkup(sample) {
-    const points = Array.isArray(sample.points) ? sample.points : [];
-    const caption = sample.textSource === 'caption'
-      ? '<span class="sm-chip">자막에서 옮김</span>'
-      : '';
-    const suspects = Array.isArray(sample.captionSuspect) ? sample.captionSuspect.filter(Boolean) : [];
-    const inlineSuspects = suspects.filter((word) => !/\s/.test(String(word).trim()));
-    const suspectNote = suspects.length
-      ? `<p class="sm-note">${inlineSuspects.length ? '점선 표시와 아래 목록은 자막 인식이 의심되는 부분이에요. ' : ''}자막 인식 의심: ${esc(suspects.join(' / '))}</p>`
-      : '';
-    const list = points.length
-      ? `<ul class="sm-points">${points.map((point) => `
-        <li>
-          <span class="sm-cat">${esc(SAMPLE_CATEGORY[point.category] || point.category || '지적')}</span>
-          ${point.quote ? `<span class="sm-point-quote">“${esc(point.quote)}”</span>` : ''}
-          <span class="sm-point-note">${esc(point.note || '')}</span>
-          <span class="sm-source ${point.source === 'ETS' ? 'ets' : (point.source === '해설' ? 'guide' : 'unknown')}">${esc(point.source || '출처 미상')}</span>
-        </li>`).join('')}</ul>`
-      : '<p class="sm-note">지적 없음</p>';
-    return `<details class="sm-item"${sample.level === 'IH' ? ' open' : ''}>
-      <summary class="sm-sum">
-        <span class="sm-badge">${esc(sample.level || '—')}</span>
-        <span class="sm-score">${esc(sample.itemScore || '판정 미상')}</span>
-        <span class="sm-meta">${tokensOf(sample.text).length}단어</span>
-        ${caption}
-      </summary>
-      <div class="sm-body">
-        <p class="sm-text">${markSampleText(sample.text, points, suspects)}</p>
-        ${suspectNote}
-        ${list}
-      </div>
-    </details>`;
-  }
-
-  function sampleAnswersMarkup(no) {
-    const list = samplesFor(no);
-    if (!list.length) return '';
-    const bank = window.MOCK_SAMPLES[sampleExamId()];
-    const note = bank && bank.note ? `<p class="sm-intro">${esc(bank.note)}</p>` : '';
-    return `<section class="gd-block sm-block">
-      <h3 class="gd-title">등급별 실제 답변</h3>
-      ${note}
-      <div class="sm-list">${list.map(sampleItemMarkup).join('')}</div>
-    </section>`;
-  }
-
-  function compareChip(text, state) {
-    const mark = state === 'ok' ? '✓' : (state === 'wrong' ? '✗' : '—');
-    return `<span class="coverage-chip ${state}">${esc(text)} <b>${mark}</b></span>`;
-  }
-
-  function compareStat(label, value) {
-    return `<span class="sm-stat">${esc(label)} <b>${esc(value)}</b></span>`;
-  }
-
-  function comparisonMarkup(part, q, text, result) {
-    const internals = (window.SpeakingScore && window.SpeakingScore._internals) || {};
-    const tokens = tokensOf(text);
-    const rows = [];
-
-    if (part.part === 1) {
-      let missed = Array.isArray(result && result.missedWords) ? result.missedWords : [];
-      if (!result && internals.align && internals.tokenize) {
-        try { missed = internals.align(internals.tokenize(q.text || ''), tokens).missed || []; } catch (error) { missed = []; }
-      }
-      rows.push(`<div class="sm-cmp-row"><span class="sm-cmp-label">지문 읽기</span><div class="sm-stats">
-        ${compareStat('놓친 단어', `${missed.length}개`)}
-        ${compareStat('읽은 단어', `${tokens.length}개`)}
-      </div></div>`);
-    } else if (part.part === 2) {
-      const elements = Array.isArray(q.keyElements) ? q.keyElements : [];
-      const graded = gradeSampleText(q.no, text);
-      const covered = new Set((result && Array.isArray(result.covered) && result.covered.length
-        ? result.covered
-        : (graded && graded.covered) || []));
-      const chips = elements.map((element) => compareChip(element, covered.has(element) ? 'ok' : 'miss'));
-      if (chips.length) rows.push(`<div class="sm-cmp-row"><span class="sm-cmp-label">핵심 요소</span><div class="coverage">${chips.join('')}</div></div>`);
-    } else if (part.part === 4) {
-      const facts = internals.extractFacts ? internals.extractFacts(q) : [];
-      let matched = [];
-      let missed = [];
-      try {
-        const found = internals.matchFacts(facts, text);
-        matched = found.matched;
-        missed = found.missed;
-      } catch (error) { /* noop */ }
-      const graded = result ? null : gradeSampleText(q.no, text);
-      const wrong = (result && Array.isArray(result.wrongFacts) ? result.wrongFacts : [])
-        .concat((graded && Array.isArray(graded.wrongFacts) ? graded.wrongFacts : []));
-      const chips = matched.map((fact) => compareChip(originalFact(fact.value, part, q), 'ok'))
-        .concat(wrong.map((value) => compareChip(originalFact(value, part, q), 'wrong')))
-        .concat(missed.map((fact) => compareChip(originalFact(fact.value, part, q), 'miss')));
-      if (chips.length) rows.push(`<div class="sm-cmp-row"><span class="sm-cmp-label">사실 비교</span><div class="coverage">${chips.join('')}</div></div>`);
-    } else {
-      const target = part.part === 5 ? 100 : (Number(q.responseSeconds) >= 30 ? 50 : 25);
-      let relevance = 0;
-      if (internals.overlapRatio && internals.tokenize) {
-        try { relevance = internals.overlapRatio(internals.tokenize(q.prompt || ''), tokens); } catch (error) { relevance = 0; }
-      }
-      const marks = [
-        ['의견', markerHas(text, CMP_OPINION)],
-        ['이유', markerHas(text, CMP_REASON)],
-        ['예시', markerHas(text, CMP_EXAMPLE)],
-      ].map(([label, on]) => `<span class="coverage-chip ${on ? 'ok' : 'miss'}">${label} <b>${on ? '✓' : '—'}</b></span>`).join('');
-      rows.push(`<div class="sm-cmp-row"><span class="sm-cmp-label">말하기</span><div class="sm-stats">
-        ${compareStat('단어 수', `${tokens.length} / 목표 ${target}`)}
-        ${compareStat('질문 관련 표현', `${Math.round(relevance * 100)}%`)}
-      </div></div>
-      <div class="sm-cmp-row"><span class="sm-cmp-label">표현</span><div class="coverage">${marks}</div></div>`);
-    }
-    return rows.join('');
-  }
-
-  function sampleCompareMarkup(part, q, result) {
-    const list = samplesFor(q.no);
-    if (!list.length) return '';
-    const myText = String((result && result.text) || '');
-    const selected = list.some((sample) => sample.level === 'IH') ? 'IH' : list[0].level;
-    const tabs = list.map((sample) => `<button class="sm-tab" type="button" data-act="cmp-level" data-level="${esc(sample.level || '')}" aria-pressed="${(sample.level || '') === selected ? 'true' : 'false'}">${esc(sample.level || '—')}</button>`).join('');
-    const panels = list.map((sample) => {
-      const level = sample.level || '';
-      const myDisplay = part.part === 1
-        ? highlightMissed(myText, (result && result.missedWords) || [])
-        : esc(myText);
-      return `<div class="sm-cmp-panel" data-level="${esc(level)}"${level === selected ? '' : ' hidden'}>
-        <div class="sm-cmp-grid">
-          <div class="sm-cmp-col">
-            <p class="sm-cmp-title">내 답변</p>
-            <p class="sm-cmp-text">${myDisplay || '<span class="qa-empty">인식된 문장이 없어요.</span>'}</p>
-            ${comparisonMarkup(part, q, myText, result)}
-          </div>
-          <div class="sm-cmp-col sample">
-            <p class="sm-cmp-title">${esc(level || '—')} 답변 <span>${esc(sample.itemScore || '')}</span></p>
-            <p class="sm-cmp-text">${markSampleText(sample.text, sample.points, sample.captionSuspect)}</p>
-            ${comparisonMarkup(part, q, sample.text, null)}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-    return `<section class="qa-section sm-compare">
-      <p class="qa-label">등급별 답변과 비교</p>
-      <div class="sm-tabs" role="group" aria-label="비교할 등급 선택">${tabs}</div>
-      <div class="sm-cmp-panels">${panels}</div>
-      <p class="sm-note">비교는 화면 표시용이에요. 점수는 위 채점 결과를 따릅니다.</p>
-    </section>`;
-  }
-
-  // 문항 번호별 답변 요령. 같은 번호는 어느 세트에서나 같은 유형이라 세트와 상관없이 보여 줍니다.
-  const PART2_TIPS = {
-    frames: [
-      'This picture was taken outside. / inside.',
-      'The first thing I can see is some people.',
-      'They are standing or sitting.',
-      'She has long brown hair.',
-      'She is wearing white clothes.',
-      'In the background, I can see some trees and buildings.',
-      'It seems like they are busy working.',
-    ],
-    notes: [
-      '장소 → 사람 → 자세·동작 → 외모 → 배경 → 마무리 순서로 말하면 막히지 않아요. 두 문항에 같은 틀을 써도 돼요.',
-      '30초에 8~10문장이면 충분해요. 끝에 몇 초 남거나 마지막 문장이 잘려도 감점되지 않아요.',
-      '사람은 한 명만 자세히 묘사해도 돼요. 위치 표현(on the left, in the middle 등)은 한두 번이면 충분해요.',
-      '구체적인 장소가 떠오르지 않으면 실내(inside)·실외(outside)만 말해도 돼요. 물건 이름을 모르면 something으로, 옷은 색 + clothes로 넘어가요.',
-    ],
-  };
-  const PART3_SHORT_TIPS = {
-    frames: [
-      "I would say + 답 + because it's + 형용사.",
-      "It's easy / convenient / fast / fun / relaxing.",
-      "Well, I usually cook every day and I usually cook alone because it's convenient.",
-    ],
-    notes: [
-      '질문의 you를 I로 바꾼 답 한 문장, because + 형용사로 이유 한 문장이면 충분해요. 시간이 남아도 감점되지 않아요.',
-      'I think 뒤에는 주어와 동사가 와야 해요. 단어 하나로 답할 때는 I would say를 써요.',
-      '묻지 않은 내용까지 말할 필요는 없어요.',
-    ],
-  };
-  const ANSWER_TIPS = {
-    1: {
-      notes: [
-        '다 읽고 시간이 남으면 처음부터 다시 읽지 말고 그대로 기다려요. 남은 시간은 감점되지 않아요.',
-        '단어를 잘못 읽었으면 그 부분만 다시 고쳐 읽고 이어 가면 돼요.',
-        '끊어 읽는 위치는 채점 항목이 아니에요. 단어마다 끊지만 않으면 숨이 찰 때 쉬어도 괜찮아요.',
-      ],
-    },
-    3: PART2_TIPS,
-    5: PART3_SHORT_TIPS,
-    7: {
-      frames: [
-        'I would prefer + 보기.',
-        "Here's why.",
-        'First, ~ / Above all, ~',
-        'so I can ~',
-        "That's why I think so.",
-      ],
-      notes: [
-        '보기 하나를 고르고 이유 하나를 1~2문장으로 풀어 주면 돼요. 25초쯤에 끝나도 감점되지 않아요.',
-        '이유에서 멈추지 말고 그래서 어떻게 되는지(so I can ~)까지 말해 보세요.',
-        '내 이야기로 답하기 어려우면 이유를 대기 쉬운 보기를 고르세요. 외운 티가 나는 긴 서론은 빼요.',
-      ],
-    },
-    8: {
-      frames: [
-        'It will be held at + 장소 + on + 날짜.',
-        'The first session is + 세션명.',
-        'It starts at + 시각.',
-        "It's + 값.",
-      ],
-      notes: [
-        "무엇을 묻는지 헷갈리면 It's 뒤에 표의 값만 붙여도 돼요. 답이 여러 개면 모두 말해요.",
-        'a.m.·p.m.이나 요일은 빠뜨려도 감점되지 않아요. 답하고 시간이 남으면 그대로 기다려도 돼요.',
-        '질문을 들으며 답이 될 칸을 손가락으로 짚어 두면 덜 헤매요.',
-      ],
-    },
-    9: {
-      frames: [
-        'Actually, ~ has been canceled.',
-        'Actually, + 표에 적힌 값.',
-        'Sorry about that. / Don\'t worry about that.',
-      ],
-      notes: [
-        'No로 시작하지 않아도 돼요. 질문자가 틀리게 말한 부분만 표대로 바로잡아요. 맞게 말했다면 맞다고 답해요.',
-        '확신이 없으면 옆 칸까지 함께 읽어도 돼요(예: 비회원 가격과 회원 가격을 모두).',
-      ],
-    },
-    10: {
-      frames: [
-        'Sure, there are two.',
-        'First, from ~ to ~, there is + 제목 + by + 발표자.',
-        'Second, from ~ to ~, there is ~ by ~.',
-        "That's it. Thank you.",
-      ],
-      notes: [
-        '표에 적힌 순서(시간 → 제목 → 발표자)대로 읽으면 어순을 고민하지 않아도 돼요. 사람을 주어로 바꿔 말할 필요는 없어요.',
-        '10번 질문은 두 번 들려줘요. 8·9번에서 답한 줄은 보통 다시 나오지 않으니 남은 줄에서 찾아요.',
-        '질문을 놓쳤으면 Sure. Let me check.로 시작해요. 마지막 인사는 넣지 않아도 돼요.',
-      ],
-    },
-    11: {
-      frames: [
-        'If + 주어 + 동사, 주어 + can + 동사.',
-        'Then + 결과 한 번 더.',
-        'As a result, / Eventually, it will be beneficial.',
-        'When it comes to ~,',
-      ],
-      notes: [
-        '첫 문장은 질문 문장을 그대로 받아 내 입장으로 말해요.',
-        '이유만 나열하지 말고, 이유마다 if 문장·경험·주변 사람의 말로 근거를 붙여요.',
-        '60초에 10~12문장이면 충분해요. 결론 문장은 없어도 되고, 마지막 문장이 잘려도 감점되지 않아요.',
-      ],
-    },
-  };
-  ANSWER_TIPS[2] = ANSWER_TIPS[1];
-  ANSWER_TIPS[4] = PART2_TIPS;
-  ANSWER_TIPS[6] = PART3_SHORT_TIPS;
-
-  function answerTipsMarkup(no) {
-    const tips = ANSWER_TIPS[no];
-    if (!tips) return '';
-    const frames = tips.frames
-      ? `<ul class="gd-patterns">${tips.frames.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`
-      : '';
-    return `<section class="gd-block">
-        <h3 class="gd-title">답변 요령</h3>
-        ${frames}
-        <ul class="gd-tips">${tips.notes.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>
-      </section>`;
-  }
-
-  function modelBlock(entry) {
-    if (!entry || !entry.model) {
-      return `<section class="gd-block"><h3 class="gd-title">모범 답안</h3><p class="ex-note-sm">준비 중입니다.</p></section>`;
-    }
-    const patterns = Array.isArray(entry.patterns) && entry.patterns.length
-      ? `<section class="gd-block">
-           <h3 class="gd-title">사용한 만능문장</h3>
-           <ul class="gd-patterns">${entry.patterns.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>
-         </section>`
-      : '';
-    return `<section class="gd-block">
-        <h3 class="gd-title">모범 답안</h3>
-        <p class="gd-model">${esc(entry.model)}</p>
-        ${entry.ko ? `<p class="gd-ko">${esc(entry.ko)}</p>` : ''}
-      </section>${patterns}`;
-  }
-
-  function renderEnglishMarks(text, points) {
-    const byIndex = new Map();
-    points.forEach((point) => {
-      if (Number.isInteger(point.index) && !byIndex.has(point.index)) byIndex.set(point.index, point);
-    });
-    let tokenIndex = 0;
-    return String(text).split(/([A-Za-z]+(?:[-'][A-Za-z]+)*)/).map((chunk) => {
-      if (!/^[A-Za-z]/.test(chunk)) return esc(chunk);
-      const index = tokenIndex;
-      tokenIndex += 1;
-      const point = byIndex.get(index);
-      if (!point) return esc(chunk);
-      return `<mark class="pg-mark pg-${esc(point.tag)}"><span class="pg-word">${esc(chunk)}</span><sup class="pg-num" aria-hidden="true">${point.num}</sup></mark>`;
-    }).join('');
-  }
-
-  function renderPronMarks(pron, points) {
-    const ranges = [];
-    points.forEach((point) => {
-      if (!point.ko) return;
-      let from = 0;
-      while (from <= pron.length - point.ko.length) {
-        const start = pron.indexOf(point.ko, from);
-        if (start < 0) return;
-        const end = start + point.ko.length;
-        if (!ranges.some((range) => start < range.end && end > range.start)) {
-          ranges.push({ start, end, tag: point.tag, num: point.num });
-          return;
-        }
-        from = start + 1;
-      }
-    });
-    ranges.sort((a, b) => a.start - b.start);
-    let html = '';
-    let cursor = 0;
-    ranges.forEach((range) => {
-      html += esc(pron.slice(cursor, range.start));
-      html += `<mark class="pg-ko pg-${esc(range.tag)}"><span class="pg-word">${esc(pron.slice(range.start, range.end))}</span><sup class="pg-num" aria-hidden="true">${range.num}</sup></mark>`;
-      cursor = range.end;
-    });
-    return html + esc(pron.slice(cursor));
-  }
-
-  function pronGuideMarkup(text, pron) {
-    if (!window.PRON_GUIDE || !text) return '';
-    const built = window.PRON_GUIDE.build({ en: text });
-    const points = (built && built.points) || [];
-    if (!points.length) return '';
-    const used = new Set(points.map((point) => point.tag));
-    const legend = Object.entries(window.PRON_GUIDE.TAGS)
-      .filter(([key]) => used.has(key))
-      .map(([key, tag]) => `<span class="pg-chip pg-${esc(key)}">${esc(tag.label)}</span>`)
-      .join('');
-    const flow = built.flow && built.flow.chunked
-      ? `<div class="pg-flow">
-           <div class="pg-flow-head"><span class="pg-flow-badge">${esc(built.flow.partBadge || 'TS 억양·호흡')}</span><span class="pg-flow-label">억양 · 끊어 읽기</span></div>
-           <p class="pg-flow-chunk">${esc(built.flow.chunked)}</p>
-           <p class="pg-flow-tip">${esc(built.flow.tip || '')}</p>
-           ${built.flow.note ? `<p class="pg-flow-note">${esc(built.flow.note)}</p>` : ''}
-         </div>`
-      : '';
-    const items = points.map((point) => `<li class="pg-item"><span class="pg-idx">${point.num}</span><span class="pg-text"><b>${esc(point.word)}</b> <span class="pg-ipa">${esc(point.ipa)}</span><span class="pg-tip">${esc(point.tip)}</span></span></li>`).join('');
-    const englishLine = `<div class="pg-line"><p class="pg-line-label">영어 발음 표시</p><p class="pg-annotated-line">${renderEnglishMarks(text, points)}</p></div>`;
-    const koreanLine = pron
-      ? `<div class="pg-line"><p class="pg-line-label">한글 발음</p><p class="pg-plain-pron">${renderPronMarks(pron, points)}</p></div>`
-      : '';
-    const marksLegend = `<span class="pg-marks-legend">${esc(window.PRON_GUIDE.MARKS_LEGEND || '/ 끊어 읽기 · ↗ 올림 · → 유지 · ↘ 내림')}</span>`;
-    return `<div class="pg-legend">${legend}${marksLegend}</div>${englishLine}${koreanLine}${flow}<ol class="pg-list">${items}</ol>`;
   }
 
   function guideMarkup(part, q) {
@@ -1819,7 +947,7 @@
       ? `${exam.title} 해설 · 스피킹 루틴`
       : `${exam.title} 연습 · 스피킹 루틴`;
     if (target === 'practice') beep('go');
-    voiceKey = '';
+    clearVoiceKey();
     paintPractice();
   }
 
@@ -1890,18 +1018,6 @@
     } catch (error) {
       if (error !== ABORT) console.error(error);
     }
-  }
-
-  function deliveryFor(metrics) {
-    if (!metrics || typeof metrics !== 'object') return '보통';
-    return metrics.delivery || metrics.deliveryLevel || '보통';
-  }
-
-  function normalizeScore(value, q) {
-    const result = normalizeResult(value);
-    if (!result) return null;
-    if (!value || !Number.isFinite(Number(value.max))) result.max = q && Number(q.no) === 11 ? 5 : 3;
-    return result;
   }
 
   function updatePracticeStatus(no, progress) {
@@ -2017,49 +1133,7 @@
     </section>`;
   }
 
-  function introMarkup(part) {
-    const first = part.questions[0] ? part.questions[0].no : part.part;
-    const last = part.questions.length ? part.questions[part.questions.length - 1].no : part.part;
-    return `<div class="ex-intro">
-      <span class="ex-tag part">Part ${part.part}</span>
-      <h1 class="ex-h1 ex-intro-title">Question ${first}–${last}: ${esc(part.label)}</h1>
-      <p class="ex-sub">${part.questions.length}문항</p>
-      <div class="ex-directions">
-        <b class="ex-directions-label">Directions</b>
-        <span class="en">${esc(part.directions)}</span>
-      </div>
-      <div class="ex-actions">
-        <button class="ex-btn ghost sm" data-act="skip" type="button">건너뛰기</button>
-      </div>
-    </div>`;
-  }
-
-  function readingMarkup(part) {
-    return `<div class="ex-q">
-      <div class="ex-q-head">
-        <span class="ex-q-no">Reading</span>
-        <span class="ex-q-kind">정보 읽기</span>
-      </div>
-      <figure class="ex-figure wide">
-        <img src="assets/mock/${esc(part.tableImage)}" alt="행사 일정표" tabindex="0" role="button" aria-label="일정표 확대해서 보기">
-      </figure>
-      ${CLOCK_SLOT}
-      <p class="ex-note-sm">${part.readingSeconds}초 동안 표를 읽습니다. 이어서 3개 질문이 재생됩니다.</p>
-    </div>`;
-  }
-
   // ---------- 진행 ----------
-  function buildPlan(exam) {
-    const plan = [];
-    exam.parts.forEach((part) => {
-      plan.push({ kind: 'intro', part });
-      // 파트 3은 안내문 다음에 상황 지문을 따로 한 번 보여준다.
-      if (part.part === 3 && part.context) plan.push({ kind: 'context', part });
-      if (part.readingSeconds) plan.push({ kind: 'reading', part });
-      part.questions.forEach((q) => plan.push({ kind: 'question', part, q }));
-    });
-    return plan;
-  }
 
   function runIntro(step, token) {
     const part = step.part;
@@ -2078,12 +1152,12 @@
       const done = () => {
         if (settled) return;
         settled = true;
-        skipResolve = null;
+        setSkipResolve(null);
         const left = MIN_VISIBLE - (Date.now() - startedAt);
         if (left > 0) timer = window.setTimeout(resolve, left);
         else resolve();
       };
-      skipResolve = () => { stopSpeech(); if (timer) window.clearTimeout(timer); done(); };
+      setSkipResolve(() => { stopSpeech(); if (timer) window.clearTimeout(timer); done(); });
       speak(part.directions, 'narrator').then(done);
       if (token !== runToken) done();
     });
@@ -2181,8 +1255,8 @@
     starting = true;
 
     try {
-      voiceKey = '';
-      if (window.SpeechVoice) examVoices = window.SpeechVoice.examPair();
+      clearVoiceKey();
+      if (window.SpeechVoice) assignExamVoices();
     } finally {
       starting = false;
     }
@@ -2480,408 +1554,8 @@
     return '';
   }
 
-  function scoreArc(estimate) {
-    const scaled = estimate && Number.isFinite(Number(estimate.scaled))
-      ? Math.max(0, Math.min(200, Math.round(Number(estimate.scaled))))
-      : null;
-    const level = estimate && estimate.level ? estimate.level : (scaled === null ? '—' : levelFromScaled(scaled));
-    const pct = scaled === null ? 0 : (scaled / 200) * 100;
-    const label = scaled === null ? (autoScoreEnabled() ? '채점 중' : '채점 꺼짐') : `${scaled}점 ${level}`;
-    const arcLength = 276.46;
-    const dash = (arcLength * pct / 100).toFixed(1);
-    return `<div class="score-arc" role="img" aria-label="추정 점수 ${label}">
-      <svg viewBox="0 0 220 132" aria-hidden="true">
-        <path class="arc-bg" d="M 22 116 A 88 88 0 0 1 198 116" />
-        <path class="arc-fg" d="M 22 116 A 88 88 0 0 1 198 116" stroke-dasharray="${dash} ${arcLength}" />
-      </svg>
-      <div class="arc-copy">
-        <strong>${scaled === null ? '—' : scaled}</strong>
-        <span>${scaled === null ? '채점 중' : level}</span>
-        <small>추정 / 200</small>
-      </div>
-    </div>`;
-  }
-
-  function partAverages(current, summary, items) {
-    const raw = summary && summary.partAverages;
-    const pick = (part) => {
-      if (Array.isArray(raw)) return raw[part - 1];
-      if (raw && typeof raw === 'object') return raw[part] ?? raw[`part${part}`] ?? raw[String(part)];
-      return null;
-    };
-    return [1, 2, 3, 4, 5].map((part) => {
-      const max = part === 5 ? 5 : 3;
-      const picked = pick(part);
-      let avg = picked === null || picked === undefined || picked === '' ? NaN : Number(picked);
-      if (!Number.isFinite(avg)) {
-        const values = items
-          .filter((item) => item.part.part === part && current.scores && current.scores[item.q.no])
-          .map((item) => Number(current.scores[item.q.no].score))
-          .filter((value) => Number.isFinite(value));
-        avg = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
-      }
-      return { part, avg, max };
-    });
-  }
-
-  function renderPartBar(row) {
-    const pct = row.avg === null ? 0 : Math.max(0, Math.min(100, (row.avg / row.max) * 100));
-    return `<div class="part-bar">
-      <span class="part-name">Part ${row.part}</span>
-      <span class="part-track"><i style="width:${pct}%"></i></span>
-      <span class="part-val">${row.avg === null ? '—' : row.avg.toFixed(1)} / ${row.max}</span>
-    </div>`;
-  }
-
-  function insightCard(title, items, empty) {
-    const labels = {
-      pron: '발음', inton: '억양·강세', grammar: '문법', vocab: '어휘',
-      cohesion: '응집성', relevance: '관련성', completeness: '완성도',
-    };
-    const human = (item) => {
-      const key = String(item || '');
-      if (!labels[key]) return item;
-      const label = labels[key];
-      const code = label.charCodeAt(label.length - 1);
-      const batchim = code >= 0xAC00 && code <= 0xD7A3 && (code - 0xAC00) % 28 !== 0;
-      return title === '강점'
-        ? `${label}${batchim ? '이' : '가'} 안정적이에요`
-        : `${label}${batchim ? '을' : '를'} 보완해 보세요`;
-    };
-    const list = Array.isArray(items) ? items.filter(Boolean).slice(0, 2) : [];
-    return `<section class="insight">
-      <h2>${title}</h2>
-      ${list.length ? `<ul>${list.map((item) => `<li>${esc(human(item))}</li>`).join('')}</ul>` : `<p class="qa-empty">${esc(empty)}</p>`}
-    </section>`;
-  }
-
-  function fallbackInsights(scores, items) {
-    const labels = {
-      pron: '발음', inton: '억양·강세', grammar: '문법', vocab: '어휘',
-      cohesion: '응집성', relevance: '관련성', completeness: '완성도',
-    };
-    const totals = {};
-    items.forEach((item) => {
-      const result = scores[item.q.no];
-      // 녹음이 없거나 말소리가 없던 문항은 강점·보완점 계산에서 뺀다.
-      if (!answered(result)) return;
-      Object.entries(result.criteria).forEach(([key, value]) => {
-        if (!labels[key] || value === null || value === undefined || value === '') return;
-        const number = Number(value);
-        if (!Number.isFinite(number)) return;
-        if (!totals[key]) totals[key] = { total: 0, count: 0 };
-        totals[key].total += number;
-        totals[key].count += 1;
-      });
-    });
-    const entries = Object.entries(totals)
-      .map(([key, value]) => ({ label: labels[key], value: value.total / value.count }))
-      .sort((a, b) => b.value - a.value);
-    if (!entries.length) return { strengths: [], weaknesses: [] };
-    const take = entries.length >= 4 ? 2 : 1;
-    const strong = entries.filter((entry) => entry.value >= 1.5).slice(0, take);
-    return {
-      strengths: strong.map((entry) => `${entry.label} ${entry.value.toFixed(1)}`),
-      weaknesses: entries.filter((entry) => !strong.includes(entry)).slice(-take).reverse().map((entry) => `${entry.label} ${entry.value.toFixed(1)}`),
-    };
-  }
-
-  // 실제로 말한 답변이 채점된 문항인지. 녹음 없음·말소리 없음·채점 불가는 아니다.
-  function answered(result) {
-    return Boolean(result && result.criteria && !result.noRecording && !result.silent && !result.unavailable && !result.pending
-      && String(result.text || '').trim());
-  }
-
-  function allQuestions(exam) {
-    if (!exam) return [];
-    return exam.parts.flatMap((part) => part.questions.map((q) => ({ part, q })));
-  }
-
-  function findQuestion(exam, no) {
-    if (!exam) return null;
-    for (const part of exam.parts) {
-      const q = part.questions.find((item) => item.no === Number(no));
-      if (q) return { part, q };
-    }
-    return null;
-  }
-
   function questionByNo(no, exam = currentExam) {
     return findQuestion(exam, no);
-  }
-
-  function renderQCard(item, result) {
-    const part = item.part;
-    const q = item.q;
-    const max = part.part === 5 ? 5 : 3;
-    const score = result && !result.pending && !result.noRecording && !result.unavailable && Number.isFinite(Number(result.score))
-      ? result.score
-      : null;
-    return `<article class="qcard${result ? ' scored' : ''}" id="qcard-${q.no}" data-no="${q.no}">
-      <div class="qcard-head">
-        <span class="qcard-no">Q${q.no}</span>
-        <span class="qcard-kind">${esc(KIND_LABEL[part.part] || '')}</span>
-        <span class="qcard-score">${score === null ? '—' : `${score}/${max}`}</span>
-        ${noteStar(q.no)}
-      </div>
-      <div class="qcard-body">${renderScoreBody(part, q, result, `qa-audio-${q.no}`)}</div>
-      <div class="qcard-foot">
-        <span class="qcard-foot-label">내 평가</span>
-        ${ratingButtons(q.no)}
-      </div>
-    </article>`;
-  }
-
-  function ratingButtons(no) {
-    return `<span class="ex-ratings" data-no="${no}">
-      <button type="button" data-act="rate" data-no="${no}" data-value="good" aria-pressed="false">좋음</button>
-      <button type="button" data-act="rate" data-no="${no}" data-value="ok" aria-pressed="false">보통</button>
-      <button type="button" data-act="rate" data-no="${no}" data-value="weak" aria-pressed="false">아쉬움</button>
-    </span>`;
-  }
-
-  function metricsLine(metrics) {
-    if (!metrics || !Number.isFinite(Number(metrics.speechSec))) return '';
-    const seconds = Math.max(0, Math.round(Number(metrics.speechSec)));
-    const pauses = Array.isArray(metrics.longPauses) ? metrics.longPauses.length : 0;
-    return `말한 시간 ${seconds}초 · 긴 쉼 ${pauses}회`;
-  }
-
-  function renderScoreBody(part, q, result, audioId) {
-    if (!result) {
-      if (!autoScoreEnabled()) {
-        return `<div class="qa-section">
-          <p class="qa-label">녹음</p>
-          <div class="qcard-audio" id="${audioId}"><span class="qa-empty">내 녹음 불러오는 중…</span></div>
-          <p class="qa-metrics" id="qa-metrics-${q.no}"></p>
-          <p class="qa-empty">자동 채점이 꺼져 있어 점수는 계산하지 않았어요. 설정에서 켜면 다음 녹음부터 채점해요.</p>
-        </div>
-        ${sampleAnswersMarkup(q.no)}`;
-      }
-      const message = scoring.running
-        ? '채점 중…'
-        : (scoring.error === 'no-recording' ? '녹음이 없어 채점하지 못했어요.' : '채점 결과가 없어요.');
-      return `<p class="qa-empty">${message}</p>`;
-    }
-    if (result.pending) return '<p class="qa-empty">채점 중…</p>';
-    if (result.noRecording) return '<p class="qa-empty">녹음이 없어 이 문항은 채점하지 못했어요.</p>';
-    if (result.unavailable) return '<p class="qa-empty">채점 모듈을 불러오지 못해 이 문항은 채점하지 못했어요.</p>';
-    if (result.silent) {
-      return `<div class="qa-section silent">
-        <p class="qa-label">녹음 확인</p>
-        <p class="qa-text">${SILENT_FEEDBACK}</p>
-      </div>
-      <div class="qa-tools">
-        <div class="qcard-audio" id="${audioId}"><span class="qa-empty">내 녹음 불러오는 중…</span></div>
-      </div>`;
-    }
-
-    const criteria = renderCriteria(result, part);
-    const text = result.text || '';
-    const display = part.part === 1 ? highlightMissed(text, result.missedWords) : esc(text);
-    const missed = part.part === 1 && Array.isArray(result.missedWords) && result.missedWords.length
-      ? renderMissed(result.missedWords)
-      : '';
-    const coverage = renderCoverage(part, q, result);
-    const feedback = Array.isArray(result.feedback) && result.feedback.length
-      ? `<div class="qa-section"><p class="qa-label">피드백</p><ul class="qa-feedback">${result.feedback.slice(0, 4).map((line) => `<li>${esc(line)}</li>`).join('')}</ul></div>`
-      : '';
-    const model = modelText(part, q);
-
-    return `${criteria}
-      <div class="qa-section">
-        <p class="qa-label">내 답변</p>
-        <p class="qa-text">${display || '<span class="qa-empty">인식된 문장이 없어요.</span>'}</p>
-      </div>
-      ${missed}
-      ${coverage}
-      ${feedback}
-      ${sampleCompareMarkup(part, q, result)}
-      <div class="qa-tools">
-        <div class="qcard-audio" id="${audioId}"><span class="qa-empty">내 녹음 불러오는 중…</span></div>
-        ${model ? `<button class="ex-btn ghost sm" type="button" data-act="speak-model" data-no="${q.no}">모범 답안 듣기</button>` : ''}
-      </div>`;
-  }
-
-  function renderCriteria(result, part) {
-    const labels = {
-      pron: '발음', inton: '억양·강세', grammar: '문법', vocab: '어휘',
-      cohesion: '응집성', relevance: '관련성', completeness: '완성도',
-    };
-    const order = ['pron', 'inton', 'grammar', 'vocab', 'cohesion', 'relevance', 'completeness'];
-    const allowed = part.part === 1
-      ? ['pron', 'inton']
-      : (part.part === 2
-        ? ['pron', 'inton', 'grammar', 'vocab', 'cohesion']
-        : order);
-    const max = 3;
-    const criteria = result.criteria || {};
-    const chips = order
-      .filter((key) => allowed.includes(key))
-      .map((key) => {
-        const raw = criteria[key];
-        if (raw === null || raw === undefined || raw === '') {
-          return `<span class="crit na">${labels[key]} <b>—</b></span>`;
-        }
-        const value = Number(raw);
-        if (!Number.isFinite(value)) {
-          return `<span class="crit na">${labels[key]} <b>—</b></span>`;
-        }
-        const ratio = value / max;
-        const cls = ratio >= 0.8 ? 'good' : (ratio >= 0.5 ? 'mid' : 'low');
-        return `<span class="crit ${cls}">${labels[key]} <b>${value}</b></span>`;
-      });
-    return chips.length ? `<div class="criteria">${chips.join('')}</div>` : '';
-  }
-
-  function factKey(value) {
-    let text = String(value || '').toLowerCase().replace(/[’']/g, "'");
-    text = text
-      .replace(/\b(january|jan)\b/g, 'jan')
-      .replace(/\b(february|feb)\b/g, 'feb')
-      .replace(/\b(march|mar)\b/g, 'mar')
-      .replace(/\b(april|apr)\b/g, 'apr')
-      .replace(/\b(may)\b/g, 'may')
-      .replace(/\b(june|jun)\b/g, 'jun')
-      .replace(/\b(july|jul)\b/g, 'jul')
-      .replace(/\b(august|aug)\b/g, 'aug')
-      .replace(/\b(september|sept|sep)\b/g, 'sep')
-      .replace(/\b(october|oct)\b/g, 'oct')
-      .replace(/\b(november|nov)\b/g, 'nov')
-      .replace(/\b(december|dec)\b/g, 'dec')
-      .replace(/\ba\.?m\.?\b/g, 'am')
-      .replace(/\bp\.?m\.?\b/g, 'pm');
-    return text.replace(/[^a-z0-9]/g, '');
-  }
-
-  function factCandidates(part, q) {
-    const out = [];
-    const add = (text, source) => {
-      const original = String(text || '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .replace(/^[\s"'“”‘’]+|[\s"'“”‘’]+$/g, '')
-        .replace(/[:;]+$/, '')
-        .trim();
-      if (!original) return;
-      const key = factKey(original);
-      if (!key) return;
-      out.push({ original, key, source });
-    };
-    const addNgrams = (text, source, max) => {
-      const words = String(text || '').split(/\s+/).filter(Boolean);
-      for (let size = 1; size <= max; size += 1) {
-        for (let start = 0; start + size <= words.length; start += 1) {
-          add(words.slice(start, start + size).join(' '), source);
-        }
-      }
-    };
-    if (q.answerKey) addNgrams(q.answerKey, 'answer', 6);
-    const rows = part && Array.isArray(part.table) ? part.table : [];
-    rows.forEach((row) => {
-      if (!Array.isArray(row)) return;
-      row.forEach((cell) => {
-        if (!cell) return;
-        add(cell, 'table');
-        addNgrams(cell, 'table', 5);
-      });
-    });
-    return out;
-  }
-
-  function originalFact(value, part, q, candidates) {
-    const raw = String(value || '').trim();
-    const key = factKey(raw);
-    if (!key) return raw;
-    const list = candidates || factCandidates(part, q);
-    const exact = list.filter((item) => item.key === key);
-    if (exact.length) {
-      exact.sort((a, b) => a.original.length - b.original.length || (a.source === 'table' ? -1 : 1));
-      return exact[0].original;
-    }
-    if (key.length >= 3) {
-      const partial = list.filter((item) => item.key.length >= 3 && (item.key.includes(key) || key.includes(item.key)));
-      if (partial.length) {
-        partial.sort((a, b) => Math.abs(a.original.length - raw.length) - Math.abs(b.original.length - raw.length)
-          || (a.source === 'table' ? -1 : 1));
-        return partial[0].original;
-      }
-    }
-    return raw;
-  }
-
-  function renderCoverage(part, q, result) {
-    const normalize = (value) => String(value || '').trim().toLowerCase();
-    if (part.part === 2) {
-      const elements = Array.isArray(q.keyElements) ? q.keyElements : [];
-      if (!elements.length) return '';
-      const covered = new Set((Array.isArray(result.covered) ? result.covered : []).map(normalize));
-      const chips = elements.map((element) => {
-        const key = normalize(element);
-        const hit = covered.has(key) || Array.from(covered).some((item) => item.includes(key) || key.includes(item));
-        return `<span class="coverage-chip ${hit ? 'ok' : 'miss'}">${esc(element)} <b>${hit ? '✓' : '—'}</b></span>`;
-      }).join('');
-      return `<div class="qa-section"><p class="qa-label">핵심 요소</p><div class="coverage">${chips}</div></div>`;
-    }
-    if (part.part === 4) {
-      const covered = Array.isArray(result.covered) ? result.covered : [];
-      const wrong = Array.isArray(result.wrongFacts) ? result.wrongFacts : [];
-      const candidates = factCandidates(part, q);
-      const chips = covered.map((item) => `<span class="coverage-chip ok">${esc(originalFact(item, part, q, candidates))} <b>✓</b></span>`)
-        .concat(wrong.map((item) => `<span class="coverage-chip wrong">${esc(originalFact(item, part, q, candidates))} <b>✗</b></span>`))
-        .join('');
-      const answer = q.answerKey
-        ? `<details class="qa-answer"><summary>전체 정답 보기</summary><p>${esc(q.answerKey)}</p></details>`
-        : '';
-      if (!chips && !answer) return '';
-      return `<div class="qa-section">${chips ? `<p class="qa-label">정답 정보</p><div class="coverage">${chips}</div>` : ''}${answer}</div>`;
-    }
-    return '';
-  }
-
-  function renderMissed(missed) {
-    const stop = new Set([
-      'a', 'an', 'the', 'to', 'of', 'and', 'in', 'on', 'at', 'it', 'is', 'are', 'was', 'were',
-      'i', 'you', 'he', 'she', 'we', 'they', 'my', 'your', 'his', 'her', 'our', 'their', 'for',
-      'with', 'as', 'that', 'this', 'be', 'been', 'do', 'does', 'did', 'so', 'but', 'or', 'if',
-      'from', 'by', 'not', 'have', 'has', 'had', 'will', 'would', 'can', 'could', 'should',
-      'may', 'might', 'me', 'him', 'us', 'them', 'its', 'there', 'here', 'what', 'when',
-      'where', 'who', 'how', 'why', 'all', 'just', 'very', 'too', 'also', 'than', 'then',
-      'into', 'over', 'under', 'about', 'up', 'down', 'out', 'off', 'no', 'yes',
-    ]);
-    const content = missed.filter((word) => {
-      const key = String(word).trim().toLowerCase().replace(/[^a-z']/g, '');
-      return key.length > 3 && !stop.has(key);
-    });
-    const list = (content.length ? content : missed).slice(0, 8);
-    return `<div class="qa-section missed">
-      <p class="qa-label">놓친 단어 <span>${missed.length}개 중 ${list.length}개</span></p>
-      <div class="missed-list">${list.map((word) => `<button class="missed-word" type="button" data-act="speak-word" data-word="${esc(word)}">${esc(word)}<span aria-hidden="true"> ▶</span></button>`).join('')}</div>
-    </div>`;
-  }
-
-  function escapeRegExp(value) {
-    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  function highlightMissed(text, missed) {
-    const words = (Array.isArray(missed) ? missed : [])
-      .map((word) => String(word || '').trim())
-      .filter(Boolean)
-      .sort((a, b) => b.length - a.length);
-    if (!words.length || !text) return esc(text || '');
-    const pattern = new RegExp(`\\b(${words.map(escapeRegExp).join('|')})\\b`, 'gi');
-    let out = '';
-    let last = 0;
-    let match = pattern.exec(text);
-    while (match) {
-      out += esc(text.slice(last, match.index));
-      out += `<mark class="missed">${esc(match[0])}</mark>`;
-      last = match.index + match[0].length;
-      if (pattern.lastIndex === match.index) pattern.lastIndex += 1;
-      match = pattern.exec(text);
-    }
-    return out + esc(text.slice(last));
   }
 
   // 글꼴마다 모양이 다른 ★ 문자 대신 같은 SVG를 쓴다. 채움만 바꿔 켜짐/꺼짐을 보인다.
@@ -2966,25 +1640,6 @@
         metricSlot.textContent = metricsLine(metrics);
       }
     }
-  }
-
-  function normalizeProgress(value) {
-    if (typeof value === 'number') {
-      return Math.max(0, Math.min(1, value > 1 ? value / 100 : value));
-    }
-    if (value && typeof value === 'object') {
-      if (Number.isFinite(Number(value.progress))) {
-        const number = Number(value.progress);
-        return Math.max(0, Math.min(1, number > 1 ? number / 100 : number));
-      }
-      if (Number.isFinite(Number(value.percent))) {
-        return Math.max(0, Math.min(1, Number(value.percent) / 100));
-      }
-      if (Number.isFinite(Number(value.loaded)) && Number.isFinite(Number(value.total)) && Number(value.total) > 0) {
-        return Math.max(0, Math.min(1, Number(value.loaded) / Number(value.total)));
-      }
-    }
-    return 0;
   }
 
   function updateScoring(kind, progress, current, total) {
@@ -3148,61 +1803,6 @@
       scoring.error = (error && error.message) || 'score-failed';
       paintDone();
     }
-  }
-
-  function buildResponses(items, raw) {
-    const responses = {};
-    items.forEach((item) => {
-      const entry = raw[item.q.no];
-      if (!entry) return;
-      responses[item.q.no] = { no: item.q.no, text: entry.text, words: entry.words, metrics: entry.metrics };
-    });
-    return responses;
-  }
-
-  function estimateFromScores(scores, items) {
-    let sum = 0;
-    items.forEach((item) => {
-      const result = scores[item.q.no];
-      const max = item.part.part === 5 ? 5 : 3;
-      const score = result && Number.isFinite(Number(result.score)) ? Number(result.score) : 0;
-      sum += item.part.part === 5 ? 2 * (score / max) : score / max;
-    });
-    const pct = sum / 12;
-    const scaled = Math.max(0, Math.min(200, 10 * Math.round(20 * pct)));
-    return { scaled, level: levelFromScaled(scaled) };
-  }
-
-  function fallbackSummary(scores, items) {
-    const parts = [1, 2, 3, 4, 5].map((part) => {
-      const values = items
-        .filter((item) => item.part.part === part && scores[item.q.no])
-        .map((item) => Number(scores[item.q.no].score))
-        .filter((value) => Number.isFinite(value));
-      const avg = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
-      return { part, avg, max: part === 5 ? 5 : 3 };
-    });
-    const insights = fallbackInsights(scores, items);
-    return {
-      estimate: estimateFromScores(scores, items),
-      partAverages: parts.map((row) => row.avg),
-      strengths: insights.strengths,
-      weaknesses: insights.weaknesses,
-    };
-  }
-
-  function levelFromScaled(scaled) {
-    if (scaled >= 200) return 'AH';
-    if (scaled >= 180) return 'AM';
-    if (scaled >= 160) return 'AL';
-    if (scaled >= 140) return 'IH';
-    if (scaled >= 130) return 'IM3';
-    if (scaled >= 120) return 'IM2';
-    if (scaled >= 110) return 'IM1';
-    if (scaled >= 90) return 'IL';
-    if (scaled >= 60) return 'NH';
-    if (scaled >= 40) return 'NM';
-    return 'NL';
   }
 
   // ---------- v34: 마이노트 ----------
@@ -3446,6 +2046,31 @@
   }
 
   let lightboxClose = null;
+
+  // ---------- 모듈 연결: 인자가 바뀐 함수를 예전 모양으로 감싼다 ----------
+  function samplesFor(no) {
+    return window.MockGuideViews.samplesFor(no, sampleExamId());
+  }
+
+  function sampleAnswersMarkup(no) {
+    return window.MockGuideViews.sampleAnswersMarkup(no, sampleExamId());
+  }
+
+  function sampleCompareMarkup(part, q, result) {
+    return window.MockGuideViews.sampleCompareMarkup(part, q, result, sampleExamId(), activeExam(), originalFact, highlightMissed);
+  }
+
+  function scoreArc(estimate) {
+    return window.MockScoreViews.scoreArc(estimate, levelFromScaled, autoScoreEnabled);
+  }
+
+  function renderScoreBody(part, q, result, audioId) {
+    return window.MockScoreViews.renderScoreBody(part, q, result, audioId, scoring, autoScoreEnabled, sampleAnswersMarkup, modelText, sampleCompareMarkup);
+  }
+
+  function renderQCard(item, result) {
+    return window.MockScoreViews.renderQCard(item, result, scoring, noteStar, autoScoreEnabled, sampleAnswersMarkup, modelText, sampleCompareMarkup);
+  }
 
   function openLightbox(src, alt) {
     if (document.querySelector('.ex-lightbox')) return;
@@ -3727,8 +2352,8 @@
     try {
       window.AppSettings.subscribe((value) => {
         if (window.SpeechVoice) {
-          voiceKey = '';
-          examVoices = window.SpeechVoice.examPair();
+          clearVoiceKey();
+          assignExamVoices();
         }
         if (value && value.autoScore === false && document.querySelector('.scoring-banner')) paintDone();
       });
