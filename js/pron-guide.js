@@ -827,6 +827,8 @@
     let i = 0;
     while (i < item.length && (item[i].base === 'and' || item[i].base === 'or')) i += 1;
     if (i >= item.length) return 'empty';
+    // "Actually," 처럼 부사만 있는 항목은 나열의 항목(명사·동사구)이 아니라 도입어다. np로 두면 뒤 항목과 짝지어 나열로 오인한다.
+    if (item.every((entry) => ADVERBS.has(entry.base))) return 'adv';
     const word = item[i].base;
     if (SUBJECT_WORDS.has(word) || AUX_WORDS.has(word)) return 'clause';
     if (CONJ_WORDS.has(word) || CLAUSE_MARKERS.has(word) || RELATIVE_WORDS.has(word)) return 'clause';

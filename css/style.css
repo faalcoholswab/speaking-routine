@@ -367,6 +367,20 @@ button:not(:disabled):active, a[href]:active, [role="button"]:active, summary:ac
   letter-spacing: -.02em; margin: 0 0 24px; color: var(--text); word-break: keep-all;
 }
 .fc-main.ko { font-size: clamp(23px, 6.2vw, 30px); }
+/* Part 2·4 장면 카드: 모의고사 사진·표와 여러 문장짜리 모범 답안 */
+.fc-main.scene, .fc-main.scene.ko { font-size: clamp(16px, 4.4vw, 20px); font-weight: 600; line-height: 1.75; }
+.fc-scene { margin: 0 0 16px; }
+.fc-caption { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.fc-scene-img {
+  display: block; border-radius: 12px; overflow: hidden;
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.fc-scene-img img { display: block; width: 100%; max-height: 420px; object-fit: contain; }
+.fc-prompt {
+  display: grid; gap: 4px; margin-top: 10px; padding: 10px 12px; border-radius: 10px;
+  background: var(--g50); color: var(--text-2); font-size: 14px; line-height: 1.6;
+}
+.fc-prompt-label { font-size: 12px; font-weight: 600; color: var(--muted); }
 .fc-sub { border-top: 1px solid var(--line); padding-top: 20px; }
 .sub-label { font-size: 13px; color: var(--muted); margin: 0 0 8px; }
 .sub-text { font-size: 18px; color: var(--text-2); margin: 0; word-break: keep-all; line-height: 1.65; }

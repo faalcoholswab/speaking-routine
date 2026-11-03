@@ -43,7 +43,7 @@
     part2: {
       label: 'Part 2',
       title: '사진 묘사',
-      desc: '장소 → 사람 → 동작 → 외모 → 배경 순서로 30초(8~10문장)를 채우는 문장을 연습해요.',
+      desc: '모의고사 사진을 보고 모범 답안 문장을 소리 내어 연습해요.',
     },
     part3: {
       label: 'Part 3',
@@ -53,7 +53,7 @@
     part4: {
       label: 'Part 4',
       title: '표 보고 답하기',
-      desc: '표의 장소·시간·변경 사항을 전하는 답변 틀을 연습해요.',
+      desc: '모의고사 표와 질문을 보고 모범 답안 문장을 소리 내어 연습해요.',
     },
     part5: {
       label: 'Part 5',
@@ -154,6 +154,11 @@
           en: item.en,
           ko: item.ko,
           pron: typeof item.pron === 'string' ? item.pron : '',
+          // Part 2·4 장면 카드: 모의고사 사진·표 이미지와 질문. 다른 파트의 문장에는 없습니다.
+          image: typeof item.image === 'string' ? item.image : '',
+          imageAlt: typeof item.imageAlt === 'string' ? item.imageAlt : '',
+          prompt: typeof item.prompt === 'string' ? item.prompt : '',
+          caption: typeof item.caption === 'string' ? item.caption : '',
           topic: typeof item.topic === 'string' && item.topic ? item.topic : '기타',
           // v32: Part 5는 `topic`(소재)과 `function`(답변에서의 역할)을 따로 둡니다.
           split: typeof item.function === 'string' && item.function.trim() !== '',
@@ -1190,6 +1195,16 @@
     return topic === '-' ? sentence.function : `${sentence.function} · ${topic}`;
   }
 
+  // Part 2(사진)·Part 4(표) 카드는 모의고사의 이미지를 보여 줍니다. 이미지를 탭하면 크게 볼 수 있어요.
+  function sceneMarkup(card) {
+    if (!card.image) return '';
+    const caption = card.caption ? `<p class="fc-caption">${esc(card.caption)}</p>` : '';
+    const prompt = card.prompt
+      ? `<figcaption class="fc-prompt"><span class="fc-prompt-label">질문 (시험에서는 음성으로 나와요)</span><span lang="en">${esc(card.prompt)}</span></figcaption>`
+      : '';
+    return `<figure class="fc-scene">${caption}<a class="fc-scene-img" href="${esc(card.image)}" target="_blank" rel="noopener" aria-label="${esc(card.imageAlt || '이미지')} 크게 보기"><img src="${esc(card.image)}" alt="${esc(card.imageAlt || '')}" loading="lazy"></a>${prompt}</figure>`;
+  }
+
   function viewSession() {
     const s = session;
     const card = s.sentences[s.index];
@@ -1202,7 +1217,8 @@
     const isBoth = s.mode === 'both';
     const primary = isKoFirst ? card.ko : card.en;
     const secondary = isKoFirst ? card.en : card.ko;
-    const primaryClass = isKoFirst ? 'fc-main ko' : 'fc-main';
+    // 사진·표 카드의 답은 여러 문장이라 한 문장용 큰 글자보다 작게 보여 줍니다.
+    const primaryClass = `${isKoFirst ? 'fc-main ko' : 'fc-main'}${card.image ? ' scene' : ''}`;
     const subLabel = isKoFirst ? '영어 문장' : '뜻';
     const subClass = isKoFirst ? 'sub-text en' : 'sub-text';
     const guide = guideData(card);
@@ -1238,6 +1254,7 @@
                   <span class="lbl">${icon('files')} ${PART_INFO[card.part].label} · ${esc(cardLabel(card))}</span>
                   ${badgeMarkup(status)}
                 </div>
+                ${sceneMarkup(card)}
                 <h2 class="${primaryClass}" id="sentence-main"${primaryLang}>${primaryHtml}</h2>
                 ${(isBoth || s.revealed)
                   ? `<div class="fc-sub" id="answer" tabindex="-1"><p class="sub-label">${subLabel}</p><p class="${subClass}"${secondaryLang}>${secondaryHtml}</p></div>`
@@ -1254,10 +1271,10 @@
                     <p class="pg-line-label">영어 발음 표시</p>
                     <p class="pg-annotated-line" lang="en">${renderEnglish(card.en, points)}</p>
                   </div>
-                  <div class="pg-line">
+                  ${card.pron || !card.image ? `<div class="pg-line">
                     <p class="pg-line-label">한글 발음</p>
                     <p class="pg-plain-pron">${esc(card.pron || '발음 가이드가 준비되지 않았어요.')}</p>
-                  </div>
+                  </div>` : ''}
                   ${renderGuide(points, guide.flow)}
                 </div>` : ''}
               </div>
