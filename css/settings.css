@@ -21,7 +21,7 @@
   font-size: 20px; line-height: 1; color: var(--g900);
   background: var(--surface); box-shadow: inset 0 0 0 1px var(--line), 0 4px 14px rgba(var(--shadow-rgb), .10);
 }
-.ex-settings-btn:hover { background: var(--surface-2); }
+@media (hover: hover) { .ex-settings-btn:hover { background: var(--surface-2); } }
 body.ex-locked .ex-settings-btn { display: none; }
 
 /* ----- 오버레이 / 시트 ----- */
@@ -87,8 +87,8 @@ body.ex-locked .ex-settings-btn { display: none; }
 .st-h3 { margin: 0 0 4px; font-size: 14px; font-weight: 700; }
 .st-desc { margin: 0; font-size: 13px; line-height: 1.65; color: var(--muted); }
 .st-note { margin: 8px 0 0; font-size: 12px; line-height: 1.65; color: var(--faint); }
-.st-note.warn { color: #8a4620; }
-.st-note.ok { color: var(--g700); }
+.st-note.warn { color: var(--warn-deep); }
+.st-note.ok { color: var(--accent-ink); }
 .st-row {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; padding: 12px 0; border-top: 1px solid var(--line);
@@ -115,7 +115,7 @@ body.ex-locked .ex-settings-btn { display: none; }
 
 .st-slider { display: flex; align-items: center; gap: 8px; width: 100%; }
 .st-slider input[type="range"] { flex: 1; min-width: 120px; accent-color: var(--g700); height: 32px; }
-.st-slider output { min-width: 44px; font-size: 13px; font-weight: 700; color: var(--g700); text-align: right; }
+.st-slider output { min-width: 44px; font-size: 13px; font-weight: 700; color: var(--accent-ink); text-align: right; }
 
 .st-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;

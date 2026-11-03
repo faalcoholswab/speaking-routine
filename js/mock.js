@@ -560,6 +560,15 @@
     }
   }
 
+  // 녹음을 시작하는 사이 시험이 중단된 경우(마이크 권한 창이 떠 있는 동안 나가기 등) 쓰는 정리 함수입니다.
+  // 저장하지 않고 바로 끄므로 중단한 시험에 녹음이 남지 않습니다.
+  function cancelRecording() {
+    recordingNo = 0;
+    if (window.SpeakingRecorder && typeof window.SpeakingRecorder.cancel === 'function') {
+      try { window.SpeakingRecorder.cancel(); } catch (error) { /* noop */ }
+    }
+  }
+
   async function stopRecording() {
     if (!recordingNo) return null;
     if (TEST_AUDIO) {
@@ -620,6 +629,7 @@
   function paintHome() {
     document.body.classList.remove('ex-locked');
     releaseExamLock();
+    dropExamHistory();
     stopSpeech();
     cleanupMic();
     revokeReportAudio();
@@ -632,7 +642,7 @@
     const store = loadStore();
     const noteCount = NOTES ? NOTES.count() : 0;
     const notesCard = `<button class="ex-card ex-notes-card" type="button" data-act="notes">
-      <span class="ex-card-num ex-notes-num" aria-hidden="true">☆</span>
+      <span class="ex-card-num ex-notes-num" aria-hidden="true">${starIcon(false)}</span>
       <span class="ex-card-body">
         <span class="ex-card-title">마이노트 <b>${noteCount}문항</b></span>
         <span class="ex-card-meta">${noteCount ? '자동 저장·직접 추가한 문항을 다시 풀어요.' : '채점 후 약한 문항이 자동으로 모여요.'}</span>
@@ -1107,8 +1117,9 @@
     return new Promise((resolve, reject) => {
       const total = (Math.max(1, seconds) * 1000) / SPEED;
       const start = Date.now();
-      els.dock.className = dockClasses(dockKind === 'respond' ? 'respond' : 'prep');
-      els.phase.textContent = label;
+      const recording = dockKind === 'respond' && recordingNo > 0;
+      els.dock.className = dockClasses(dockKind === 'respond' ? (recording ? 'respond rec' : 'respond') : 'prep');
+      els.phase.textContent = recording ? '녹음 중' : label;
       const clock = clockFor(label, dockKind);
       const clockTime = clock.querySelector('.ex-clock-time');
 
@@ -1779,6 +1790,8 @@
     const target = practiceIndex + delta;
     if (target < 0 || target >= practiceList.length) return;
     runToken += 1;
+    // 응답 녹음 중에 다른 문항으로 넘어가면 타이머가 중단되어 stopRecording()이 실행되지 않으므로 여기서 끕니다.
+    cancelRecording();
     stopSpeech();
     practiceIndex = target;
     paintPractice();
@@ -1849,6 +1862,7 @@
         if (token !== runToken) return;
         beep('go');
         await startRecording(q.no);
+        if (token !== runToken) { cancelRecording(); return; }
         await countdown(q.responseSeconds, '응답', token, 'respond');
         await stopRecording();
       } else {
@@ -1859,6 +1873,7 @@
         if (part.cues && part.cues.start) await speak(part.cues.start, 'narrator');
         if (token !== runToken) return;
         await startRecording(q.no);
+        if (token !== runToken) { cancelRecording(); return; }
         await countdown(q.responseSeconds, '응답', token, 'respond');
         await stopRecording();
       }
@@ -2134,6 +2149,7 @@
       await wait(200, token);
       if (live) els.stage.innerHTML = questionMarkup(part, q, 'respond', !voiced);
       await startRecording(q.no);
+      if (token !== runToken) { cancelRecording(); throw ABORT; }
       await countdown(q.responseSeconds, '응답', token, 'respond');
       await stopRecording();
       return;
@@ -2154,6 +2170,7 @@
     await wait(200, token);
     els.stage.innerHTML = questionMarkup(part, q, 'respond');
     await startRecording(q.no);
+    if (token !== runToken) { cancelRecording(); throw ABORT; }
     await countdown(q.responseSeconds, '응답', token, 'respond');
     await stopRecording();
   }
@@ -2191,6 +2208,7 @@
 
     mountExam();
     holdExamLock();
+    pushExamHistory();
     document.title = `${exam.title} · 진행 중`;
 
     try {
@@ -2213,6 +2231,7 @@
     if (!attempt) return;
     runToken += 1;
     releaseExamLock();
+    dropExamHistory();
     stopSpeech();
     attempt.seconds = Math.round((Date.now() - attempt.startedAt) / 1000);
     attempt.finishedAt = new Date().toISOString();
@@ -2241,16 +2260,45 @@
     }
   }
 
-  function quitExam() {
-    if (!attempt) return;
-    const ok = window.confirm('응시를 중단할까요? 지금까지의 기록은 저장되지 않습니다.');
-    if (!ok) return;
+  const QUIT_CONFIRM = '응시를 중단할까요? 지금까지의 기록은 저장되지 않습니다.';
+
+  function abortExam() {
     runToken += 1;
     releaseExamLock();
     stopSpeech();
     attempt = null;
     paintHome();
   }
+
+  function quitExam() {
+    if (!attempt) return;
+    if (!window.confirm(QUIT_CONFIRM)) return;
+    abortExam();
+  }
+
+  // 시험 중 뒤로 가기(iPad 밀어서 뒤로 포함)가 바로 페이지를 떠나지 않도록 기록 한 칸을 끼워 둔다.
+  let examHistory = false;
+
+  function pushExamHistory() {
+    try {
+      history.pushState({ exGuard: true }, '');
+      examHistory = true;
+    } catch (error) { /* noop */ }
+  }
+
+  function dropExamHistory() {
+    if (!examHistory) return;
+    examHistory = false;
+    if (history.state && history.state.exGuard) history.back();
+  }
+
+  window.addEventListener('popstate', () => {
+    if (!examHistory) return;
+    examHistory = false;
+    if (!attempt || attempt.finishedAt) return;
+    if (window.confirm(QUIT_CONFIRM)) abortExam();
+    else pushExamHistory();
+  });
 
   // ---------- 결과 ----------
   function paintDone() {
@@ -2361,6 +2409,10 @@
             <h1 class="ex-h1" tabindex="-1">${esc(exam.title)} 완료</h1>
             <p class="ex-sub">${autoScoreEnabled() ? '기기 안에서 계산한 추정 결과예요. 자기평가는 그대로 남겨 두었어요.' : '자동 채점이 꺼져 있어 점수 없이 녹음과 자기평가만 남겼어요.'}</p>
             <p class="report-meta">${attempt.total}문항 · ${fmtClock(attempt.seconds)} · 5파트 · 자기평가 ${rated}/${attempt.total}${attempt.saved === false ? ' · 저장하지 못했어요' : ''}</p>
+            <div class="ex-actions report-actions">
+              <button class="ex-btn ghost sm" data-act="retry" type="button">다시 보기</button>
+              <a class="ex-btn ghost sm" href="index.html">학습으로 돌아가기</a>
+            </div>
           </div>
           ${scoringBanner()}
           <div class="report-hero">
@@ -2832,10 +2884,15 @@
     return out + esc(text.slice(last));
   }
 
+  // 글꼴마다 모양이 다른 ★ 문자 대신 같은 SVG를 쓴다. 채움만 바꿔 켜짐/꺼짐을 보인다.
+  function starIcon(on) {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2.8l2.8 5.7 6.3.9-4.55 4.43 1.07 6.27L12 17.15 6.38 20.1l1.07-6.27L2.9 9.4l6.3-.9z" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+  }
+
   function noteStar(no) {
     const examId = (attempt && attempt.examId) || (currentExam && currentExam.id) || 'mock-01';
     const on = NOTES ? NOTES.has(examId, no) : false;
-    return `<button class="note-star" type="button" data-act="note-toggle" data-no="${no}" aria-pressed="${on}" aria-label="${on ? '마이노트에서 빼기' : '마이노트에 추가'}" title="마이노트">${on ? '★' : '☆'}</button>`;
+    return `<button class="note-star" type="button" data-act="note-toggle" data-no="${no}" aria-pressed="${on}" aria-label="${on ? '마이노트에서 빼기' : '마이노트에 추가'}" title="마이노트">${starIcon(on)}</button>`;
   }
 
   function paintStar(no) {
@@ -2844,7 +2901,7 @@
     root.querySelectorAll(`[data-act="note-toggle"][data-no="${no}"]`).forEach((button) => {
       button.setAttribute('aria-pressed', on ? 'true' : 'false');
       button.setAttribute('aria-label', on ? '마이노트에서 빼기' : '마이노트에 추가');
-      button.textContent = on ? '★' : '☆';
+      button.innerHTML = starIcon(on);
     });
   }
 
@@ -3201,7 +3258,7 @@
       </div>
       <div class="note-actions">
         ${found ? `<button class="ex-btn ghost sm" type="button" data-act="note-retake" data-exam="${esc(item.examId)}" data-no="${item.no}">다시 풀기</button>` : ''}
-        <button class="note-remove" type="button" data-act="note-remove" data-exam="${esc(item.examId)}" data-no="${item.no}" aria-label="마이노트에서 빼기" title="빼기">★</button>
+        <button class="note-remove" type="button" data-act="note-remove" data-exam="${esc(item.examId)}" data-no="${item.no}" aria-label="마이노트에서 빼기" title="빼기">${starIcon(true)}</button>
       </div>
     </li>`;
   }
@@ -3479,6 +3536,7 @@
       const index = practiceList.findIndex((item) => item.q.no === no);
       if (index < 0) return;
       runToken += 1;
+      cancelRecording();
       stopSpeech();
       practiceIndex = index;
       paintPractice();
@@ -3500,6 +3558,7 @@
       const index = practiceList.findIndex((item) => item.part.part === partNo);
       if (index < 0) return;
       runToken += 1;
+      cancelRecording();
       stopSpeech();
       practiceIndex = index;
       paintPractice();

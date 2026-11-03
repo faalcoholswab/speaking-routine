@@ -37,7 +37,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 /* ---------- 목록 화면 ---------- */
 .ex-home { padding: 36px 0 48px; }
 .ex-back { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 8px; font-size: 13px; color: var(--muted); }
-.ex-back:hover { color: var(--text); }
+@media (hover: hover) { .ex-back:hover { color: var(--text); } }
 .ex-home-head { margin-bottom: 24px; }
 .ex-cards { display: grid; gap: 12px; }
 
@@ -48,7 +48,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   transition: box-shadow .15s ease, transform .15s ease;
 }
 .ex-card.on { box-shadow: inset 0 0 0 1px var(--g300), var(--shadow); }
-.ex-card.on:hover { transform: translateY(-1px); }
+@media (hover: hover) { .ex-card.on:hover { transform: translateY(-1px); } }
 .ex-card.off { opacity: .55; }
 .ex-card-num {
   width: 46px; height: 46px; flex: none; border-radius: 12px;
@@ -61,7 +61,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 .ex-card-body { flex: 1; min-width: 0; }
 .ex-card-title { display: block; font-weight: 700; font-size: 18px; }
 .ex-card-meta { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; }
-.ex-card-cta { font-size: 14px; font-weight: 600; color: var(--g700); flex: none; }
+.ex-card-cta { font-size: 14px; font-weight: 600; color: var(--accent-ink); flex: none; }
 
 .ex-last {
   margin-top: 24px; padding: 16px 16px; border-radius: 12px;
@@ -76,7 +76,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 }
 .ex-history-title {
   margin: 0 0 8px; font-size: 12px; font-weight: 700;
-  letter-spacing: .04em; color: var(--g700);
+  letter-spacing: .04em; color: var(--accent-ink);
 }
 .ex-history ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
 .ex-history li { display: flex; align-items: baseline; gap: 8px; font-size: 14px; color: var(--text-2); }
@@ -85,9 +85,9 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 .ex-history li i { font-style: normal; font-size: 12px; color: var(--faint); }
 
 .ex-compare { margin: -8px 0 24px; font-size: 13px; color: var(--muted); text-align: center; }
-.ex-compare b { color: var(--g700); }
+.ex-compare b { color: var(--accent-ink); }
 
-.ex-note { margin-top: 24px; font-size: 13px; color: var(--faint); line-height: 1.65; }
+.ex-note { margin-top: 24px; font-size: 13px; color: var(--text-2); line-height: 1.65; }
 
 /* ---------- 시험 상단 ---------- */
 .ex-top {
@@ -100,7 +100,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 .ex-tag {
   font-size: 12px; font-weight: 700; letter-spacing: .04em;
   padding: 4px 8px; border-radius: 999px;
-  background: var(--g50); color: var(--g700); box-shadow: inset 0 0 0 1px var(--g200);
+  background: var(--g50); color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--g200);
   white-space: nowrap;
 }
 .ex-tag.part { background: var(--peach); color: var(--peach-text); box-shadow: inset 0 0 0 1px var(--peach-line); }
@@ -111,10 +111,10 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   font-size: 13px; color: var(--muted); padding: 0 8px; border-radius: 8px;
   box-shadow: inset 0 0 0 1px var(--line);
 }
-.ex-quit:hover { color: var(--text); }
+@media (hover: hover) { .ex-quit:hover { color: var(--text); } }
 
 .ex-bar { height: 3px; background: var(--line); }
-.ex-bar > span { display: block; height: 100%; width: 0; background: var(--g600); transition: width .3s ease; }
+.ex-bar > span { display: block; height: 100%; width: 0; background: var(--accent-ink); transition: width .3s ease; }
 
 /* ---------- 무대 ---------- */
 .ex-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -133,7 +133,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 .ex-intro-title { font-size: 20px; line-height: 1.25; margin: 16px 0 4px; }
 .ex-directions-label {
   display: block; margin-bottom: 8px; font-size: 12px; font-weight: 700;
-  letter-spacing: .08em; color: var(--g700);
+  letter-spacing: .08em; color: var(--accent-ink);
 }
 .ex-situation {
   max-width: 620px; margin: 12px auto 0; text-align: left;
@@ -143,9 +143,9 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 }
 .ex-situation b {
   display: block; font-size: 12px; letter-spacing: .04em;
-  color: var(--peach-text); opacity: .75; margin-bottom: 8px;
+  color: var(--peach-text); margin-bottom: 8px;
 }
-.ex-hint { margin: 16px 0 0; font-size: 13px; color: var(--faint); }
+.ex-hint { margin: 16px 0 0; font-size: 13px; color: var(--text-2); }
 .ex-actions { margin-top: 24px; display: flex; justify-content: center; gap: 8px; }
 
 /* 문제 */
@@ -153,7 +153,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 .ex-q-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 8px; }
 /* 문항 번호 버튼은 머리줄 오른쪽에 둬서 한 줄을 아낀다(그림·표·타이머가 한 화면에 들어오게). */
 .ex-q-head .ex-stepper { margin-left: auto; align-self: center; }
-.ex-q-no { font-size: 13px; font-weight: 700; color: var(--g700); letter-spacing: .04em; }
+.ex-q-no { font-size: 13px; font-weight: 700; color: var(--accent-ink); letter-spacing: .04em; }
 .ex-q-kind { font-size: 13px; color: var(--faint); }
 
 .ex-text {
@@ -172,7 +172,8 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   content: '탭하면 크게 볼 수 있어요';
   display: block; margin-top: 8px; font-size: 12px; color: var(--faint);
 }
-@media (min-width: 721px) { .ex-figure.wide::after { display: none; } }
+/* 마우스로 쓰는 넓은 화면에서만 숨긴다. iPad 같은 터치 화면은 커서가 없어 이 안내가 필요하다. */
+@media (min-width: 721px) and (hover: hover) { .ex-figure.wide::after { display: none; } }
 
 /* 표·그림 확대 */
 .ex-lightbox {
@@ -213,7 +214,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   display: flex; align-items: center; gap: 12px;
   padding: 16px 20px; border-radius: 12px;
   background: var(--g50); box-shadow: inset 0 0 0 1px var(--g200);
-  color: var(--g700); font-weight: 600; font-size: 14px;
+  color: var(--accent-ink); font-weight: 600; font-size: 14px;
 }
 .ex-wave { display: flex; align-items: flex-end; gap: 3px; height: 20px; }
 .ex-wave i {
@@ -247,10 +248,18 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   font-variant-numeric: tabular-nums; min-width: 96px;
 }
 .ex-track { flex: 1; height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
-.ex-track > span { display: block; height: 100%; width: 100%; background: var(--g600); border-radius: 999px; }
-.ex-dock.hurry .ex-track > span { background: #c2703f; }
-.ex-dock.hurry .ex-time { color: #b4622f; }
-.ex-dock.idle { opacity: .55; }
+.ex-track > span { display: block; height: 100%; width: 100%; background: var(--accent-ink); border-radius: 999px; }
+.ex-dock.hurry .ex-track > span { background: var(--warn-bar); }
+.ex-dock.hurry .ex-time { color: var(--warn); }
+/* 대기 중에는 시간·막대만 옅게 한다. '질문 듣기' 같은 상태 글씨는 그대로 읽혀야 한다. */
+.ex-dock.idle .ex-time, .ex-dock.idle .ex-track { opacity: .55; }
+/* 답변을 녹음하는 동안: 빨간 점과 '녹음 중' */
+.ex-dock.rec .ex-phase { color: var(--rec); background: var(--rec-bg); box-shadow: inset 0 0 0 1px var(--rec-line); }
+.ex-dock.rec .ex-phase::before {
+  content: ''; width: 8px; height: 8px; flex: none; border-radius: 50%;
+  background: var(--rec); animation: exRec 1.2s ease-in-out infinite;
+}
+@keyframes exRec { 50% { opacity: .35; } }
 
 /* ---------- 문제 아래 타이머 (실제 시험 화면처럼) ---------- */
 .ex-clock-slot:empty { display: none; }
@@ -299,13 +308,13 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 }
 .ex-row-no { font-size: 12px; font-weight: 700; color: var(--faint); width: 34px; flex: none; font-variant-numeric: tabular-nums; }
 .ex-row-label { flex: 1; min-width: 0; font-size: 14px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ex-ratings { display: flex; gap: 4px; flex: none; }
+.ex-ratings { display: flex; gap: 8px; flex: none; }
 .ex-ratings button {
   min-width: 44px; height: 44px; border-radius: 8px; font-size: 12px; font-weight: 600;
   color: var(--muted); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line);
 }
 .ex-ratings button[aria-pressed="true"] { background: var(--g900); color: #fff; box-shadow: none; }
-.ex-ratings button[aria-pressed="true"].w { background: #8a4620; }
+.ex-ratings button[aria-pressed="true"].w { background: var(--warn-deep); }
 .ex-ratings button[aria-pressed="true"].o { background: var(--g700); }
 
 /* ---------- 모드 선택 / 연습 ---------- */
@@ -337,12 +346,12 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   color: var(--faint); background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--line);
 }
-.ex-step.on { background: var(--g700); color: #fff; box-shadow: none; }
+.ex-step.on { background: var(--accent-ink); color: #fff; box-shadow: none; }
 
 .ex-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .ex-chip {
   font-size: 13px; padding: 8px 8px; border-radius: 999px;
-  background: var(--g50); color: var(--g700); box-shadow: inset 0 0 0 1px var(--g200);
+  background: var(--g50); color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--g200);
 }
 .ex-answer {
   background: var(--surface); border-radius: 12px; padding: 16px 16px;
@@ -369,12 +378,12 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 .ex-timer-btn {
   display: inline-flex; align-items: center; gap: 8px;
   min-height: 46px; padding: 0 16px; border-radius: 12px;
-  background: var(--g50); color: var(--g700); font-weight: 700;
+  background: var(--g50); color: var(--accent-ink); font-weight: 700;
   box-shadow: inset 0 0 0 1px var(--g200);
 }
 .ex-timer-btn .ex-phase {
   padding: 0; background: none; box-shadow: none;
-  font-size: 12px; letter-spacing: .04em; color: var(--g700);
+  font-size: 12px; letter-spacing: .04em; color: var(--accent-ink);
 }
 .ex-timer-btn .ex-time { font-size: 20px; min-width: auto; }
 
@@ -385,21 +394,24 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 }
 .gd-title {
   margin: 0 0 8px; font-size: 12px; letter-spacing: .08em;
-  font-weight: 700; color: var(--g700);
+  font-weight: 700; color: var(--accent-ink);
 }
 .gd-model { margin: 0; font-size: 18px; line-height: 1.85; color: var(--text); }
 .gd-ko { margin: 12px 0 0; font-size: 14px; line-height: 1.65; color: var(--muted); }
 .gd-patterns { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
 .gd-patterns li {
   font-size: 13px; padding: 8px 8px; border-radius: 999px;
-  background: var(--g50); color: var(--g700); box-shadow: inset 0 0 0 1px var(--g200);
+  background: var(--g50); color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--g200);
 }
 .gd-tips { margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.65; color: var(--text-2); }
 .gd-tips li + li { margin-top: 4px; }
 .gd-patterns + .gd-tips { margin-top: 12px; }
 .ex-timer-btn.static { pointer-events: none; }
 .ex-step { border: 0; cursor: pointer; }
-.ex-step:hover { color: var(--text); }
+@media (hover: hover) { button.ex-step:hover { color: var(--text); } }
+/* 실전 시험의 문항 번호는 누를 수 없다: 버튼 모양 대신 진행 표시로 둔다. */
+span.ex-step { min-width: 32px; background: none; box-shadow: none; color: var(--muted); cursor: default; }
+span.ex-step.on { background: none; color: var(--accent-ink); border-radius: 0; box-shadow: inset 0 -2px 0 currentColor; }
 
 /* ---------- 반응형 ---------- */
 @media (max-width: 720px) {
@@ -457,7 +469,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
    v34: 마이크 점검 · 결과 리포트 · 마이노트
    ========================================================= */
 .ex-notes-card { background: var(--surface); }
-.ex-notes-num { color: var(--g700); background: var(--g50); box-shadow: inset 0 0 0 1px var(--g200); }
+.ex-notes-num { color: var(--accent-ink); background: var(--g50); box-shadow: inset 0 0 0 1px var(--g200); }
 
 /* 마이크 점검 */
 .mic-panel {
@@ -465,9 +477,9 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   box-shadow: inset 0 0 0 1px var(--line);
 }
 .mic-state { min-height: 24px; font-size: 15px; font-weight: 600; color: var(--text); }
-.mic-state.ok { color: var(--g700); }
-.mic-state.warn { color: #8a4620; }
-.mic-state.rec { color: #b4622f; }
+.mic-state.ok { color: var(--accent-ink); }
+.mic-state.warn { color: var(--warn-deep); }
+.mic-state.rec { color: var(--rec); }
 .mic-meter {
   display: flex; align-items: flex-end; gap: 4px; height: 48px;
   margin: 16px 0; padding: 0 2px;
@@ -499,7 +511,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 .report-side { min-width: 0; }
 .report-title {
   margin: 0 0 8px; font-size: 12px; letter-spacing: .08em;
-  font-weight: 700; color: var(--g700);
+  font-weight: 700; color: var(--accent-ink);
 }
 .score-arc { position: relative; width: 220px; height: 132px; margin: 0 auto; }
 .score-arc svg { display: block; width: 100%; height: 100%; }
@@ -511,7 +523,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   display: flex; flex-direction: column; align-items: center; line-height: 1;
 }
 .arc-copy strong { font-size: 36px; letter-spacing: -.03em; color: var(--text); }
-.arc-copy span { font-size: 14px; font-weight: 700; color: var(--g700); }
+.arc-copy span { font-size: 14px; font-weight: 700; color: var(--accent-ink); }
 .arc-copy small { margin-top: 3px; font-size: 12px; color: var(--faint); }
 .part-bars { display: grid; gap: 8px; }
 .part-bar {
@@ -520,14 +532,14 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 }
 .part-name { color: var(--text-2); font-weight: 600; }
 .part-track { height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
-.part-track i { display: block; height: 100%; background: var(--g600); border-radius: 999px; }
+.part-track i { display: block; height: 100%; background: var(--accent-ink); border-radius: 999px; }
 .part-val { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .insights { display: grid; gap: 8px; margin: 0 0 16px; }
 .insight {
   background: var(--surface); border-radius: 16px; padding: 16px 16px;
   box-shadow: inset 0 0 0 1px var(--line);
 }
-.insight h2 { margin: 0 0 8px; font-size: 13px; letter-spacing: .04em; color: var(--g700); }
+.insight h2 { margin: 0 0 8px; font-size: 13px; letter-spacing: .04em; color: var(--accent-ink); }
 .insight ul { margin: 0; padding-left: 16px; color: var(--text-2); font-size: 14px; line-height: 1.65; }
 
 /* 문항 카드 */
@@ -537,7 +549,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   box-shadow: inset 0 0 0 1px var(--line);
 }
 .qcard-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.qcard-no { font-size: 13px; font-weight: 700; color: var(--g700); }
+.qcard-no { font-size: 13px; font-weight: 700; color: var(--accent-ink); }
 .qcard-kind { font-size: 12px; color: var(--muted); }
 .qcard-score {
   margin-left: auto; font-size: 20px; font-weight: 700; color: var(--text);
@@ -546,10 +558,12 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
 .note-star {
   width: 44px; height: 44px; flex: none; display: grid; place-items: center;
   border-radius: 8px; font-size: 20px; line-height: 1;
-  color: var(--g700); background: var(--g50); box-shadow: inset 0 0 0 1px var(--g200);
+  color: var(--accent-ink); background: var(--g50); box-shadow: inset 0 0 0 1px var(--g200);
 }
-.note-star[aria-pressed="true"] { background: var(--g700); color: #fff; box-shadow: none; }
+.note-star[aria-pressed="true"] { background: var(--accent-ink); color: #fff; box-shadow: none; }
 .ex-q-head .note-star { margin-left: auto; align-self: center; }
+.note-star svg, .note-remove svg, .ex-notes-num svg { display: block; width: 20px; height: 20px; margin: auto; }
+.report-actions { margin-top: 12px; }
 .qcard-body { margin-top: 8px; }
 .criteria { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .crit {
@@ -558,7 +572,7 @@ body.ex-locked .ex-shell { height: 100vh; height: 100dvh; overflow: hidden; }
   box-shadow: inset 0 0 0 1px var(--line);
 }
 .crit b { margin-left: 3px; color: var(--text); }
-.crit.good { color: var(--g700); background: var(--g50); box-shadow: inset 0 0 0 1px var(--g200); }
+.crit.good { color: var(--accent-ink); background: var(--g50); box-shadow: inset 0 0 0 1px var(--g200); }
 .crit.mid { color: var(--sand-text); background: var(--sand); box-shadow: inset 0 0 0 1px var(--sand-line); }
 .crit.low { color: var(--peach-text); background: var(--peach); box-shadow: inset 0 0 0 1px var(--peach-line); }
 .qa-section { margin-top: 12px; }
@@ -585,13 +599,13 @@ mark.missed { background: var(--peach); color: var(--peach-text); border-radius:
   color: var(--muted); background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--line);
 }
-.coverage-chip.ok { color: var(--g700); background: var(--g50); box-shadow: inset 0 0 0 1px var(--g200); }
+.coverage-chip.ok { color: var(--accent-ink); background: var(--g50); box-shadow: inset 0 0 0 1px var(--g200); }
 .coverage-chip.miss { color: var(--sand-text); background: var(--sand); box-shadow: inset 0 0 0 1px var(--sand-line); }
 .coverage-chip.wrong { color: var(--peach-text); background: var(--peach); box-shadow: inset 0 0 0 1px var(--peach-line); }
 .qa-answer { margin-top: 8px; font-size: 13px; }
 .qa-answer summary {
   display: flex; align-items: center; min-height: 44px;
-  cursor: pointer; font-weight: 600; color: var(--g700);
+  cursor: pointer; font-weight: 600; color: var(--accent-ink);
 }
 .qa-answer p { margin: 4px 0 0; color: var(--text-2); line-height: 1.65; }
 .qcard-foot {
@@ -614,7 +628,7 @@ mark.missed { background: var(--peach); color: var(--peach-text); border-radius:
   height: 6px; margin: 8px 0 8px; border-radius: 999px; overflow: hidden;
   background: rgba(var(--shadow-rgb), .12);
 }
-.scoring-track i { display: block; height: 100%; background: var(--g600); transition: width .3s ease; }
+.scoring-track i { display: block; height: 100%; background: var(--accent-ink); transition: width .3s ease; }
 .scoring-sub { margin: 0; font-size: 13px; line-height: 1.65; color: var(--muted); }
 .scoring-banner.error { background: var(--peach); box-shadow: inset 0 0 0 1px var(--peach-line); }
 .scoring-banner.error .scoring-label { color: var(--peach-text); }
@@ -632,7 +646,7 @@ mark.missed { background: var(--peach); color: var(--peach-text); border-radius:
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin: 0 0 4px; font-size: 14px; color: var(--text);
 }
-.note-row-title b { color: var(--g700); }
+.note-row-title b { color: var(--accent-ink); }
 .note-row-title span { font-size: 12px; color: var(--muted); }
 .note-row-prompt {
   margin: 0 0 4px; font-size: 13px; line-height: 1.5; color: var(--text-2);
@@ -643,10 +657,10 @@ mark.missed { background: var(--peach); color: var(--peach-text); border-radius:
 .note-actions { display: flex; align-items: center; gap: 8px; flex: none; }
 .note-remove {
   width: 44px; height: 44px; border-radius: 8px; font-size: 18px;
-  color: var(--g700); background: var(--g50); box-shadow: inset 0 0 0 1px var(--g200);
+  color: var(--accent-ink); background: var(--g50); box-shadow: inset 0 0 0 1px var(--g200);
 }
 .note-empty p { margin: 0 0 12px; }
-.mini.manual { background: var(--g50); border-color: var(--g200); color: var(--g700); }
+.mini.manual { background: var(--g50); border-color: var(--g200); color: var(--accent-ink); }
 
 /* 연습 즉시 채점 · 다시 풀기 */
 .practice-score {
@@ -664,7 +678,7 @@ mark.missed { background: var(--peach); color: var(--peach-text); border-radius:
   font-size: 14px; color: var(--muted);
 }
 .retake-compare strong { font-size: 18px; color: var(--text); }
-.retake-compare b { color: var(--g500); }
+.retake-compare b { color: var(--accent-ink); }
 
 @media (min-width: 900px) {
   .report-hero { grid-template-columns: 240px minmax(0, 1fr); align-items: center; }
@@ -738,13 +752,13 @@ mark.sm-quote {
 .sm-cat {
   flex: none; padding: 2px 8px; border-radius: 8px;
   background: var(--surface); box-shadow: inset 0 0 0 1px var(--line);
-  font-size: 12px; font-weight: 700; color: var(--g700);
+  font-size: 12px; font-weight: 700; color: var(--accent-ink);
 }
 .sm-point-quote { color: var(--text); font-weight: 600; }
 .sm-point-note { flex: 1 1 180px; min-width: 0; }
 .sm-source { flex: none; font-size: 12px; font-weight: 700; letter-spacing: .04em; padding: 2px 8px; border-radius: 8px; }
 .sm-source.ets { color: var(--g900); background: var(--g100); }
-.sm-source.guide { color: var(--g700); background: var(--g50); }
+.sm-source.guide { color: var(--accent-ink); background: var(--g50); }
 .sm-source.unknown { color: var(--faint); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 
 .sm-compare { border-top: 1px solid var(--line); padding-top: 12px; }
@@ -758,7 +772,7 @@ mark.sm-quote {
 .sm-cmp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
 .sm-cmp-col { min-width: 0; padding: 12px; border-radius: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .sm-cmp-col.sample { background: var(--surface-2); }
-.sm-cmp-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--g700); }
+.sm-cmp-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--accent-ink); }
 .sm-cmp-title span { margin-left: 4px; font-weight: 600; color: var(--faint); letter-spacing: 0; }
 .sm-cmp-text {
   margin: 0 0 8px; max-height: 168px; overflow: auto;

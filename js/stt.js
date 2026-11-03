@@ -482,11 +482,31 @@
       if (data.type === 'result') entry.resolve(data.result);
       else entry.reject(new Error(data.message || 'transcribe failed'));
     };
-    worker.onerror = (event) => {
-      state.loading = false;
-      state.error = (event && event.message) || 'worker error';
-    };
+    // iPad가 메모리 부족으로 워커를 강제 종료하면 오류 이벤트만 오고 응답은 영영 오지 않습니다.
+    // 대기 중인 요청을 모두 실패시켜야 채점 화면이 "채점 중"에서 멈추지 않습니다.
+    worker.onerror = (event) => failWorker(worker, (event && event.message) || 'worker error');
+    worker.onmessageerror = () => failWorker(worker, 'worker message error');
     return worker;
+  }
+
+  // 워커를 버리고 상태를 처음으로 되돌립니다. 다음 ensureModel()이 새 워커를 만듭니다.
+  function failWorker(worker, message) {
+    if (state.worker !== worker) return;
+    const error = new Error(message);
+    state.loading = false;
+    state.ready = false;
+    state.error = message;
+    state.worker = null;
+    state.readyPromise = null;
+    try { worker.terminate(); } catch (terminateError) { /* noop */ }
+    const waiting = Array.from(pending.values());
+    pending.clear();
+    waiting.forEach((entry) => entry.reject(error));
+    if (state.initReject) {
+      const reject = state.initReject;
+      state.initReject = null;
+      reject(error);
+    }
   }
 
   function ensureModel(onProgress) {
@@ -496,6 +516,7 @@
       state.worker = createWorker();
       const worker = state.worker;
       const started = new Promise((resolve, reject) => {
+        state.initReject = reject;
         const onReady = (event) => {
           const data = event.data || {};
           if (data.type === 'ready') { worker.removeEventListener('message', onReady); resolve(data); }
@@ -515,7 +536,10 @@
       }).catch((error) => {
         state.loading = false;
         state.error = error.message;
-        try { state.worker.terminate(); } catch (terminateError) { /* noop */ }
+        state.initReject = null;
+        if (state.worker) {
+          try { state.worker.terminate(); } catch (terminateError) { /* noop */ }
+        }
         state.worker = null;
         state.readyPromise = null;
         throw error;
@@ -582,10 +606,27 @@
       }
       const id = nextId;
       nextId += 1;
+      const worker = state.worker;
+      // 응답이 영영 오지 않는 경우의 안전장치입니다. 정상 처리 시간(녹음 길이의 몇 배)보다 훨씬 넉넉하게 잡습니다.
+      // iPad의 실제 처리 속도는 재 보지 못했습니다. 느려도 정상인 인식이 끊기지 않도록 120초 + 녹음 길이의 6배로 넉넉히 둡니다.
+      const limitMs = (120 + (pcm.length / SR) * 6) * 1000;
       return new Promise((resolve, reject) => {
-        pending.set(id, { resolve, reject });
+        const timer = setTimeout(() => {
+          failWorker(worker, '음성 인식이 너무 오래 걸려 중단했어요. 다시 시도해 주세요.');
+        }, limitMs);
+        pending.set(id, {
+          resolve: (value) => { clearTimeout(timer); resolve(value); },
+          reject: (error) => { clearTimeout(timer); reject(error); },
+        });
         const copy = pcm.slice();
-        state.worker.postMessage({ type: 'transcribe', id, pcm: copy, language: options.language || 'en' }, [copy.buffer]);
+        try {
+          worker.postMessage({ type: 'transcribe', id, pcm: copy, language: options.language || 'en' }, [copy.buffer]);
+        } catch (error) {
+          // 보내지 못했는데 타이머가 남으면 나중에 멀쩡한 워커까지 종료시킵니다. 이 요청만 정리하고 실패시킵니다.
+          clearTimeout(timer);
+          pending.delete(id);
+          reject(error);
+        }
       });
     });
   }

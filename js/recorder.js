@@ -28,6 +28,8 @@
 
   const state = {
     stream: null,
+    // cancel()이 불릴 때마다 올립니다. 마이크 권한 창이 떠 있는 동안 취소되면, 나중에 끝난 start()가 스스로 물러나게 합니다.
+    cancelCount: 0,
     recorder: null,
     chunks: [],
     context: null,
@@ -226,11 +228,21 @@
       return null;
     }
     if (state.stream && state.stream.getAudioTracks().some((track) => track.readyState === 'live')) return state.stream;
+    const cancelAtOpen = state.cancelCount;
     setSession('play-and-record');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
       });
+      if (state.cancelCount !== cancelAtOpen) {
+        // 권한 창이 떠 있는 동안 화면을 나갔습니다(마이크 점검 화면 등). 늦게 도착한 스트림은 켜 두지 않고 바로 끕니다.
+        for (const track of stream.getTracks()) {
+          try { track.stop(); } catch (error) { /* noop */ }
+        }
+        setSession('playback');
+        state.lastError = '녹음이 취소되었습니다.';
+        return null;
+      }
       state.permission = 'granted';
       state.lastError = '';
       startMeter(stream);
@@ -263,9 +275,16 @@
 
   async function start(options) {
     const opts = options || {};
+    const cancelAtStart = state.cancelCount;
     if (state.recorder) await stop();
     const stream = await openMic();
     if (!stream) throw new Error(state.lastError || '마이크를 사용할 수 없습니다.');
+    if (state.cancelCount !== cancelAtStart) {
+      // 기다리는 사이 시험이 중단됐습니다. 방금 켠 마이크를 되돌려 놓고 녹음하지 않습니다.
+      releaseStream();
+      stopMeter();
+      throw new Error('녹음이 취소되었습니다.');
+    }
     const attemptId = String(opts.attemptId || 'local');
     const no = Number(opts.no) || 1;
     const mime = pickMime();
@@ -324,6 +343,7 @@
   }
 
   async function cancel() {
+    state.cancelCount += 1;
     const recorder = state.recorder;
     state.chunks = [];
     state.current = null;

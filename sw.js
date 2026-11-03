@@ -1,5 +1,5 @@
 /* 스피킹 루틴 — 오프라인 앱 셸 (network-first) */
-const CACHE = 'speaking-routine-v53';
+const CACHE = 'speaking-routine-v54';
 const SHELL = [
   './',
   './index.html',
@@ -68,15 +68,29 @@ const SHELL = [
   './assets/apple-touch-icon.png',
 ];
 
+// 페이지는 `app.js?v=53`처럼 버전이 붙은 주소로 요청하지만 미리 저장하는 목록에는 `?v=`가 없다.
+// 저장과 조회를 모두 쿼리를 뗀 주소로 해야 미리 저장한 셸이 실제 요청에 쓰인다.
+function cacheKey(url) {
+  const parsed = new URL(url, self.location);
+  return new Request(parsed.origin + parsed.pathname);
+}
+
 self.addEventListener('install', (event) => {
+  // 하나라도 저장하지 못하면 설치를 실패시켜 이전 서비스 워커와 이전 캐시를 그대로 둔다.
+  // (반쯤 저장된 새 캐시로 갈아타면 오프라인에서 화면이 깨진다.)
+  // 10MB가 넘는 wasm은 설치를 막지 않습니다. 실패해도 음성 인식을 처음 쓸 때 받아 캐시에 들어갑니다.
+  // (큰 파일 하나 때문에 새 버전이 영영 설치되지 않는 일을 막습니다.) 나머지는 하나라도 실패하면 설치를 실패시킵니다.
+  const optional = (url) => /\.wasm$/.test(url);
   event.waitUntil(
     caches.open(CACHE)
-      .then((cache) => Promise.allSettled(SHELL.map((url) => cache.add(url))))
-      .then((results) => {
-        const failed = results.filter((result) => result.status === 'rejected');
-        if (failed.length) console.warn('App shell entries failed to cache:', failed.length);
-        return self.skipWaiting();
-      })
+      .then((cache) => Promise.all(SHELL.map((url) => fetch(new Request(url, { cache: optional(url) ? 'default' : 'reload' })).then((response) => {
+        if (!response.ok) throw new Error(`precache ${url} ${response.status}`);
+        return cache.put(cacheKey(url), response);
+      }).catch((error) => {
+        if (optional(url)) { console.warn('Optional shell entry skipped:', url, error); return; }
+        throw error;
+      }))))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -139,11 +153,11 @@ self.addEventListener('fetch', (event) => {
       .then((response) => {
         if (response.ok) {
           const copy = response.clone();
-          event.waitUntil(caches.open(CACHE).then((cache) => cache.put(request, copy)));
+          event.waitUntil(caches.open(CACHE).then((cache) => cache.put(cacheKey(request.url), copy)));
         }
         return response;
       })
-      .catch(() => caches.match(request).then((hit) => hit || new Response('Offline', {
+      .catch(() => caches.match(cacheKey(request.url)).then((hit) => hit || new Response('Offline', {
         status: 503,
         headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       })))
