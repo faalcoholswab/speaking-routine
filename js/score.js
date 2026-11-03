@@ -23,7 +23,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  const VERSION = 'v36';
+  const VERSION = 'v37';
 
   /* ---------------- 어휘 ---------------- */
   const STOPWORDS = new Set(('a an the and or but if so because as of to in on at for with from by about into over after before ' +
@@ -463,13 +463,15 @@
 
   /* ---------------- 문법·어휘 신호 ---------------- */
   const GRAMMAR_PATTERNS = [
-    [/\bthere (is|was) (many|three|two|several|people|some)\b/g, 'there is + 복수'],
+    // "there is some food"는 맞는 문장(셀 수 없는 명사)이라 some은 복수 명사가 올 때만 잡습니다.
+    [/\bthere (is|was) (many|three|two|several|people|some (people|men|women|children|items|things|books|windows|plants))\b/g, 'there is + 복수'],
     [/\bi am agree\b/g, 'I am agree'],
     [/\bmore (better|easier|faster|bigger|cheaper)\b/g, 'more + 비교급'],
     [/\bpeople (is|was)\b/g, 'people is'],
     [/\b(he|she|it) (don't|doesn't|do)\b/g, 'he/she + do'],
     [/\b(he|she|it) (have|go|do|make|take|like|want|need|think|say|live|work)\b/g, '3인칭 단수 불일치'],
-    [/\b(i|we|they|you) (has|is|was|does)\b/g, '주어-동사 불일치'],
+    // "I was"는 맞는 문장입니다("when I was in college"). I 뒤에는 has·is·does만 틀립니다.
+    [/\b(i (has|is|does)|(we|they|you) (has|is|was|does))\b/g, '주어-동사 불일치'],
     // "a man is sitting", "the woman is holding" 같은 정상 문장은 잡지 않습니다.
     [/\b(people|they) (is|was)\b/g, '복수 주어 + is'],
     // "two workshops"는 정상. 단수형이 온 경우만 오류입니다. ("people"은 이미 복수라 제외)
