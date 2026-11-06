@@ -383,7 +383,7 @@
   function bareTimes(normalized) {
     const out = new Set();
     const patterns = [
-      /\b(?:at|from|to|until|till|starts?|begins?|ends?)\s+(\d{1,2})(?::(\d{2}))?\b(?![:\d]|am|pm)/g,
+      /\b(?:it(?:'s| is)|at|from|to|until|till|starts?|begins?|ends?)\s+(\d{1,2})(?::(\d{2}))?\b(?![:\d]|am|pm)/g,
       /\b(\d{1,2})(?::(\d{2}))?\s+(?:to|until|till)\s+(\d{1,2})(?::(\d{2}))?\b(?![:\d]|am|pm)/g,
       /\b(\d{1,2}):(\d{2})\b(?!am|pm)/g,
     ];
@@ -502,8 +502,8 @@
   const OPINION_MARKERS = ['i think', 'i believe', 'in my opinion', 'in my view', 'i agree', 'i disagree', 'i feel', 'for me',
     'i would say', "i'd say", 'i would prefer', "i'd prefer"];
   const CONCLUSION_MARKERS = ['therefore', 'in conclusion', 'for these reasons', 'that is why', "that's why", 'so i think', 'to sum up', 'eventually'];
-  // 강의의 증거·예시 틀(내 경험·리서치). Part 5 상위 점수는 결론보다 이 부분에서 갈립니다.
-  const EVIDENCE_MARKERS = ['for example', 'for instance', 'in my case', 'when i was', 'according to', 'research shows', 'studies show'];
+  // 리서치 상투 표현 자체는 가산하지 않습니다(실제 시험 해설 우선).
+  const EVIDENCE_MARKERS = ['for example', 'for instance', 'in my case', 'when i was'];
   // 'in my case'는 강의가 예시를 시작하는 표현으로 권하므로 상투 문장으로 보지 않습니다.
   const TEMPLATE_PHRASES = [
     'this is a very important issue', 'this is very important', 'there are several reasons for my opinion',
@@ -626,15 +626,12 @@
     const elements = Array.isArray(question.keyElements) ? question.keyElements : [];
     const covered = [];
     for (const element of elements) if (wordsHit(element, tokens) >= 0.6) covered.push(element);
-    const ratio = elements.length ? covered.length / elements.length : 0;
-
-    // 강의: 사진마다 정해진 핵심 단어는 없고, 30초에 8~10문장이면 됩니다. 점수는 묘사한 분량으로 매기고,
-    // 핵심 요소는 사진과 관계없는 답을 거르는 데만 씁니다(하나도 맞지 않으면 최대 1점).
+    // 핵심 어휘 대신 쉬운 인물·행동 묘사도 인정하되 사진 어휘조차 없는 답은 구별합니다.
+    const pictureVocabulary = elements.some((element) => wordsHit(element, tokens) > 0)
+      || /\b(man|woman|people|person|child|children|standing|sitting|wearing|holding|talking)\b/i.test(text);
     let score = words >= 45 ? 3 : words >= 27 ? 2 : 1;
-    const offPicture = elements.length > 0 && ratio === 0;
-    if (offPicture) score = Math.min(score, 1);
+    if (elements.length && !covered.length && !pictureVocabulary) score = Math.min(score, 1);
     if (words < 12) score = Math.min(score, 1);
-    if (offPicture && words < 20) score = 0;
 
     const issues = grammarIssues(text);
     const grammar = clamp(3 - Math.min(3, issues.length), 0, 3);
@@ -650,10 +647,15 @@
     const prompt = String(question.prompt || '');
     const promptTokens = tokenize(prompt);
     const reasons = markerCount(text, REASON_MARKERS);
-    // 강의: "I would say + 키워드 + because"는 무엇을 묻든 완결된 답입니다. 고르기·취향 질문에
-    // 이 틀로 답하면 질문 낱말을 되받지 않아도 질문에 답한 것으로 봅니다.
-    const keywordFrame = /\b(what|which|who|where)\b/i.test(prompt) && reasons > 0
-      && markerCount(text, ['i would say', "i'd say", 'i would prefer', "i'd prefer", 'my favorite']) > 0;
+    // 짧은 명사구 선택 답과 이유를 붙인 답만 구제합니다. 틀 뒤의 무관한 문장은 구제하지 않습니다.
+    const choice = String(text).trim().replace(/[.!?]+$/, '').match(/^(?:i would say|i'd say|i would prefer|i'd prefer|my favorite is)\s+(.+)$/i);
+    const choiceTokens = choice ? tokenize(choice[1]) : [];
+    const shortChoice = choiceTokens.length > 0 && choiceTokens.length <= 3
+      && contentWords(choiceTokens).length > 0
+      && choiceTokens.every((token) => !STOPWORDS.has(token) || ['my', 'the', 'a', 'an'].includes(token));
+    const keywordFrame = /\b(what|which|who|where)\b/i.test(prompt)
+      && markerCount(text, ['i would say', "i'd say", 'i would prefer', "i'd prefer", 'my favorite']) > 0
+      && (reasons > 0 || shortChoice);
     const relevance = keywordFrame ? Math.max(overlapRatio(promptTokens, tokens), 0.2) : overlapRatio(promptTokens, tokens);
 
     const parts = prompt.split('?').map((p) => p.trim()).filter((p) => p.length > 3 && topicWords(tokenize(p)).length > 0);
@@ -673,7 +675,7 @@
     const longest = Math.max(0, ...String(text).split(/[.!?]+/).map((sentence) => tokenize(sentence).length));
     const compact = seconds < 30 && (words >= 12 || keywordFrame) && relevance >= 0.2 && reasons > 0 && longest >= 6;
     let score;
-    if (words < 9) score = 0;
+    if (words < 9) score = keywordFrame && words >= 4 ? 1 : 0;
     else if ((ratio >= fullRatio || compact) && partsAnswered >= 0.5) score = 3;
     else if (ratio >= 0.65) score = 2;
     else if (ratio >= 0.25) score = 1;
@@ -714,25 +716,6 @@
     return { times, dates };
   }
 
-  // 질문이 묻는 행사의 표 시간. 답안의 날짜로 표 행을 찾아 그 행의 시간만 기대값으로 봅니다.
-  // 이 행사의 시각은 하나도 말하지 않고 같은 표의 다른 행 시각만 말하면 틀린 값입니다.
-  function expectedEventTimes(question) {
-    const rows = Array.isArray(question.table) ? question.table.filter(Array.isArray) : [];
-    if (!rows.length) return new Set();
-    const keyDates = extractDates(normalizeDigraphs(question.answerKey || ''));
-    const times = new Set();
-    // 표는 같은 날짜의 둘째 행부터 날짜 칸이 비어 있습니다. 앞 행의 날짜를 이어 받습니다.
-    let current = new Set();
-    for (const row of rows) {
-      const rowNorm = normalizeDigraphs(row.join(' '));
-      const rowDates = extractDates(rowNorm);
-      if (rowDates.size) current = rowDates;
-      if (![...current].some((date) => keyDates.has(date))) continue;
-      for (const time of extractTimes(rowNorm)) times.add(time);
-    }
-    return times;
-  }
-
   function infoScore(question, text, tokens, metrics) {
     const words = tokens.length;
     const facts = extractFacts(question);
@@ -763,18 +746,35 @@
 
     const extraTimes = [...match.times].filter((t) => !known.times.has(t));
     const extraDates = [...match.dates].filter((d) => !known.dates.has(d));
-    // 표의 다른 줄 시각은 이 행사의 시각을 하나도 말하지 않았을 때만 틀린 정보로 봅니다.
-    // 강의: 답 주변을 넉넉히 더 읽어도 감점이 없습니다.
-    const eventTimes = expectedEventTimes(question);
-    const saidEventTime = [...match.times].some((t) => eventTimes.has(t));
-    const wrongTimes = eventTimes.size && !saidEventTime ? [...match.times].filter((t) => !eventTimes.has(t)) : [];
-
+    const eventDates = extractDates(normalizeDigraphs(question.answerKey || ''));
+    const eventTimes = new Set();
+    let rowDates = new Set();
+    for (const row of Array.isArray(question.table) ? question.table : []) {
+      if (!Array.isArray(row)) continue;
+      const norm = normalizeDigraphs(row.join(' '));
+      const dates = extractDates(norm);
+      if (dates.size) rowDates = dates;
+      if ([...rowDates].some((date) => eventDates.has(date))) {
+        for (const time of extractTimes(norm)) eventTimes.add(time);
+      }
+    }
+    // 날짜와 같은 문장에서 그 행사에 붙인 시각만 확인합니다. 별도 문장의 추가 표 정보는 허용합니다.
+    const wrongEventTimes = [];
+    if (eventTimes.size && !matchFacts([...eventTimes].map((value) => ({ type: 'time', value })), text).matched.length) {
+      const sentences = String(text).replace(/([ap])\.\s*m\.?/gi, '$1m').split(/[.!?;]/);
+      for (const raw of sentences) {
+        const sentence = normalizeDigraphs(raw);
+        const dates = extractDates(sentence);
+        if (![...dates].some((date) => eventDates.has(date))) continue;
+        for (const time of extractTimes(sentence)) if (!eventTimes.has(time)) wrongEventTimes.push(time);
+      }
+    }
     // 상대의 틀린 정보를 그대로 맞다고 하면 틀린 답입니다. 정답이 정말 "맞다"인 문항도 있으므로 답안이 정정일 때만 봅니다.
     const keyCorrects = /^\s*(no|actually)\b|\b(not|but|instead)\b|n't\b|cancel|moved|changed|postponed/i.test(String(question.answerKey || ''));
     const affirmative = /^(yes|yeah|that's correct|that is correct|correct|right|sure)\b/.test(lower);
     const negates = /\b(no|not|isn't|is not|wasn't|actually|instead|but|moved|changed|cancel\w*)\b/.test(lower);
-    const wrong = extraTimes.length > 0 || extraDates.length > 0 || wrongTimes.length > 0
-      || (correction && keyCorrects && affirmative && !negates);
+    const wrong = extraTimes.length > 0 || extraDates.length > 0 || wrongEventTimes.length > 0
+      || (correction && keyCorrects && affirmative && !negates && got < essential.length);
 
     let score;
     // 강의: "It's 8 a.m."처럼 값만 말해도 답이 됩니다. 짧아도 맞힌 사실이 있으면 사실 비율로 매깁니다.
@@ -805,7 +805,7 @@
         completeness: clamp(round(ratio * 3), 0, 3),
       },
       covered: match.matched.map((f) => f.value),
-      wrongFacts: wrong ? [...new Set([...extraTimes, ...extraDates, ...wrongTimes])] : [],
+      wrongFacts: wrong ? [...new Set([...extraTimes, ...extraDates, ...wrongEventTimes])] : [],
     };
   }
 
@@ -828,9 +828,8 @@
     if (templates >= 3) score = Math.min(score, 2);
     else if (templates >= 1 && relevance < 0.2) score = Math.min(score, 2);
     if (opinions === 0 && reasons === 0 && score > 2) score = 2;
-    // 60초 문항에서 70단어 안팎이어도 결론이나 증거·예시와 높은 관련성이 있으면 상위 점수로 봅니다.
-    // (공식 모범 답안이 70~82단어 — 길이만으로 3점에 묶이지 않게. 강의: 결론은 없어도 감점이 없고 고득점은 증거·예시에서 갈립니다)
-    if (score >= 3 && score < 5 && words >= 62 && (concludes >= 1 || evidence >= 1) && reasons >= 1 && relevance >= 0.8) score += 1;
+    // 결론이나 정형 예시 표현이 없어도 관련성 높은 이유 전개에는 같은 보너스를 줍니다.
+    if (score >= 3 && score < 5 && words >= 62 && reasons >= 1 && relevance >= 0.8) score += 1;
 
     const delivery = deliveryScore(metrics && metrics.delivery);
     if (delivery === 0 && score > 3) score = 3;
@@ -1028,6 +1027,6 @@
     gradeQuestion,
     levelFor,
     // 시험·도구용 내부 함수 (앱 화면에서는 쓰지 않음)
-    _internals: { tokenize, contentWords, overlapRatio, normalizeDigraphs, extractFacts, matchFacts, extractTimes, extractDates, expectedEventTimes, align, grammarIssues, templateHits, markerCount },
+    _internals: { tokenize, contentWords, overlapRatio, normalizeDigraphs, extractFacts, matchFacts, extractTimes, extractDates, align, grammarIssues, templateHits, markerCount },
   };
 });

@@ -50,6 +50,7 @@
       <div class="ex-directions">
         <b class="ex-directions-label">Directions</b>
         <span class="en">${esc(part.directions)}</span>
+        ${window.MockCommon.PART_GUIDANCE[part.part] ? `<p class="ex-note-sm">${esc(window.MockCommon.PART_GUIDANCE[part.part])}</p>` : ''}
       </div>
       <div class="ex-actions">
         <button class="ex-btn ghost sm" data-act="skip" type="button">건너뛰기</button>

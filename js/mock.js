@@ -790,7 +790,8 @@
       body = `<p class="ex-prompt">${esc(q.prompt)}</p>${CLOCK_SLOT}`;
     }
 
-    return `<div class="ex-q">${head}${body}</div>`;
+    const guidance = window.MockCommon.PART_GUIDANCE[part.part];
+    return `<div class="ex-q">${head}${body}${guidance ? `<p class="ex-note-sm">${esc(guidance)}</p>` : ''}</div>`;
   }
 
   // ---------- 연습 모드 ----------
@@ -831,7 +832,8 @@
     }
 
     const resultMarkup = practiceScores[q.no] ? renderPracticeResult(part, q, practiceScores[q.no]) : '';
-    return `<div class="ex-q">${partBar(part.part)}${head}${body}${resultMarkup}</div>`;
+    const guidance = window.MockCommon.PART_GUIDANCE[part.part];
+    return `<div class="ex-q">${partBar(part.part)}${head}${body}${guidance ? `<p class="ex-note-sm">${esc(guidance)}</p>` : ''}${resultMarkup}</div>`;
   }
 
   // ---------- 해설 모드 ----------
@@ -1473,7 +1475,7 @@
       if (scoring.error) return `채점하지 못해 ${kind}을 계산하지 않았어요.`;
       if (!scoring.done) return `채점이 끝나면 ${kind}이 표시돼요.`;
       if (!answeredCount) return noAnswerNote;
-      return kind === '강점' ? '아직 뚜렷한 강점이 없어요. 길이보다 질문에 맞는 답과 이유를 분명하게 말하는 데 집중해 보세요.' : '눈에 띄는 보완점이 없어요.';
+      return kind === '강점' ? '아직 뚜렷한 강점이 없어요. 핵심과 이유가 있으면 짧아도 충분해요. 길이보다 질문에 맞는 답과 이유를 분명하게 말하는 데 집중해 보세요.' : '눈에 띄는 보완점이 없어요.';
     };
 
     root.innerHTML = `
@@ -1494,6 +1496,7 @@
             <div class="report-side">
               <h2 class="report-title">Part별 평균</h2>
               <div class="part-bars">${parts.map(renderPartBar).join('')}</div>
+              <p class="ex-note-sm">Part 2의 문항 점수는 소수점 없는 0~3점 척도예요. 연습 목표 2.6은 문항 점수가 아니라 평균 목표예요. 앱 추정치와 실제 채점은 다를 수 있어요.</p>
             </div>
           </div>
           <div class="insights">

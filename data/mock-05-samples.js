@@ -1,5 +1,6 @@
 /* 2025 하반기 실제 수험자 답변 — mock-05
-   답변·판정·지적 글자는 capture/2025h2/mock-05-samples.draft.json에서 바꾸지 않고 옮겼다.
+   답변·판정·ETS 지적은 capture/2025h2/mock-05-samples.draft.json에서 바꾸지 않고 옮겼다.
+   앱의 해설 메모는 학습 기준에 맞춰 보충했다.
    작업용 필드(segment, sourceFrames, videoId, examId, wordCount, at)는 넣지 않는다. */
 window.MOCK_SAMPLES = window.MOCK_SAMPLES || {};
 window.MOCK_SAMPLES['mock-05'] = {
@@ -141,7 +142,7 @@ window.MOCK_SAMPLES['mock-05'] = {
           {
             "category": "other",
             "quote": "to the city center by taking",
-            "note": "끊어 읽기는 전치사 앞에서 해야 한다는 원칙 설명",
+            "note": "끊는 위치 자체는 채점 기준이 아니에요. 전치사 앞에서 쉬는 것은 연습 방법일 뿐, 단어마다 끊지 않고 뜻이 통하게 읽는 게 중요해요.",
             "source": "해설"
           }
         ]
@@ -234,7 +235,7 @@ window.MOCK_SAMPLES['mock-05'] = {
           {
             "category": "content",
             "quote": "in the hotel fronts",
-            "note": "'hotel fronts'처럼 장소를 구체적으로 밝힌 점을 칭찬",
+            "note": "구체적인 장소를 덧붙인 답이에요. 장소는 inside/outside만 말해도 되고, 구체적인 이름은 확신이 있을 때 선택해요.",
             "source": "해설"
           },
           {
@@ -263,7 +264,7 @@ window.MOCK_SAMPLES['mock-05'] = {
           {
             "category": "vocab",
             "quote": "doing their things at the front desk",
-            "note": "'three people who are doing their things at the front desk'의 호텔 어휘를 칭찬",
+            "note": "사람들이 하는 일과 장소를 설명했어요. front desk 같은 구체적인 어휘는 선택이고, 쉬운 말로 설명해도 돼요.",
             "source": "해설"
           },
           {
@@ -317,7 +318,7 @@ window.MOCK_SAMPLES['mock-05'] = {
           {
             "category": "content",
             "quote": "I think they are checking in",
-            "note": "마무리 'I think they are checking in'으로 정황을 요약한 점을 칭찬",
+            "note": "'I think they are checking in'으로 정황을 요약했어요. 이런 마무리는 선택이고, 생략해도 그 자체로 감점되지 않아요.",
             "source": "해설"
           }
         ]
@@ -338,7 +339,7 @@ window.MOCK_SAMPLES['mock-05'] = {
           {
             "category": "vocab",
             "quote": "in a workplace",
-            "note": "'in a workplace'보다 office/coffee room처럼 구체적인 장소가 낫다고 제안",
+            "note": "장소는 inside/outside만 말해도 감점되지 않아요. 구체적인 장소는 확신이 있고 여유가 있을 때 덧붙여요.",
             "source": "해설"
           },
           {
@@ -350,7 +351,7 @@ window.MOCK_SAMPLES['mock-05'] = {
           {
             "category": "vocab",
             "quote": "copy something",
-            "note": "눈에 보이는 것을 'something'으로 뭉뚱그리지 말고 papers/documents로 말하라고 지적",
+            "note": "물건 이름을 모르면 something으로 넘어가도 돼요. papers/documents는 확실히 알 때 쓸 수 있는 선택 표현이에요.",
             "source": "해설"
           },
           {
@@ -433,7 +434,7 @@ window.MOCK_SAMPLES['mock-05'] = {
           {
             "category": "vocab",
             "quote": "working on",
-            "note": "'working on'보다 copying some documents처럼 더 구체적인 어휘를 권장",
+            "note": "쉬운 working으로도 동작을 설명할 수 있어요. copying some documents는 자신 있게 말할 수 있을 때 선택해요.",
             "source": "해설"
           }
         ]
@@ -489,19 +490,19 @@ window.MOCK_SAMPLES['mock-05'] = {
           {
             "category": "length",
             "quote": "단지 이분이 한 6초 정도 남으셨어요",
-            "note": "15초 중 약 6초를 남겼다. 한 문장이라도 더 붙이는 습관이 필요하다.",
+            "note": "15초 중 약 6초를 남겼어요. 질문의 핵심과 이유에 답했다면 짧아도 충분하고, 남은 시간 자체는 감점 사유가 아니에요.",
             "source": "해설"
           },
           {
             "category": "other",
             "quote": "I gave it for her birthday gift",
-            "note": "분량을 채우는 방법으로 느낌 문장, 예시, 육하원칙(어디서 샀는지) 추가를 제안.",
+            "note": "느낌이나 예시, 어디서 샀는지 같은 세부는 선택이에요. 시간을 채우려고 묻지 않은 내용을 덧붙일 필요는 없어요.",
             "source": "해설"
           },
           {
             "category": "content",
             "quote": "무엇을 줬는지는 안 물어봤기 때문에",
-            "note": "무엇을 줬는지 묻지 않았지만 디테일을 덧붙이면 답변이 좋아진다.",
+            "note": "무엇을 줬는지는 묻지 않았으니 선물 품목은 선택이에요. 질문의 핵심과 이유를 먼저 답해요.",
             "source": "해설"
           }
         ]
@@ -519,7 +520,7 @@ window.MOCK_SAMPLES['mock-05'] = {
           {
             "category": "content",
             "quote": "And I gave him a perfume.",
-            "note": "묻지 않은 디테일(선물 품목)을 스스로 넣은 점을 좋게 평가.",
+            "note": "묻지 않은 디테일인 선물 품목을 덧붙였어요. 이런 세부는 선택이고, 질문에 답했다면 더 말하지 않아도 돼요.",
             "source": "해설"
           },
           {

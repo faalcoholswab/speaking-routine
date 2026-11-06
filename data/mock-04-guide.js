@@ -15,6 +15,9 @@ window.MOCK_GUIDES['mock-04'] = {
       ko: '이 사진은 야외에서 찍혔습니다. 길거리인 것 같습니다. 가장 먼저 보이는 것은 몇 사람입니다. 비가 오고 있어서 그들은 우산을 쓰고 있습니다. 가운데에서는 한 남자가 노란색 조끼를 입고 상자를 들고 있습니다. 왼쪽에서는 한 남자가 오토바이에 앉아 있습니다. 그는 검은 우산을 들고 있습니다. 오른쪽에서는 한 남자가 휴대폰을 보고 있습니다. 배경에는 가게와 오토바이가 많이 보입니다. 그들은 바쁘게 일하고 있는 것 같습니다.',
       patterns: [
         'This picture was taken inside. / outside.',
+        'They are standing or sitting. / They are standing in line. / They are sitting at the table.',
+        'She has long brown hair.',
+        'In the foreground, / In the background, / In the middle, / On the left, / On the right, / Next to her, ~',
         'I think it\'s a street.',
         'The first thing I can see is some people.',
         'On the left, / In the middle, / On the right, ~',
@@ -29,6 +32,11 @@ window.MOCK_GUIDES['mock-04'] = {
       ko: '이 사진은 실내에서 찍혔습니다. 도서관인 것 같습니다. 먼저 두 사람이 보입니다. 한 여자가 펼친 책을 들고 있습니다. 그녀는 초록색 카디건을 입고 있습니다. 그녀 옆에서 한 남자가 파란색 재킷을 입고 있습니다. 그는 책을 가리키고 있습니다. 배경에는 높은 책장과 큰 창문이 보입니다. 그들은 즐거운 시간을 보내고 있는 것 같습니다.',
       patterns: [
         'This picture was taken inside. / outside.',
+        'They are standing or sitting. / They are standing in line. / They are sitting at the table.',
+        'She has long brown hair.',
+        'In the foreground, / In the background, / In the middle, / On the left, / On the right, / Next to her, ~',
+        'The first thing I can see is some people.',
+        'It seems like they are busy working.',
         'I think it\'s a library.',
         'First, I can see some people.',
         'She is wearing a green cardigan. (색 + 옷)',
@@ -83,7 +91,7 @@ window.MOCK_GUIDES['mock-04'] = {
       model: 'Sure, there are two. First, from 1 to 3 p.m., there is a discussion, Teaching Beginning Swimmers, by Laura Davis. Second, from 4 to 6 p.m., there is a workshop, Training Exercises for Beginners, by Robert Miller.',
       ko: '네, 두 개 있습니다. 첫째, 오후 1시부터 3시까지 Laura Davis의 토론 "Teaching Beginning Swimmers"가 있습니다. 둘째, 오후 4시부터 6시까지 Robert Miller의 워크숍 "Training Exercises for Beginners"가 있습니다.',
       patterns: [
-        'Sure, there are two.',
+        'Sure. There are two.',
         'First, from ~ to ~, there is + 제목 + by + 발표자.',
         'Second, ~ (첫째와 같은 틀)',
       ],
@@ -97,6 +105,7 @@ window.MOCK_GUIDES['mock-04'] = {
         'First, ~',
         'As you know, ~',
         'If + 주어 + 동사, 주어 + can + 동사.',
+        'Eventually, it will be beneficial.',
         'Then + 결과 한 번 더.',
         'As a result, ~',
         'Second, ~',

@@ -210,7 +210,7 @@
     gardening: ['rl', '/ˈɡɑːrdnɪŋ/', 'GAR·den·ing — 1음절 /ɑːr/ 강세 후 가운데를 줄여 2~3박으로 매끄럽게 이어요.', '가드닝', 32],
     marketing: ['rl', '/ˈmɑːrkɪtɪŋ/', 'MAR·ket·ing — 1음절 /ɑːr/에 주강세를 두고 뒤 음절은 가볍게 낮춰요.', '마케팅', 31],
     preparing: ['rl', '/prɪˈperɪŋ/', 'pre·PAR·ing — 1음절을 /prɪ/로 줄이고 2음절(-PAR-)에 강세와 r을 살려요.', '프리페어링', 33],
-    reports: ['rl', '/rɪˈpɔːrts/', 're·PORTS — 2음절(-PORTS)에 강세를 두고 r과 끝 rts 자음군을 한 번에 닫아요.', '리포츠', 32],
+    reports: ['rl', '/rɪˈpɔːrts/', 're·PORTS — report도 reports도 앞 re-는 약하게, 뒤 -PORT-에 강세를 둬요. r을 살리고 복수형 끝 rts 자음군은 한 번에 닫아요.', '리포츠', 32],
     clients: ['rl', '/ˈklaɪənts/', 'CLI·ents — cl 자음군에 모음을 끼우지 말고 1음절 이중모음에 강세를 두어요.', '클라이언츠', 31],
     neighborhood: ['rl', '/ˈneɪbərhʊd/', 'NEIGH·bor·hood — 1음절에 주강세를 두고 가운데 r을 부드럽게 이어요.', '네이버후드', 31],
     helps: ['rl', '/helps/', '끝 lps 자음군 사이에 모음을 넣지 말고 한 음절로 가볍게 닫아요.', '헬프스', 27],
@@ -287,9 +287,9 @@
     economy: ['stress', '/ɪˈkɑːnəmi/', 'e·CON·o·my — 2음절(-CON-)에 강세. economic은 3음절(-NOM-)로 강세가 옮겨 가요.', '이카너미|이코노미', 34],
     economic: ['stress', '/ˌekəˈnɑːmɪk/', 'ec·o·NOM·ic — 3음절(-NOM-)에 강세를 둬요(economy는 2음절 강세).', '에커나믹|이코노믹', 34],
     economical: ['stress', '/ˌekəˈnɑːmɪkl/', 'ec·o·NOM·i·cal — -NOM-에 강세를 두고 끝 -cal은 짧게 흘려요.', '에커나미컬|이코노미컬', 34],
-    renovation: ['stress', '/ˌrenəˈveɪʃn/', 'ren·o·VA·tion — -ation이 붙으면 바로 앞 A(-VA-)에 주강세가 와요.', '레노베이션|레너베이션', 35],
-    demonstration: ['stress', '/ˌdemənˈstreɪʃn/', 'dem·on·STRA·tion — -ation 바로 앞 A(-STRA-)에 주강세를 둬요.', '데먼스트레이션|데몬스트레이션', 35],
-    imagination: ['stress', '/ɪˌmædʒɪˈneɪʃn/', 'i·mag·i·NA·tion — -ation 바로 앞 A(-NA-)에 주강세를 둬요.', '이매지네이션', 35],
+    renovation: ['stress', '/ˌrenəˈveɪʃn/', 'ren·o·VA·tion — -ation의 A가 들어 있는 음절(-VA-)에 주강세를 둬요.', '레노베이션|레너베이션', 35],
+    demonstration: ['stress', '/ˌdemənˈstreɪʃn/', 'dem·on·STRA·tion — -ation의 A가 들어 있는 음절(-STRA-)에 주강세를 둬요.', '데먼스트레이션|데몬스트레이션', 35],
+    imagination: ['stress', '/ɪˌmædʒɪˈneɪʃn/', 'i·mag·i·NA·tion — -ation의 A가 들어 있는 음절(-NA-)에 주강세를 둬요.', '이매지네이션', 35],
     washington: ['stress', '/ˈwɑːʃɪŋtən/', 'WASH·ing·ton — -ton은 o를 또렷이 내지 않고 약한 /tən/으로, 강세는 첫 음절이에요.', '워싱턴', 33],
     huntington: ['stress', '/ˈhʌntɪŋtən/', 'HUNT·ing·ton — -ton은 약한 /tən/, 강세는 첫 음절이에요.', '헌팅턴', 33],
     general: ['rl', '/ˈdʒenrəl/', 'GEN·er·al — 1음절에 강세를 두고 끝 -eral은 /rəl/로 줄여 r에서 l로 혀를 옮겨 짧게 닫아요.', '제너럴|제너럴리', 32],
@@ -316,6 +316,7 @@
 
   // [ipa of 2nd word, linked pronunciation tip, korean chunk candidates]
   const LINK_MAP = {
+    'would say': ['/seɪ/', '"I would say"는 "I’d say"로 줄여 한 호흡으로 말해요. 빠르게는 "아쎄"에 가깝게 들릴 수 있지만, 억지로 줄이기보다 뜻이 또렷하게 들리도록 자연스럽게 이어요.', '아쎄|아이드 세이|아이드 세'],
     'it will': ['/wɪl/', '"it will"은 t를 또박또박 끊지 말고 굴려 "이릴"처럼 will에 붙여요(It will be held → 이릴 비 헬드).', '이릴|잇 윌'],
     'working out': ['/aʊt/', '"working out"은 -ing 끝 코소리에 out을 부드럽게 이어 한 덩어리로 말해요.', '아웃|워킹아웃'],
     'eat out': ['/aʊt/', '"eat out"은 앞 t를 플랩(ㄹ)처럼 부드럽게 굴려 "이라웃"처럼 연결해요.', '이라웃|아웃'],
@@ -514,18 +515,18 @@
   ]);
 
   const TIP_TEXT = {
-    list: '나열 구문은 앞 항목 끝을 살짝 올리고(↗) 마지막 and 뒤 항목에서 확실히 내려(↘) 완결감을 주세요.',
+    list: '나열 구문은 앞 항목 끝을 살짝 올려요(↗). Part 1 낭독은 마지막 항목에서 내려(↘) 맺고, 대화체 답변은 꼭 내리지 않아도 돼요.',
     listContinue: '나열은 앞 항목 끝을 살짝 올리고(↗) 마지막 항목이 문장 중간에서 이어지면 그 끝은 올리지 않고 유지(→)한 뒤 다음 말로 이어 가요.',
-    relative: '관계사(who·which·that·where·how) 앞에서 짧게 쉬고(/) 관계절은 한 덩어리로 이어 읽어요.',
-    complement: 'that이 관계사가 아니라 접속사로 절을 시작할 때 그 앞에서 짧게 쉬고(/) that절은 한 덩어리로 이어 읽어요.',
-    infinitive: 'to부정사 앞에서 호흡을 나누고(/) to 뒤 동사구는 한 덩어리로 읽어요.',
-    clause: '접속사로 두 절(주어+동사)이 이어질 때만 앞에서 짧게 쉬고(/) 한 절 안에서는 끊지 않아요.',
+    relative: '관계사(who·which·that·where·how) 앞의 /는 호흡을 나눌 수 있는 예시예요. 관계절을 한 덩어리로 이어 읽는 연습을 해요.',
+    complement: 'that이 관계사가 아니라 접속사로 절을 시작할 때 앞의 /는 호흡 예시예요. that절은 한 덩어리로 이어 읽어 봐요.',
+    infinitive: 'to부정사 앞의 /는 호흡 예시예요. to 뒤 동사구를 한 덩어리로 읽는 연습을 해요.',
+    clause: '접속사로 두 절(주어+동사)이 이어질 때의 /는 호흡 예시예요. 반드시 그 위치에서 쉴 필요는 없어요.',
     verbphrase: '동사구를 and·or로 나란히 이을 때는 끊지 않고 한 호흡으로 이어 읽어요(주어는 한 번만 말해요).',
-    comma: '도입어·부사구 뒤 쉼표는 살짝 유지(→)하며 반 박자 쉬고, 문장 끝은 내려(↘) 맺어요.',
-    prep: '긴 덩어리에서만 전치사 앞을 마지막 수단으로 끊고(/) 붙어 다니는 짝은 그대로 이어 읽어요(interested in, depend on).',
+    comma: '도입어·부사구 뒤 쉼표는 살짝 올려(↗) 말이 이어진다는 느낌을 줘요. /는 호흡 예시일 뿐, 꼭 쉬어야 하는 위치는 아니에요.',
+    prep: '긴 덩어리의 전치사 앞 /는 호흡 예시일 뿐, 끊어야 하는 원칙은 아니에요. 붙어 다니는 짝은 이어 읽는 연습을 해요(interested in, depend on).',
   };
   const TIP_ORDER = ['listContinue', 'list', 'relative', 'complement', 'infinitive', 'clause', 'verbphrase', 'comma', 'prep'];
-  const DEFAULT_TIP = '의미 덩어리(/)마다 호흡을 묶어 내용어(명사·동사·형용사)는 길고 또렷하게, 기능어는 약하게 줄여 끝을 내려요(↘).';
+  const DEFAULT_TIP = '숫자·고유명사·부정어·-ly 부사는 또렷하게, 기능어는 가볍게 말해요. /는 호흡을 나눠 볼 수 있는 예시예요.';
 
   function syllables(word) {
     return (word.replace(/e$/i, '').match(/[aeiouy]+/gi) || [1]).length;
@@ -904,7 +905,7 @@
       && !CLAUSE_MARKERS.has(word.base)
       && word.base !== 'to';
 
-    // 2) 쉼표: 나열 항목이면 ↗, 도입어·절 경계 등은 → (규칙 2·3)
+    // 2) 쉼표는 말이 이어진다는 뜻으로 살짝 올린다.
     const commaTokens = [];
     tokens.forEach((token, index) => { if (token.text === ',') commaTokens.push(index); });
     const items = [];
@@ -943,7 +944,7 @@
 
     let listZone = -1;
     commaTokens.forEach((commaToken, k) => {
-      marks.set(commaToken, listComma[k] ? '↗' : '→');
+      marks.set(commaToken, '↗');
       if (listComma[k] && listZone < 0) {
         const after = items[k + 1];
         if (after && after.length) listZone = wordPos.get(after[0].tokenIndex);
@@ -1138,10 +1139,9 @@
     const id = sentence && typeof sentence.id === 'string' ? sentence.id : '';
     const isPassage = !id;
     const partBadge = isPassage ? 'Part 1 (지문 낭독)' : PART_BADGES[id.split('-')[0].toLowerCase()] || 'TS 억양·호흡';
-    // 강의: 끊는 위치는 채점 항목이 아니고, Part 2~5 답변은 문장 끝을 꼭 내리지 않아도 됩니다.
     const note = isPassage
-      ? '끊는 위치(/)는 채점 항목이 아니에요. 단어마다 끊지만 않으면 숨이 찰 때 어디서 쉬어도 괜찮아요.'
-      : '끊는 위치(/)는 채점 항목이 아니에요. 대화하듯 말하는 답변은 문장 끝(↘)을 꼭 내리지 않아도 돼요.';
+      ? '끊는 위치(/)는 채점 항목이 아니에요. 단어마다 끊지만 않으면 숨이 찰 때 쉬어도 괜찮아요. Part 1 낭독의 평서문 끝은 내려(↘) 맺어요.'
+      : '끊는 위치(/)는 채점 항목이 아니에요. 단어마다 끊지만 말고 자연스럽게 이어요. 대화하듯 말하는 답변은 문장 끝을 꼭 내리지 않아도 돼요.';
 
     const sentences = splitSentences(en);
     const structures = [];
@@ -1152,7 +1152,7 @@
         const gap = sentences[index - 1].gap;
         chunked += gap === ' ' ? ' / ' : gap;
       }
-      chunked += result.text + endArrow(part.text);
+      chunked += result.text + (isPassage ? endArrow(part.text) : '');
       result.structures.forEach((kind) => {
         if (!structures.includes(kind)) structures.push(kind);
       });

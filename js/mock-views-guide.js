@@ -192,7 +192,6 @@
         .concat(missed.map((fact) => compareChip(originalFact(fact.value, part, q), 'miss')));
       if (chips.length) rows.push(`<div class="sm-cmp-row"><span class="sm-cmp-label">사실 비교</span><div class="coverage">${chips.join('')}</div></div>`);
     } else {
-      const target = part.part === 5 ? 100 : (Number(q.responseSeconds) >= 30 ? 50 : 25);
       let relevance = 0;
       if (internals.overlapRatio && internals.tokenize) {
         try { relevance = internals.overlapRatio(internals.tokenize(q.prompt || ''), tokens); } catch (error) { relevance = 0; }
@@ -203,7 +202,7 @@
         ['예시', markerHas(text, CMP_EXAMPLE)],
       ].map(([label, on]) => `<span class="coverage-chip ${on ? 'ok' : 'miss'}">${label} <b>${on ? '✓' : '—'}</b></span>`).join('');
       rows.push(`<div class="sm-cmp-row"><span class="sm-cmp-label">말하기</span><div class="sm-stats">
-        ${compareStat('단어 수', `${tokens.length} / 목표 ${target}`)}
+        ${compareStat('단어 수', `${tokens.length} (길이보다 핵심과 근거가 중요해요)`)}
         ${compareStat('질문 관련 표현', `${Math.round(relevance * 100)}%`)}
       </div></div>
       <div class="sm-cmp-row"><span class="sm-cmp-label">표현</span><div class="coverage">${marks}</div></div>`);
@@ -257,7 +256,7 @@
       'It seems like they are busy working.',
     ],
     notes: [
-      '장소 → 사람 → 자세·동작 → 외모 → 배경 → 마무리 순서로 말하면 막히지 않아요. 두 문항에 같은 틀을 써도 돼요.',
+      '장소 → 사람 → 자세·동작 → 외모 → 배경 → 마무리 순서는 연습용 틀이에요. 사진에 맞는 표현만 골라 쓰고, 배경·마무리는 생략해도 돼요. 두 문항에 같은 틀을 써도 돼요.',
       '30초에 8~10문장이면 충분해요. 끝에 몇 초 남거나 마지막 문장이 잘려도 감점되지 않아요.',
       '사람은 한 명만 자세히 묘사해도 돼요. 위치 표현(on the left, in the middle 등)은 한두 번이면 충분해요.',
       '구체적인 장소가 떠오르지 않으면 실내(inside)·실외(outside)만 말해도 돼요. 물건 이름을 모르면 something으로, 옷은 색 + clothes로 넘어가요.',
@@ -307,9 +306,9 @@
         "It's + 값.",
       ],
       notes: [
-        "무엇을 묻는지 헷갈리면 It's 뒤에 표의 값만 붙여도 돼요. 답이 여러 개면 모두 말해요.",
+        "무엇을 묻는지 헷갈리면 It's 뒤에 표의 값만 붙여도 돼요(예: It's 8 a.m.). 답이 여러 개면 모두 말해요.",
         'a.m.·p.m.이나 요일은 빠뜨려도 감점되지 않아요. 답하고 시간이 남으면 그대로 기다려도 돼요.',
-        '질문을 들으며 답이 될 칸을 손가락으로 짚어 두면 덜 헤매요.',
+        '질문을 들으며 답이 될 칸을 손가락으로 짚어 두면 덜 헤매요. 답이 두 개면 두 칸을 짚어 둬요.',
       ],
     },
     9: {

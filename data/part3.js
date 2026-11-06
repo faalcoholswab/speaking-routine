@@ -116,5 +116,14 @@ window.SENTENCES.part3 = [
   { id: "p3-114", topic: "여행", en: "I travel abroad once a year.", ko: "나는 일 년에 한 번 해외여행을 간다.", pron: "아이 트래블 어브로드 원스 어 이어", keys: [ { en: "travel abroad", ko: "해외여행을 가다" }, { en: "once a year", ko: "일 년에 한 번" } ] },
   { id: "p3-115", topic: "온라인", en: "I check my messages every hour.", ko: "나는 한 시간마다 메시지를 확인한다.", pron: "아이 첵 마이 메시지즈 에브리 아워", keys: [ { en: "every hour", ko: "한 시간마다" } ] },
   { id: "p3-116", topic: "쇼핑", en: "I prefer online shopping because it's fast and efficient.", ko: "빠르고 효율적이어서 나는 온라인 쇼핑을 선호한다.", pron: "아이 프리퍼 온라인 샤핑 비코즈 잇츠 패스트 앤 이피션트", keys: [ { en: "fast and efficient", ko: "빠르고 효율적인" } ] },
-  { id: "p3-117", topic: "영화", en: "I like watching movies at home because it's relaxing and enjoyable.", ko: "편안하고 즐거워서 나는 집에서 영화 보는 것을 좋아한다.", pron: "아이 라익 와칭 무비즈 앳 홈 비코즈 잇츠 릴랙싱 앤 인조이어블", keys: [ { en: "relaxing and enjoyable", ko: "편안하고 즐거운" } ] }
+  { id: "p3-117", topic: "영화", en: "I like watching movies at home because it's relaxing and enjoyable.", ko: "편안하고 즐거워서 나는 집에서 영화 보는 것을 좋아한다.", pron: "아이 라익 와칭 무비즈 앳 홈 비코즈 잇츠 릴랙싱 앤 인조이어블", keys: [ { en: "relaxing and enjoyable", ko: "편안하고 즐거운" } ] },
+  { id: "p3-118", topic: "이유", en: "It's easy and convenient.", ko: "쉽고 편리하다.", pron: "잇츠 이지 앤 컨비니언트", keys: [ { en: "It's easy and convenient", ko: "쉽고 편리하다" } ] },
+  { id: "p3-119", topic: "이유", en: "It's practical and efficient.", ko: "실용적이고 효율적이다.", pron: "잇츠 프랙티컬 앤 이피션트", keys: [ { en: "practical", ko: "실용적인" }, { en: "efficient", ko: "효율적인" } ] },
+  { id: "p3-120", topic: "이유", en: "It's effective.", ko: "효과적이다.", pron: "잇츠 이펙티브", keys: [ { en: "It's effective", ko: "효과적이다" } ] },
+  { id: "p3-121", topic: "이유", en: "It's satisfying.", ko: "만족스럽다.", pron: "잇츠 새티스파잉", keys: [ { en: "It's satisfying", ko: "만족스럽다" } ] },
+  { id: "p3-122", topic: "이유", en: "It's enjoyable and refreshing.", ko: "즐겁고 기분이 상쾌해진다.", pron: "잇츠 인조이어블 앤 리프레싱", keys: [ { en: "enjoyable", ko: "즐거운" }, { en: "refreshing", ko: "기분이 상쾌해지는" } ] },
+  { id: "p3-123", topic: "친구", en: "They are honest.", ko: "그들은 솔직하다.", pron: "데이 아 아너스트", keys: [ { en: "honest", ko: "솔직한, 정직한" } ] },
+  { id: "p3-124", topic: "선물", en: "I gave my friend a gift about a week ago because it was his birthday.", ko: "약 일주일 전에 친구 생일이라 선물을 줬다.", pron: "아이 게이브 마이 프렌드 어 기프트 어바웃 어 위크 어고우 비코즈 잇 워즈 히즈 버스데이", keys: [ { en: "gave my friend a gift", ko: "친구에게 선물을 줬다" }, { en: "about a week ago", ko: "약 일주일 전에" }, { en: "because it was his birthday", ko: "그의 생일이었기 때문에" } ] },
+  { id: "p3-125", topic: "선물", en: "I usually buy gifts online because it is more convenient.", ko: "더 편리해서 나는 보통 온라인으로 선물을 산다.", pron: "아이 유쥬얼리 바이 기프츠 온라인 비코즈 잇 이즈 모어 컨비니언트", keys: [ { en: "buy gifts online", ko: "온라인으로 선물을 사다" }, { en: "more convenient", ko: "더 편리한" } ] },
+  { id: "p3-126", topic: "선물", en: "I would prefer to give a book because it is more memorable and meaningful than candy.", ko: "사탕보다 기억에 남고 의미가 있어서 나는 책을 선물하는 쪽을 택하겠다.", pron: "아이 우드 프리퍼 투 기브 어 북 비코즈 잇 이즈 모어 메머러블 앤 미닝풀 댄 캔디", keys: [ { en: "I would prefer to give", ko: "~을 선물하는 쪽을 택하겠다" }, { en: "more memorable and meaningful than", ko: "~보다 더 기억에 남고 의미 있는" } ] }
 ];
