@@ -207,7 +207,6 @@
     }).join('');
     return `<div class="tips-page">
       <section class="page-head">
-        <div class="eyebrow">STUDY TIPS</div>
         <h1>학습 팁</h1>
         <p>파트별 답변 구조와 템플릿을 모았어요. 궁금한 묶음만 펼쳐 보세요.</p>
       </section>

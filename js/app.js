@@ -997,7 +997,7 @@
   }
 
   function pageHead(eyebrow, title, text) {
-    return `<section class="page-head"><div class="eyebrow">${esc(eyebrow)}</div><h1>${title}</h1><p>${esc(text)}</p></section>`;
+    return `<section class="page-head">${eyebrow ? `<div class="eyebrow">${esc(eyebrow)}</div>` : ''}<h1>${title}</h1><p>${esc(text)}</p></section>`;
   }
 
   function emptyMarkup({ iconName = 'check', title, text, action }) {
@@ -1012,7 +1012,7 @@
     const totalSessions = state.history.length;
     const totalSentences = SENTENCES.length;
 
-    return `${pageHead('TODAY · ' + prettyToday(), '오늘도 한 문장씩,<br>영어로 말해 볼까요?', '토익스피킹 파트 2~5의 핵심 문장을 내 속도에 맞춰 연습해요.')}
+    return `${pageHead(prettyToday(), '오늘도 한 문장씩,<br>영어로 말해 볼까요?', '토익스피킹 파트 2~5의 핵심 문장을 내 속도에 맞춰 연습해요.')}
       <div class="summary-bar">
         <span><strong>오늘 복습 ${dueToday}문장</strong> · 이번 주 연습 ${weekTotal}문장 · ${effectiveStreak() ? `${effectiveStreak()}일 연속` : '오늘부터 시작'}</span>
         <span class="tag">${ALL_PARTS_LABEL}</span>
@@ -1022,7 +1022,6 @@
           <div class="hc-top">
             <div class="hc-icon">${icon('message')}</div>
             <div>
-              <div class="eyebrow">DAILY PRACTICE</div>
               <h2>오늘의 문장 연습 <span class="count-chip">${state.settings.count}문장</span></h2>
               <p class="hc-desc">파트와 주제를 고르고, 지금 기억에 남는 문장부터 소리 내어 연습해요.</p>
             </div>
@@ -1033,7 +1032,6 @@
           <div class="hc-top">
             <div class="hc-icon">${icon('repeat')}</div>
             <div>
-              <div class="eyebrow">SMART REVIEW</div>
               <h2>복습하기 ${queueCount ? `<span class="count-chip">${dueToday ? `오늘 ${dueToday}` : queueCount}</span>` : ''}</h2>
               <p class="hc-desc">${queueCount ? (dueToday ? `오늘 복습할 문장이 ${dueToday}개 있어요. 간격을 두고 다시 만나요.` : '오늘 복습할 문장은 다 했어요. 다음 예정일까지 기다려요.') : '지금은 복습할 문장이 없어요. 새 문장을 연습하면 여기에 쌓여요.'}</p>
             </div>
@@ -1044,7 +1042,6 @@
           <div class="hc-top">
             <div class="hc-icon">${icon('chart')}</div>
             <div>
-              <div class="eyebrow">MY RECORD</div>
               <h2>학습 기록</h2>
               <p class="hc-desc">쌓인 문장과 최근 7일의 흐름을 보며 나만의 루틴을 확인해요.</p>
             </div>
@@ -1077,7 +1074,6 @@
     return `<section class="panel quick-start" aria-labelledby="quick-start-title">
       <div class="qs-head">
         <div>
-          <div class="eyebrow">QUICK START</div>
           <h2 id="quick-start-title">빠른 시작</h2>
         </div>
         <span class="tag">바로 연습</span>
@@ -1118,7 +1114,7 @@
         ? `<strong>${DATA[key].length}</strong>문장 · ${mix.topics}개 주제 · ${mix.functions}가지 기능`
         : `<strong>${DATA[key].length}</strong>문장 · ${mix.topics}개 주제`;
       return `<button class="part-card ${selected ? 'selected' : ''}" type="button" data-action="toggle-part" data-part="${key}" aria-pressed="${selected}">
-        <span class="pc-top"><span class="eyebrow">TOEIC SPEAKING</span><span class="checkbox" aria-hidden="true">${selected ? icon('check') : ''}</span></span>
+        <span class="pc-top"><span class="checkbox" aria-hidden="true">${selected ? icon('check') : ''}</span></span>
         <span class="pc-title">${PART_INFO[key].label} · ${PART_INFO[key].title}</span>
         <span class="pc-desc">${PART_INFO[key].desc}</span>
         <span class="pc-count">${countText}</span>
@@ -1550,7 +1546,7 @@
       </li>`;
     }).join('');
 
-    return `${pageHead('MY RECORD', '조금씩 쌓인<br>나의 스피킹 루틴', '완벽함보다 반복이 중요해요. 쌓인 기록을 보며 다음 한 걸음을 정해요.')}
+    return `${pageHead('', '조금씩 쌓인<br>나의 스피킹 루틴', '완벽함보다 반복이 중요해요. 쌓인 기록을 보며 다음 한 걸음을 정해요.')}
       <section class="stat-grid" aria-label="학습 요약">
         <div class="stat dark"><div class="k">${icon('leaf')} 연속 학습</div><div class="v">${effectiveStreak()}<small>일</small></div></div>
         <div class="stat"><div class="k">${icon('files')} 누적 문장</div><div class="v">${totalSentences}<small>문장</small></div></div>

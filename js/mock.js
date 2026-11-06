@@ -639,7 +639,7 @@
           <button class="ex-quit" data-act="${paged ? 'leave' : 'quit'}" type="button">${paged ? '나가기' : '그만두기'}</button>
         </div>
       </header>
-      <div class="ex-bar"><span id="ex-bar-fill" style="width:0%"></span></div>
+      <div class="ex-bar"><span id="ex-bar-fill"></span></div>
       <section class="ex-stage"><div class="ex-stage-in" id="ex-stage"></div></section>
       ${dockMarkup}`;
 
@@ -665,10 +665,10 @@
     if (questionNo) {
       if (attempt && attempt.single) {
         els.count.textContent = `Q${questionNo}`;
-        els.bar.style.width = '100%';
+        els.bar.style.transform = 'scaleX(1)';
       } else {
         els.count.textContent = `Q${questionNo} / ${totalQuestions()}`;
-        els.bar.style.width = `${Math.round((questionNo / totalQuestions()) * 100)}%`;
+        els.bar.style.transform = `scaleX(${questionNo / totalQuestions()})`;
       }
     } else {
       els.count.textContent = `Part ${partNo}`;
@@ -1528,7 +1528,7 @@
       const pct = total ? Math.round((scored / total) * 100) : 0;
       return `<div class="scoring-banner" id="scoring-banner" role="status" aria-live="polite">
         <div class="scoring-label" id="scoring-label">${scored ? `음성 인식 중 Q${scored} / ${total}` : '음성 인식 모델 준비 중…'}</div>
-        <div class="scoring-track"><i id="scoring-fill" style="width:${pct}%"></i></div>
+        <div class="scoring-track"><i id="scoring-fill" style="transform:scaleX(${pct / 100})"></i></div>
         <p class="scoring-sub" id="scoring-sub">${scored ? '문항이 끝나는 대로 카드에 점수가 채워져요.' : '처음 한 번만 모델을 준비해요.'}</p>
       </div>`;
     }
@@ -1653,13 +1653,13 @@
     if (kind === 'model') {
       const pct = Math.round(normalizeProgress(progress) * 100);
       label.textContent = pct > 0 ? `음성 인식 모델 준비 중… ${pct}%` : '음성 인식 모델 준비 중…';
-      if (fill) fill.style.width = `${pct}%`;
+      if (fill) fill.style.transform = `scaleX(${pct / 100})`;
       if (sub) sub.textContent = '처음 한 번만 내려받아 기기에 저장해요.';
       return;
     }
     const pct = total ? Math.round((current / total) * 100) : 0;
     label.textContent = `음성 인식 중 Q${current} / ${total}`;
-    if (fill) fill.style.width = `${pct}%`;
+    if (fill) fill.style.transform = `scaleX(${pct / 100})`;
     if (sub) sub.textContent = '문항이 끝나는 대로 카드에 점수가 채워져요.';
   }
 
