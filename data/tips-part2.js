@@ -6,6 +6,33 @@ window.STUDY_TIPS[2] = {
   summary: '평범한 사진과 낯선 사진에 같은 순서를 씁니다. 30초에 짧은 문장 8~10개, 쉬운 말로 보이는 것을 말하면 됩니다.',
   sections: [
     {
+      key: 'cheat',
+      title: '한눈에 보는 템플릿',
+      blocks: [
+        {
+          head: '30초 답변 한 번에 보기',
+          text: '위에서부터 순서대로 말해요. 밑줄 대신 단어만 사진에 맞게 바꿔 끼우면 돼요.',
+          lines: [
+            { en: "This picture was taken inside. I think it's an office.", ko: '사진은 실내에서 찍혔습니다. 사무실인 것 같습니다.', slot: '1 장소', note: 'inside ↔ outside. 구체적 장소에는 in·at을 붙이지 않아요.' },
+            { en: 'The first thing I can see is some people.', ko: '가장 먼저 보이는 것은 몇 사람입니다.', slot: '2 사람', note: 'some people ↔ a woman, many people' },
+            { en: 'They are sitting at the table.', ko: '그들은 탁자에 앉아 있습니다.', slot: '3 자세', note: 'standing · sitting · standing in line · walking' },
+            { en: 'She is talking on the phone.', ko: '그녀는 전화 통화를 하고 있습니다.', slot: '4 동작', note: 'working · holding something. working은 어디서든 통해요.' },
+            { en: 'She has long brown hair, and she is wearing white clothes.', ko: '그녀는 긴 갈색 머리이고 흰 옷을 입고 있습니다.', slot: '5 외모', note: '옷은 색 + clothes. 가방은 들든 메든 carrying a bag.' },
+            { en: 'In the background, I can see some trees and buildings.', ko: '배경에는 나무와 건물이 보입니다.', slot: '6 배경', note: '시간이 없으면 빼도 돼요.' },
+            { en: 'It seems like they are busy working.', ko: '그들은 바쁘게 일하는 것 같습니다.', slot: '7 마무리', note: 'busy working ↔ having a good time. 빼도 돼요.' },
+          ],
+        },
+        {
+          head: '기억할 것',
+          points: [
+            '위치 표현은 한 사진에 한두 개면 충분해요: on the left · in the middle · on the right · next to her · in the foreground.',
+            '사람은 한 명만 자세히 말해도 되고, 두 사진에 같은 틀을 써도 돼요.',
+            '모르는 물건은 something, 모르는 장소는 inside·outside로 넘어가요.',
+          ],
+        },
+      ],
+    },
+    {
       key: 'structure',
       title: '답변 구조·시간',
       blocks: [

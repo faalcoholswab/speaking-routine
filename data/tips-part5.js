@@ -6,6 +6,40 @@ window.STUDY_TIPS[5] = {
   summary: '45초 동안 준비하고 60초 안에 의견을 말해요. 10~12문장을 연습하되, 단어 수보다 의견을 뒷받침하는 이유와 근거에 집중해요.',
   sections: [
     {
+      key: 'cheat',
+      title: '한눈에 보는 템플릿',
+      blocks: [
+        {
+          head: '60초 답변 한 번에 보기',
+          text: '준비 45초에는 주장·이유·경험 키워드만 메모해요. 이유를 여러 개 나열하기보다 이유 하나에 if 문장·결과·경험을 붙여요.',
+          lines: [
+            { en: 'I think the most important quality for a leader is communication skills.', ko: '리더에게 가장 중요한 자질은 의사소통 능력이라고 생각해요.', slot: '주장', note: '문제 문장을 그대로 받아서 말해요.' },
+            { en: 'I will give reasons and examples to support my opinion.', ko: '제 의견을 뒷받침할 이유와 예를 들게요.', slot: '예고', note: '이 문장 뒤에 한 번 쉬고 First로 들어가요.' },
+            { en: 'First, it can increase work efficiency.', ko: '첫째, 업무 효율을 높일 수 있어요.', slot: '이유' },
+            { en: 'If a manager communicates well, team members can understand their tasks quickly.', ko: '관리자가 소통을 잘하면 팀원들이 할 일을 빨리 이해할 수 있어요.', slot: 'if 공식' },
+            { en: 'Then they can work faster.', ko: '그러면 더 빨리 일할 수 있어요.', slot: '결과' },
+            { en: 'As a result, it will be beneficial for the team.', ko: '결과적으로 팀에 도움이 될 거예요.', slot: '정리' },
+            { en: 'For example, when I was in college, I did a team project.', ko: '예를 들어 대학 때 팀 프로젝트를 했어요.', slot: '경험', note: 'At that time, ~ 으로 이어 가요. 고등학생 때는 when I was in high school.' },
+            { en: "Also, it's essential for teamwork.", ko: '또 팀워크에 꼭 필요해요.', slot: '이유 2', note: '시간이 되면 말해요.' },
+            { en: "That's why I think communication skills are the most important.", ko: '그래서 의사소통 능력이 가장 중요하다고 생각해요.', slot: '결론', note: '생략해도 감점이 없어요. 결론을 넣으려고 본론을 줄이지 마세요.' },
+          ],
+        },
+        {
+          head: '빈출 주제별 이유 문장',
+          lines: [
+            { en: "It can increase work efficiency. / It's essential for teamwork.", slot: '리더·성공' },
+            { en: 'With flexible work hours, they will be satisfied with the work environment.', slot: '직원 복지' },
+            { en: 'As you know, climate change is a serious problem. / It will be good for the environment.', slot: '환경' },
+            { en: 'Practical skills are useful for the rest of our lives.', slot: '교육' },
+            { en: "It makes me happy. / I think it's worth the money.", slot: '돈·가치관' },
+            { en: 'I can save time and money.', slot: '바쁜 생활' },
+            { en: 'They know me well. / They are honest, and I can trust them.', slot: '조언' },
+            { en: "It's fun and interesting, so I can get rid of stress.", slot: '취미·스트레스' },
+          ],
+        },
+      ],
+    },
+    {
       key: 'structure',
       title: '답변 구조·시간',
       blocks: [

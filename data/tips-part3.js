@@ -6,6 +6,46 @@ window.STUDY_TIPS[3] = {
   summary: '전화 인터뷰 세 문항입니다. 5·6번은 15초에 두 문장, 7번은 30초에 다섯에서 여섯 문장으로, 고른 답과 because 이유를 말합니다.',
   sections: [
     {
+      key: 'cheat',
+      title: '한눈에 보는 템플릿',
+      blocks: [
+        {
+          head: '5번 · 15초 — 질문을 I로 받아 한 문장 + 이유',
+          lines: [
+            { en: 'Well, I usually cook once a week,', ko: '저는 보통 일주일에 한 번 요리하고,', slot: '답' },
+            { en: "and I usually cook alone because it's easy and convenient.", ko: '쉽고 편리해서 보통 혼자 요리해요.', slot: '이유', note: '7~8초만 말하고 끝나도 괜찮아요. 묻지 않은 내용은 덧붙이지 않아요.' },
+          ],
+        },
+        {
+          head: '6번 · 15초 — why가 붙는 질문',
+          lines: [
+            { en: "I would say pizza, because it's delicious and convenient.", ko: '피자라고 할게요, 맛있고 편리하거든요.', slot: '답', note: 'I would say 뒤에는 명사·동명사·문장 무엇이든 와요. I think 뒤에는 주어와 동사가 필요해요.' },
+            { en: 'So I can save time.', ko: '그래서 시간을 아낄 수 있어요.', slot: '결과', note: '여유가 있을 때만 붙여요.' },
+          ],
+        },
+        {
+          head: '7번 · 30초 — 선택지 고르기, 5~6문장',
+          lines: [
+            { en: 'I would prefer watching videos.', ko: '저는 영상 보는 쪽을 고를게요.', slot: '선택' },
+            { en: "Here's why.", ko: '이유는 이래요.', slot: '신호' },
+            { en: 'First, I can watch videos online anytime, anywhere.', ko: '첫째, 언제 어디서든 온라인으로 볼 수 있어요.', slot: '이유' },
+            { en: 'So I can save time.', ko: '그래서 시간을 아낄 수 있어요.', slot: '결과', note: '이유에서 멈추지 말고 그래서 어떻게 되는지까지 말해요.' },
+            { en: "Also, it's fun and entertaining, so I can get rid of stress.", ko: '또 재미있어서 스트레스를 풀 수 있어요.', slot: '이유 2', note: '선택이에요.' },
+            { en: "That's why I think so.", ko: '그래서 그렇게 생각해요.', slot: '마무리' },
+          ],
+        },
+        {
+          head: '바꿔 끼우는 재료',
+          points: [
+            '빈도 표현: every day · once a week · twice or three times a week · once a month · once a year.',
+            "이유 형용사: It's easy · convenient · fast · practical · efficient · effective / fun · enjoyable · satisfying · relaxing · refreshing.",
+            '내 상황 문장: I am a senior in college and very busy with my school work.',
+            '실제 취향보다 이유를 대기 쉬운 보기를 골라요.',
+          ],
+        },
+      ],
+    },
+    {
       key: 'structure',
       title: '답변 구조·시간',
       blocks: [

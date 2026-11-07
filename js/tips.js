@@ -1,4 +1,4 @@
-/* 학습 팁 — 파트별 팁 6묶음과 2025 하반기 기출 예제를 보여 줍니다.
+/* 학습 팁 — 파트별 한눈에 보는 템플릿, 팁 묶음, 2025 하반기 기출 예제를 보여 줍니다.
    내용은 data/tips-part1.js ~ data/tips-part5.js 의 window.STUDY_TIPS 에서 읽어요.
    기출 문제·실제 답변은 data/mock-05.js, data/mock-05-samples.js 를 그대로 씁니다. */
 (() => {
@@ -16,7 +16,7 @@
 
   let selectedPart = 1;
   // 펼친 묶음은 파트를 바꿔도 그대로 둬요. 처음에는 첫 묶음만 펼쳐요.
-  const openKeys = new Set(['structure']);
+  const openKeys = new Set(['cheat']);
 
   function esc(value = '') {
     return String(value).replace(/[&<>'"]/g, (character) => ({
@@ -193,7 +193,7 @@
     const title = data.title ? `Part ${part} · ${esc(data.title)}` : `Part ${part}`;
     const summary = data.summary ? `<p class="tips-summary">${esc(data.summary)}</p>` : '';
     return `<section class="panel tips-part-head">
-        <div class="panel-head"><h2>${title}</h2><span class="tag">6묶음</span></div>
+        <div class="panel-head"><h2>${title}</h2><span class="tag">${sections.length}묶음</span></div>
         ${summary}
       </section>
       <div class="tips-sections">${sections.map(sectionMarkup).join('')}</div>`;

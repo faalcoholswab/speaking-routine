@@ -6,6 +6,33 @@ window.STUDY_TIPS[1] = {
   summary: '화면에 나온 문장을 준비 시간에 소리 내어 연습한 뒤, 그대로 읽습니다. 점수는 발음·강세·억양에서 나오고, 단어를 빼먹거나 다른 말로 바꾸면 내려갑니다.',
   sections: [
     {
+      key: 'cheat',
+      title: '한눈에 보는 템플릿',
+      blocks: [
+        {
+          head: '읽는 순서',
+          text: '낭독이라 외울 문장은 없어요. 아래 순서만 지키면 돼요.',
+          points: [
+            '준비 45초 동안 입을 움직여 소리 내어 읽어요. 걸리는 단어만 반복해요.',
+            '숫자·고유명사·부정어(no, not, never)·-ly 부사는 또렷하고 조금 천천히 읽어요.',
+            '나열은 올림 ↗ 올림 ↗ 내림 ↘, 쉼표는 살짝 올리고 마침표는 내려요.',
+            '틀린 단어는 그 부분만 짧게 다시 읽고 계속 가요.',
+            '다 읽었으면 남은 시간은 가만히 있어요. 처음부터 다시 읽지 않아요.',
+          ],
+        },
+        {
+          head: '특히 신경 쓸 발음',
+          lines: [
+            { en: 'photo · if you · very', slot: 'F / V', note: '윗니를 아랫입술 안쪽에 살짝 스쳐요. PH도 F 소리예요.' },
+            { en: 'learn · large · several', slot: 'R / L', note: 'L은 혀끝을 윗니 뒤에 대고, R은 입을 계란형으로 모으고 혀를 띄워요.' },
+            { en: 'jazz · museum', slot: 'J / Z', note: 'J는 입을 오므리고, Z는 입을 옆으로 벌려요.' },
+            { en: 'thank you · this · further', slot: 'TH', note: '혀를 내밀기 어려우면 ㄷ·ㄸ에 가깝게 하고 유창하게 읽는 쪽을 택해요.' },
+            { en: 'renovation · purchase · Italy / Italian', slot: '강세', note: '-ation이 붙으면 A에 강세가 와요. purchase는 앞을 세게 읽어요.' },
+          ],
+        },
+      ],
+    },
+    {
       key: 'structure',
       title: '답변 구조·시간',
       blocks: [

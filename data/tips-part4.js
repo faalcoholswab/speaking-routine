@@ -6,6 +6,46 @@ window.STUDY_TIPS[4] = {
   summary: '표는 답하는 동안 화면에 남아 있고, 질문 세 개(8·9·10번)는 소리로만 나옵니다. 묻는 칸의 날짜·시간·이름을 틀리지 않게 읽으면 됩니다.',
   sections: [
     {
+      key: 'cheat',
+      title: '한눈에 보는 템플릿',
+      blocks: [
+        {
+          head: '표 읽는 45초에 할 일',
+          points: [
+            '이름·세션명을 입으로 읽어 둬요. 답할 때 고유명사가 술술 나와요.',
+            '함정 확인: 가격 두 종류(회원·비회원), 취소선, 표 아래 작은 메모.',
+            '두 번 나오는 단어·사람은 10번 질문 후보예요. 표 제목은 문제로 잘 안 나와요.',
+          ],
+        },
+        {
+          head: '8번 — 장소·날짜·시간·첫 세션',
+          lines: [
+            { en: 'It will be held at Sunshine Hotel on October 10th.', ko: '10월 10일에 선샤인 호텔에서 열려요.', slot: '장소·날짜' },
+            { en: 'The first session is Registration and Breakfast from 8 to 9 a.m.', ko: '첫 세션은 오전 8시부터 9시까지 등록과 아침 식사예요.', slot: '첫 세션' },
+            { en: "It's 8 a.m.", ko: '오전 8시예요.', slot: '비상용', note: '막히면 값만 말해도 돼요. AM·PM은 빠져도 감점이 없어요.' },
+          ],
+          points: ['전치사: 장소 at · 날짜 on · 시간 범위 from ~ to ~ · 시작 시각만 at · 강연자 by'],
+        },
+        {
+          head: '9번 — 틀린 정보 바로잡기',
+          lines: [
+            { en: 'Actually, the registration fee is $60 for members.', ko: '사실 회원 등록비는 60달러예요.', slot: '가격' },
+            { en: 'Actually, that session has been canceled. Sorry about that.', ko: '사실 그 세션은 취소됐어요. 죄송해요.', slot: '취소' },
+            { en: "It's $10 for nonmembers and $60 for members.", ko: '비회원은 10달러, 회원은 60달러예요.', slot: '애매하면', note: '확신이 없으면 옆 칸까지 같이 읽어요.' },
+          ],
+          points: ['No, you have the wrong information.으로 고정하지 않아요. 답이 Yes인 경우도 있으니 Actually로 바로 시작해요.'],
+        },
+        {
+          head: '10번 · 30초 — 일정 두 개 설명',
+          lines: [
+            { en: 'Sure. There are two.', ko: '네, 두 개 있어요.', slot: '시작' },
+            { en: 'First, from 10:30 to 12, there is Advanced Power Tools by Linda Kim.', ko: '첫째, 10시 30분부터 12시까지 린다 김의 고급 전동 공구 세션이 있어요.', slot: '첫째' },
+            { en: 'Second, from 2:30 to 4, there is Smart Construction Technology by Jennifer Lee.', ko: '둘째, 2시 30분부터 4시까지 제니퍼 리의 스마트 건설 기술 세션이 있어요.', slot: '둘째', note: '표 순서 그대로 읽어요. 사람을 주어로 앞에 두거나 문장을 일부러 다르게 만들 필요가 없어요.' },
+          ],
+        },
+      ],
+    },
+    {
       key: 'structure',
       title: '답변 구조·시간',
       blocks: [
