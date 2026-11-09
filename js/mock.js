@@ -610,20 +610,20 @@
     if (!paged) {
       dockMarkup = `<footer class="ex-dock idle" id="ex-dock">
           <div class="ex-dock-in">
-            <span class="ex-phase" id="ex-phase">대기</span>
-            <span class="ex-time" id="ex-time">--</span>
+            <span class="ex-phase" id="ex-phase" role="status" aria-live="polite">대기</span>
+            <span class="ex-time" id="ex-time" role="timer" aria-live="off">--</span>
             <span class="ex-track"><span id="ex-fill" style="width:0%"></span></span>
           </div>
         </footer>`;
     } else {
       const middle = mode === 'practice'
         ? `<button class="ex-timer-btn" data-act="ptimer" type="button">
-             <span class="ex-phase" id="ex-phase">타이머</span>
-             <span class="ex-time" id="ex-time">--</span>
+             <span class="ex-phase" id="ex-phase" role="status" aria-live="polite">타이머</span>
+             <span class="ex-time" id="ex-time" role="timer" aria-live="off">--</span>
            </button>`
         : `<span class="ex-timer-btn static">
-             <span class="ex-phase" id="ex-phase">해설</span>
-             <span class="ex-time" id="ex-time" hidden>--</span>
+             <span class="ex-phase" id="ex-phase" role="status" aria-live="polite">해설</span>
+             <span class="ex-time" id="ex-time" role="timer" aria-live="off" hidden>--</span>
            </span>`;
       dockMarkup = `<footer class="ex-dock idle practice" id="ex-dock">
           <span class="ex-track ex-track-top"><span id="ex-fill" style="width:0%"></span></span>
@@ -707,7 +707,7 @@
     let clock = els.stage.querySelector('.ex-clock');
     if (!clock) {
       clock = document.createElement('div');
-      clock.innerHTML = '<span class="ex-clock-label"></span><span class="ex-clock-time"></span>';
+      clock.innerHTML = '<span class="ex-clock-label" aria-live="polite"></span><span class="ex-clock-time" aria-live="off"></span>';
       clock.setAttribute('role', 'timer');
       slot.appendChild(clock);
       if (clock.offsetParent && typeof clock.scrollIntoView === 'function') clock.scrollIntoView({ block: 'nearest' });
@@ -769,7 +769,8 @@
 
   function questionMarkup(part, q, phase, forceText) {
     const head = `<div class="ex-q-head">
-      <span class="ex-q-no">Question ${q.no} of ${totalQuestions()}</span>
+      <h1 class="sr-only">${esc((currentExam && currentExam.title) || '모의고사')}</h1>
+      <h2 class="ex-q-no">Question ${q.no} of ${totalQuestions()}</h2>
       <span class="ex-q-kind">${esc(KIND_LABEL[part.part] || '')}</span>
       ${stepper(part, q.no)}
     </div>`;
@@ -805,7 +806,8 @@
 
   function practiceMarkup(part, q) {
     const head = `<div class="ex-q-head">
-      <span class="ex-q-no">Question ${q.no} of ${totalQuestions()}</span>
+      <h1 class="sr-only">${esc((currentExam && currentExam.title) || '모의고사')} 연습</h1>
+      <h2 class="ex-q-no">Question ${q.no} of ${totalQuestions()}</h2>
       <span class="ex-q-kind">${esc(KIND_LABEL[part.part] || '')}</span>
       ${stepper(part, q.no, true)}
     </div>`;
@@ -861,7 +863,8 @@
 
   function guideMarkup(part, q) {
     const head = `<div class="ex-q-head">
-      <span class="ex-q-no">Question ${q.no} of ${totalQuestions()}</span>
+      <h1 class="sr-only">${esc((currentExam && currentExam.title) || '모의고사')} 해설</h1>
+      <h2 class="ex-q-no">Question ${q.no} of ${totalQuestions()}</h2>
       <span class="ex-q-kind">${esc(KIND_LABEL[part.part] || '')}</span>
       ${noteStar(q.no)}
     </div>${stepper(part, q.no, true)}`;
@@ -896,7 +899,7 @@
   function partBar(current) {
     const exam = currentExam;
     if (!exam) return '';
-    return `<div class="ex-partbar">${exam.parts.map((part) => (
+    return `<div class="ex-partbar" role="group" aria-label="파트 선택">${exam.parts.map((part) => (
       `<button type="button" data-act="part" data-part="${part.part}" aria-pressed="${part.part === current ? 'true' : 'false'}" class="${part.part === current ? 'on' : ''}">Part ${part.part}</button>`
     )).join('')}</div>`;
   }
@@ -1138,7 +1141,7 @@
     const max = result.max || (part.part === 5 ? 5 : 3);
     return `<section class="practice-score" id="practice-score-${q.no}">
       <div class="qcard-head">
-        <span class="qcard-no">Q${q.no}</span>
+        <h2 class="qcard-no">Q${q.no}</h2>
         <span class="qcard-kind">${esc(KIND_LABEL[part.part] || '')}</span>
         <span class="qcard-score">${result.score}/${max}</span>
         ${noteStar(q.no)}
@@ -1183,7 +1186,8 @@
     setChrome(part.part, 0);
     els.stage.innerHTML = `<div class="ex-q">
       <div class="ex-q-head">
-        <span class="ex-q-no">Situation</span>
+        <h1 class="sr-only">${esc((currentExam && currentExam.title) || '모의고사')}</h1>
+        <h2 class="ex-q-no">Situation</h2>
         <span class="ex-q-kind">Part ${part.part}</span>
       </div>
       <div class="ex-context">${esc(part.context)}</div>
@@ -1407,7 +1411,7 @@
       <div class="ex-row">
         <span class="ex-row-no">Q${q.no}</span>
         <span class="ex-row-label">${esc(KIND_LABEL[part.part] || '')}</span>
-        <span class="ex-ratings" data-no="${q.no}">
+        <span class="ex-ratings" role="group" aria-label="Q${q.no} 내 평가" data-no="${q.no}">
           <button type="button" data-act="rate" data-no="${q.no}" data-value="good" aria-pressed="false">좋음</button>
           <button type="button" data-act="rate" data-no="${q.no}" data-value="ok" aria-pressed="false">보통</button>
           <button type="button" data-act="rate" data-no="${q.no}" data-value="weak" aria-pressed="false">아쉬움</button>
@@ -1453,7 +1457,7 @@
 
           <div class="ex-review">${rows}</div>
 
-          <p class="ex-note" id="ex-save-state">${attempt.saved === false
+          <p class="ex-note" id="ex-save-state" role="status" aria-live="polite">${attempt.saved === false
             ? '기록을 저장하지 못했습니다. 저장 공간을 확인해 주세요.'
             : '자기평가는 이 기기에만 저장됩니다.'}</p>
 
@@ -1547,7 +1551,7 @@
     }
     if (scoring.error) {
       if (scoring.error === 'auto-score-off') {
-        return `<div class="scoring-banner error">
+        return `<div class="scoring-banner error" role="status" aria-live="polite">
           <div class="scoring-label">자동 채점이 꺼져 있어요</div>
           <p class="scoring-sub">녹음과 자기평가는 그대로 남아 있어요. 점수가 필요하면 설정에서 자동 채점을 켜 주세요.</p>
           <button class="ex-btn ghost sm" type="button" data-settings-open>설정 열기</button>
@@ -1559,13 +1563,13 @@
       const retry = recordingEnabled && scoreModulesReady()
         ? '<button class="ex-btn ghost sm" data-act="score-now" type="button">다시 채점</button>'
         : '';
-      return `<div class="scoring-banner error">
+      return `<div class="scoring-banner error" role="status" aria-live="polite">
         <div class="scoring-label">채점을 마치지 못했어요</div>
         <p class="scoring-sub">${text}</p>${retry}
       </div>`;
     }
     if (scoring.done) {
-      return '<div class="scoring-banner done"><div class="scoring-label">채점 완료</div><p class="scoring-sub">추정 점수는 참고용이에요.</p></div>';
+      return '<div class="scoring-banner done" role="status" aria-live="polite"><div class="scoring-label">채점 완료</div><p class="scoring-sub">추정 점수는 참고용이에요.</p></div>';
     }
     return '';
   }
@@ -1963,7 +1967,7 @@
       paintRetakeResult(item, prevScore, silent, null);
       return;
     }
-    els.stage.innerHTML = `<div class="practice-score pending"><h3>채점 중…</h3><p id="retake-status">음성 인식 모델 준비 중…</p></div>`;
+    els.stage.innerHTML = `<div class="practice-score pending" role="status" aria-live="polite"><h3>채점 중…</h3><p id="retake-status">음성 인식 모델 준비 중…</p></div>`;
     dockIdle('채점');
     try {
       const stt = window.SpeakingSTT;
@@ -2189,6 +2193,8 @@
       stopSpeech();
       practiceIndex = index;
       paintPractice();
+      const stepBtn = els && els.stage.querySelector(`[data-act="jump"][data-no="${no}"]`);
+      if (stepBtn) stepBtn.focus();
       return;
     }
     if (act === 'prev') {
@@ -2211,6 +2217,8 @@
       stopSpeech();
       practiceIndex = index;
       paintPractice();
+      const partBtn = els && els.stage.querySelector(`[data-act="part"][data-part="${partNo}"]`);
+      if (partBtn) partBtn.focus();
       return;
     }
     if (act === 'ptimer') {

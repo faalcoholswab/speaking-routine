@@ -473,7 +473,7 @@
     return `<section class="st-card">
       <h3 class="st-h3">목소리</h3>
       <p class="st-desc">학습 문장과 모의고사 안내·질문을 읽을 목소리예요. 미국·영국·호주 목소리는 iPad 설정의 음성 목록에서 지역마다 고른 목소리로 바뀌어요.</p>
-      <p class="st-note ${status.tone}">${esc(status.text)}</p>
+      <p class="st-note ${status.tone}" role="status" aria-live="polite">${esc(status.text)}</p>
       <ul class="st-list st-voices" role="radiogroup" aria-label="목소리">${items}</ul>
     </section>
     <section class="st-card">
@@ -546,7 +546,7 @@
         ${confirmMarkup}
       </div>
       <span class="st-list-val"></span>
-      <button class="st-btn ghost small" type="button" data-si="reset" data-kind="${kind}">지우기</button>
+      <button class="st-btn ghost small" type="button" data-si="reset" data-kind="${kind}" aria-label="${esc(title)} 지우기">지우기</button>
     </li>`;
   }
 
@@ -600,7 +600,7 @@
           <button class="st-switch" type="button" role="switch" aria-checked="${on ? 'true' : 'false'}" aria-label="자동 채점" data-si="toggle-auto"></button>
         </div>
       </div>
-      <p class="st-note">${on ? '지금은 자동 채점이 켜져 있어요.' : '지금은 자동 채점이 꺼져 있어요. 이미 저장된 점수는 그대로 남아 있어요.'}</p>
+      <p class="st-note" role="status" aria-live="polite">${on ? '지금은 자동 채점이 켜져 있어요.' : '지금은 자동 채점이 꺼져 있어요. 이미 저장된 점수는 그대로 남아 있어요.'}</p>
     </section>`;
   }
 
@@ -615,6 +615,7 @@
   function paint() {
     if (!sheet) return;
     const active = document.activeElement;
+    const focusTab = active && active.getAttribute ? active.getAttribute('data-si-tab') : '';
     const focusKey = active && active.getAttribute ? active.getAttribute('data-si') : '';
     const focusValue = active && active.getAttribute ? active.getAttribute('data-value') : '';
     sheet.innerHTML = `<header class="st-head">
@@ -622,12 +623,12 @@
         <button class="st-close" type="button" data-si="close" aria-label="설정 닫기">×</button>
       </header>
       <nav class="st-tabs" role="tablist" aria-label="설정 항목">
-        ${TABS.map(([key, label]) => `<button class="st-tab" role="tab" type="button" data-si-tab="${key}" aria-selected="${tab === key ? 'true' : 'false'}">${label}</button>`).join('')}
+        ${TABS.map(([key, label]) => `<button class="st-tab" role="tab" id="st-tab-${key}" aria-controls="st-body" type="button" data-si-tab="${key}" aria-selected="${tab === key ? 'true' : 'false'}">${label}</button>`).join('')}
       </nav>
-      <div class="st-body" id="st-body" tabindex="-1">
+      <div class="st-body" id="st-body" role="tabpanel" aria-labelledby="st-tab-${tab}" tabindex="-1">
         <div class="st-status" role="status" aria-live="polite"${statusLine ? '' : ' hidden'} style="margin:0 0 12px;font-size:13px;line-height:1.5;color:${statusWarn ? 'var(--warn-deep)' : 'var(--accent-ink)'}">${esc(statusLine)}</div>
         ${bodyMarkup()}
-        <input type="file" accept="application/json,.json" data-si-import hidden>
+        <input type="file" accept="application/json,.json" data-si-import aria-label="백업 파일 선택" hidden>
       </div>`;
     if (statusLine) {
       window.setTimeout(() => {
@@ -637,7 +638,10 @@
         if (status) status.hidden = true;
       }, 5000);
     }
-    if (focusKey) {
+    if (focusTab) {
+      const target = sheet.querySelector(`[data-si-tab="${focusTab}"]`);
+      if (target) target.focus();
+    } else if (focusKey) {
       const target = sheet.querySelector(`[data-si="${focusKey}"][data-value="${focusValue}"]`) || sheet.querySelector(`[data-si="${focusKey}"]`);
       if (target) target.focus();
     }

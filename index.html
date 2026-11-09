@@ -22,7 +22,7 @@
   <header class="site-header">
     <div class="wrap">
       <a class="brand" href="#/home">
-        <span class="brand-mark"><i data-ic="message"></i></span>
+        <span class="brand-mark" aria-hidden="true"><i data-ic="message"></i></span>
         <span class="brand-text">
           <span class="brand-name">스피킹 루틴</span>
           <span class="brand-sub">Speaking Routine</span>
@@ -42,12 +42,12 @@
 
   <main class="wrap">
     <div class="crumbbar">
-      <div class="crumb">
+      <div class="crumb" aria-label="현재 위치">
         <span>나의 스피킹</span>
-        <i data-ic="chevronRight"></i>
-        <strong id="crumb-current">홈</strong>
+        <i data-ic="chevronRight" aria-hidden="true"></i>
+        <strong id="crumb-current" aria-live="polite">홈</strong>
       </div>
-      <div class="streak"><i data-ic="leaf"></i><span id="streak-text"></span></div>
+      <div class="streak" role="status" aria-live="polite"><i data-ic="leaf" aria-hidden="true"></i><span id="streak-text"></span></div>
     </div>
 
     <div id="app"></div>
@@ -59,7 +59,7 @@
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <input type="file" id="import-file" accept="application/json,.json" hidden>
+  <input type="file" id="import-file" accept="application/json,.json" aria-label="학습 기록 백업 파일 가져오기" hidden>
 
   <script src="data/part2.js?v=63"></script>
   <script src="data/part3.js?v=63"></script>
