@@ -105,8 +105,16 @@
   }
 
   function analyze(samples, sampleRate) {
-    const rate = Number(sampleRate) || 16000;
-    const input = samples instanceof Float32Array ? samples : new Float32Array(samples || []);
+    let rate = Number(sampleRate) || 16000;
+    let input = samples instanceof Float32Array ? samples : new Float32Array(samples || []);
+    if (rate > 16000 && input.length) {
+      const ratio = rate / 16000;
+      const length = Math.max(1, Math.floor(input.length / ratio));
+      const down = new Float32Array(length);
+      for (let i = 0; i < length; i += 1) down[i] = input[Math.floor(i * ratio)];
+      input = down;
+      rate = 16000;
+    }
     const frameSize = Math.round(FRAME_SEC * rate);
     const frameCount = Math.floor(input.length / frameSize);
     if (!frameCount) {

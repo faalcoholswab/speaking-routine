@@ -127,8 +127,13 @@
       try { URL.revokeObjectURL(mic.testUrl); } catch (error) { /* noop */ }
       mic.testUrl = '';
     }
+    if (mic.testId && window.SpeakingRecorder && typeof window.SpeakingRecorder.remove === 'function') {
+      try { window.SpeakingRecorder.remove(mic.testId, 1); } catch (error) { /* noop */ }
+    }
+    mic.testId = '';
     mic.testBlob = null;
     mic.testing = false;
+    recordingNo = 0;
     if (window.SpeakingRecorder && typeof window.SpeakingRecorder.cancel === 'function') {
       try { window.SpeakingRecorder.cancel(); } catch (error) { /* noop */ }
     }
@@ -261,6 +266,7 @@
     revokeReportAudio();
     scoring.token += 1;
     scoring = { running: false, done: false, error: null, results: {}, raw: {}, summary: null, token: scoring.token };
+    practiceScoreToken += 1;
     runToken += 1;
     attempt = null;
     document.title = '모의고사 · 스피킹 루틴';
@@ -345,6 +351,7 @@
     revokeReportAudio();
     scoring.token += 1;
     scoring.running = false;
+    practiceScoreToken += 1;
     runToken += 1;
 
     root.innerHTML = `
@@ -1002,6 +1009,7 @@
         if (token !== runToken) return;
         if (part.cues && part.cues.start) await speak(part.cues.start, 'narrator');
         if (token !== runToken) return;
+        beep('go');
         await startRecording(q.no);
         if (token !== runToken) { cancelRecording(); return; }
         await countdown(q.responseSeconds, '응답', token, 'respond');
@@ -1011,11 +1019,16 @@
       beep('end');
       dockIdle('타이머');
       if (recordingEnabled && (TEST_AUDIO || recorderSupported())) {
+        const scoreToken = practiceScoreToken;
         practiceScores[q.no] = { pending: true };
         paintPractice();
         const result = await scorePracticeItem(part, q);
+        if (scoreToken !== practiceScoreToken) return;
         practiceScores[q.no] = result || { unavailable: true };
-        if (token === runToken) paintPractice();
+        if (mode === 'practice' && practiceList[practiceIndex] && practiceList[practiceIndex].q.no === q.no
+          && (token === runToken || (els && els.dock && els.dock.classList.contains('idle')))) {
+          paintPractice();
+        }
       }
     } catch (error) {
       if (error !== ABORT) console.error(error);
@@ -1679,6 +1692,7 @@
     }
     card.classList.add('scored');
     paintStar(no);
+    loadReportAudio(attempt.id, [found]);
   }
 
   async function runScoring(current) {
@@ -1816,6 +1830,7 @@
     revokeReportAudio();
     scoring.token += 1;
     scoring.running = false;
+    practiceScoreToken += 1;
     runToken += 1;
     attempt = null;
     const items = NOTES ? NOTES.list() : [];
@@ -1889,7 +1904,7 @@
     scoring.token += 1;
     scoring = { running: false, done: false, error: null, results: {}, raw: {}, summary: null, token: scoring.token };
     attempt = {
-      id: uid(),
+      id: `retake-${uid()}`,
       examId: exam.id,
       at: new Date().toISOString(),
       startedAt: Date.now(),
@@ -1906,18 +1921,20 @@
     try {
       await runQuestion({ part, q }, token);
       if (token !== runToken) return;
-      await finishRetake(item, prevScore);
+      await finishRetake(item, prevScore, token);
     } catch (error) {
       if (error !== ABORT) console.error(error);
     }
   }
 
-  async function finishRetake(item, prevScore) {
+  async function finishRetake(item, prevScore, token) {
+    if (token !== runToken || !attempt) return;
     const exam = currentExam;
     const { part, q } = item;
     attempt.finishedAt = new Date().toISOString();
     attempt.seconds = Math.round((Date.now() - attempt.startedAt) / 1000);
     const record = await getRecording(attempt.id, q.no);
+    if (token !== runToken || !attempt) return;
     if (record && !autoScoreEnabled()) {
       releaseExamLock();
       retake = { item, prevScore, skipped: true };
@@ -1930,6 +1947,7 @@
       return;
     }
     const metrics = await analyzeRecording(record.blob);
+    if (token !== runToken || !attempt) return;
     if (isSilentMetrics(metrics)) {
       const silent = silentResult(q);
       if (!silent) {
@@ -1955,7 +1973,9 @@
         const pct = Math.round(normalizeProgress(progress) * 100);
         el.textContent = pct > 0 ? `음성 인식 모델 준비 중… ${pct}%` : '음성 인식 모델 준비 중…';
       });
+      if (token !== runToken || !attempt) return;
       const tr = await stt.transcribe(record.blob);
+      if (token !== runToken || !attempt) return;
       const text = String((typeof tr === 'string' ? tr : (tr && tr.text)) || '').trim();
       const words = tr && Array.isArray(tr.words) ? tr.words : undefined;
       const value = window.SpeakingScore.gradeQuestion({
@@ -1977,6 +1997,7 @@
       beep('end');
       paintRetakeResult(item, prevScore, result, null);
     } catch (error) {
+      if (token !== runToken || !attempt) return;
       releaseExamLock();
       paintRetakeResult(item, prevScore, null, 'unavailable');
     }

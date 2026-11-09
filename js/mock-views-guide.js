@@ -441,7 +441,7 @@
 
   function pronGuideMarkup(text, pron) {
     if (!window.PRON_GUIDE || !text) return '';
-    const built = window.PRON_GUIDE.build({ en: text });
+    const built = window.PRON_GUIDE.build({ en: text, pron });
     const points = (built && built.points) || [];
     if (!points.length) return '';
     const used = new Set(points.map((point) => point.tag));

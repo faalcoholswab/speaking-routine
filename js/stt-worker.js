@@ -56,6 +56,7 @@ self.onmessage = async (event) => {
         fetchBinary,
         onProgress: (progress) => self.postMessage({ type: 'progress', ...progress }),
       });
+      ort.env.wasm.wasmBinary = null;
       self.postMessage({ type: 'ready', backend: engine.backend || provider() });
     } catch (error) {
       initError = error && error.message ? error.message : String(error);
