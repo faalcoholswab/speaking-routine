@@ -1,5 +1,5 @@
 /* 스피킹 루틴 — 오프라인 앱 셸 (network-first) */
-const CACHE = 'speaking-routine-v62';
+const CACHE = 'speaking-routine-v63';
 const SHELL = [
   './',
   './index.html',
@@ -52,6 +52,7 @@ const SHELL = [
   './data/mock-02-guide.js',
   './data/mock-03-guide.js',
   './data/mock-04-guide.js',
+  './data/mock-05-guide.js',
   './data/mock-06-guide.js',
   './data/mock-07-guide.js',
   './data/mock-08-guide.js',
@@ -157,7 +158,11 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response.ok && target) {
             const copy = response.clone();
-            event.waitUntil(caches.open(CACHE).then((cache) => cache.put(target, copy)));
+            const rootCopy = target === './index.html' ? response.clone() : null;
+            event.waitUntil(caches.open(CACHE).then((cache) => Promise.all([
+              cache.put(cacheKey(target), copy),
+              rootCopy ? cache.put(cacheKey('./'), rootCopy) : null,
+            ])));
           }
           return response;
         })

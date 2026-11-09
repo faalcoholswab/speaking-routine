@@ -55,6 +55,7 @@ window.MOCK_MANIFEST = [
   {
     id: 'mock-05',
     data: 'data/mock-05.js',
+    guide: 'data/mock-05-guide.js',
     samples: 'data/mock-05-samples.js',
     tag: '기출',
     images: [

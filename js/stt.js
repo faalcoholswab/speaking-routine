@@ -234,12 +234,11 @@
     const onProgress = options.onProgress || (() => {});
     const sessionOptions = { executionProviders: ['wasm'], graphOptimizationLevel: 'all' };
 
-    const [config, generation, vocab, added, preprocessor] = await Promise.all([
+    const [config, generation, vocab, added] = await Promise.all([
       fetchJson(fetchBinary, `${base}config.json`),
       fetchJson(fetchBinary, `${base}generation_config.json`),
       fetchJson(fetchBinary, `${base}vocab.json`),
       fetchJson(fetchBinary, `${base}added_tokens.json`).catch(() => ({})),
-      fetchJson(fetchBinary, `${base}preprocessor_config.json`).catch(() => ({})),
     ]);
 
     const files = ['onnx/encoder_model_quantized.onnx', 'onnx/decoder_model_quantized.onnx', 'onnx/decoder_with_past_model_quantized.onnx'];
@@ -255,8 +254,11 @@
 
     onProgress({ phase: 'init', loaded, total: files.length });
     const encoder = await ort.InferenceSession.create(sessions[files[0]], sessionOptions);
+    delete sessions[files[0]];
     const decoder = await ort.InferenceSession.create(sessions[files[1]], sessionOptions);
+    delete sessions[files[1]];
     const decoderPast = await ort.InferenceSession.create(sessions[files[2]], sessionOptions);
+    delete sessions[files[2]];
     onProgress({ phase: 'ready', loaded, total: files.length });
 
     const decodeTokens = makeDecoder(vocab, added);

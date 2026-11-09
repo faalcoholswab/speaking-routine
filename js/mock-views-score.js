@@ -15,11 +15,11 @@
   function listenBlock(q, phase) {
     const times = q.heardTwice ? '두 번 재생됩니다.' : '한 번만 재생됩니다.';
     if (phase === 'respond') {
-      return `<div class="ex-listen"><span>답변 중입니다. 질문은 다시 나오지 않습니다.</span></div>`;
+      return `<div class="ex-listen" role="status" aria-live="polite"><span>답변 중입니다. 질문은 다시 나오지 않습니다.</span></div>`;
     }
     const label = phase === 'replay' ? '질문을 다시 들려줍니다.' : '질문이 재생됩니다.';
-    return `<div class="ex-listen">
-      <span class="ex-wave"><i></i><i></i><i></i><i></i><i></i></span>
+    return `<div class="ex-listen" role="status" aria-live="polite">
+      <span class="ex-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
       <span>${label} ${times}</span>
     </div>`;
   }
@@ -27,7 +27,7 @@
   // 같은 지문·표가 계속 보이는 파트에서 현재 문항을 눈으로 구분할 수 있게 한다.
   function stepper(part, currentNo, clickable) {
     if (!part.questions || part.questions.length < 2) return '';
-    return `<div class="ex-stepper">${part.questions.map((item) => {
+    return `<div class="ex-stepper"${clickable ? ' role="group" aria-label="문항 이동"' : ''}>${part.questions.map((item) => {
       const on = item.no === currentNo;
       const cls = `ex-step${on ? ' on' : ''}`;
       const current = on ? 'step' : 'false';
@@ -61,7 +61,8 @@
   function readingMarkup(part) {
     return `<div class="ex-q">
       <div class="ex-q-head">
-        <span class="ex-q-no">Reading</span>
+        <h1 class="sr-only">모의고사</h1>
+        <h2 class="ex-q-no">Reading</h2>
         <span class="ex-q-kind">정보 읽기</span>
       </div>
       <figure class="ex-figure wide">
@@ -219,7 +220,7 @@
       : null;
     return `<article class="qcard${result ? ' scored' : ''}" id="qcard-${q.no}" data-no="${q.no}">
       <div class="qcard-head">
-        <span class="qcard-no">Q${q.no}</span>
+        <h2 class="qcard-no">Q${q.no}</h2>
         <span class="qcard-kind">${esc(KIND_LABEL[part.part] || '')}</span>
         <span class="qcard-score">${score === null ? '—' : `${score}/${max}`}</span>
         ${noteStar(q.no)}
@@ -233,7 +234,7 @@
   }
 
   function ratingButtons(no) {
-    return `<span class="ex-ratings" data-no="${no}">
+    return `<span class="ex-ratings" role="group" aria-label="Q${no} 내 평가" data-no="${no}">
       <button type="button" data-act="rate" data-no="${no}" data-value="good" aria-pressed="false">좋음</button>
       <button type="button" data-act="rate" data-no="${no}" data-value="ok" aria-pressed="false">보통</button>
       <button type="button" data-act="rate" data-no="${no}" data-value="weak" aria-pressed="false">아쉬움</button>
@@ -456,7 +457,7 @@
     const list = (content.length ? content : missed).slice(0, 8);
     return `<div class="qa-section missed">
       <p class="qa-label">놓친 단어 <span>${missed.length}개 중 ${list.length}개</span></p>
-      <div class="missed-list">${list.map((word) => `<button class="missed-word" type="button" data-act="speak-word" data-word="${esc(word)}">${esc(word)}<span aria-hidden="true"> ▶</span></button>`).join('')}</div>
+      <div class="missed-list">${list.map((word) => `<button class="missed-word" type="button" data-act="speak-word" data-word="${esc(word)}" aria-label="${esc(word)} 발음 듣기">${esc(word)}<span aria-hidden="true"> ▶</span></button>`).join('')}</div>
     </div>`;
   }
 

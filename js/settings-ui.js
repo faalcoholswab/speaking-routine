@@ -17,6 +17,8 @@
     legacyStudy: 'speaking-routine-v1',
     mock: 'speaking-routine-mock-v1',
     notes: 'speaking-routine-notes-v1',
+    studyLock: 'speaking-routine-session-lock',
+    mockLock: 'speaking-routine-mock-lock',
   };
   const AUDIO_DB = 'speaking-routine-audio';
   const STT_CACHE_PREFIX = 'speaking-routine-stt-';
@@ -31,6 +33,7 @@
   let host = null;
   let sheet = null;
   let lastFocus = null;
+  let inerted = [];
   let tab = 'voice';
   let pendingReset = '';
   let summaryCache = null;
@@ -210,17 +213,52 @@
     });
   }
 
+  function lockActive() {
+    const studyLock = readJSON(KEYS.studyLock);
+    if (studyLock && Date.now() - Number(studyLock.at || 0) < 20000) return true;
+    const mockLock = readJSON(KEYS.mockLock);
+    if (mockLock && Date.now() - Number(mockLock.at || 0) < 30000) return true;
+    return false;
+  }
+
   async function resetKind(kind) {
     if (window.AppData && typeof window.AppData.reset === 'function') {
       return window.AppData.reset(kind);
     }
-    const removal = [];
-    if (kind === 'all' || kind === 'study') removal.push(KEYS.study, KEYS.legacyStudy);
-    if (kind === 'all' || kind === 'mock') removal.push(KEYS.mock);
-    if (kind === 'all' || kind === 'notes') removal.push(KEYS.notes);
-    removal.forEach((key) => { try { localStorage.removeItem(key); } catch (error) { /* noop */ } });
-    if (kind === 'all' || kind === 'recordings') await deleteAudioDb();
-    return { ok: true, reload: true };
+    if (lockActive()) return { ok: false, failed: true, locked: true };
+    let failed = false;
+    if (kind === 'all' || kind === 'study') {
+      const prev = readJSON(KEYS.study);
+      const keepSettings = prev && prev.settings && typeof prev.settings === 'object' ? prev.settings : null;
+      try {
+        localStorage.removeItem(KEYS.legacyStudy);
+        if (keepSettings) {
+          localStorage.setItem(KEYS.study, JSON.stringify({
+            version: 1,
+            progress: {},
+            queue: {},
+            history: [],
+            streak: { current: 0, best: 0, lastDate: '' },
+            settings: keepSettings,
+          }));
+        } else {
+          localStorage.removeItem(KEYS.study);
+        }
+      } catch (error) {
+        failed = true;
+      }
+    }
+    if (kind === 'all' || kind === 'mock') {
+      try { localStorage.removeItem(KEYS.mock); } catch (error) { failed = true; }
+    }
+    if (kind === 'all' || kind === 'notes') {
+      try { localStorage.removeItem(KEYS.notes); } catch (error) { failed = true; }
+    }
+    if (kind === 'all' || kind === 'recordings') {
+      const cleared = await deleteAudioDb();
+      if (!cleared) failed = true;
+    }
+    return { ok: !failed, failed, reload: !failed };
   }
 
   function exportBackup() {
@@ -263,6 +301,12 @@
       paint();
       return;
     }
+    if (lockActive()) {
+      statusLine = '학습이나 모의고사 진행 중에는 가져올 수 없어요.';
+      statusWarn = true;
+      paint();
+      return;
+    }
     if (file.size > 5 * 1024 * 1024) {
       statusLine = '파일이 너무 커요. 5MB 이하 백업만 가져올 수 있어요.';
       paint();
@@ -270,20 +314,27 @@
     }
     try {
       const parsed = JSON.parse(await file.text());
-      const data = parsed && parsed.data ? parsed.data : parsed;
-      if (!data || typeof data !== 'object') throw new Error('invalid');
+      const data = parsed && typeof parsed === 'object' && parsed.data ? parsed.data : parsed;
+      const recognizable = data && typeof data === 'object' && !Array.isArray(data)
+        && ['progress', 'queue', 'history', 'ratings', 'sessions'].some((key) => key in data);
+      if (!recognizable) throw new Error('invalid');
       if (!window.confirm('현재 기록을 이 파일의 기록으로 바꿀까요?')) return;
       try { localStorage.setItem(KEYS.study, JSON.stringify(data)); } catch (error) { /* noop */ }
       if (parsed && Object.prototype.hasOwnProperty.call(parsed, 'mock')) {
         try {
-          if (parsed.mock) localStorage.setItem(KEYS.mock, JSON.stringify(parsed.mock));
-          else localStorage.removeItem(KEYS.mock);
+          if (parsed.mock && typeof parsed.mock === 'object' && Array.isArray(parsed.mock.attempts)) {
+            localStorage.setItem(KEYS.mock, JSON.stringify(parsed.mock));
+          } else if (parsed.mock === null) {
+            localStorage.removeItem(KEYS.mock);
+          }
         } catch (error) { /* noop */ }
       }
       if (parsed && Object.prototype.hasOwnProperty.call(parsed, 'notes')) {
         try {
-          if (parsed.notes) localStorage.setItem(KEYS.notes, JSON.stringify(parsed.notes));
-          else localStorage.removeItem(KEYS.notes);
+          const validNotes = parsed.notes && typeof parsed.notes === 'object'
+            && (Array.isArray(parsed.notes) || Array.isArray(parsed.notes.items));
+          if (validNotes) localStorage.setItem(KEYS.notes, JSON.stringify(parsed.notes));
+          else if (parsed.notes === null) localStorage.removeItem(KEYS.notes);
         } catch (error) { /* noop */ }
       }
       if (parsed && parsed.appSettings && settingsApi() && typeof settingsApi().import === 'function') {
@@ -422,7 +473,7 @@
     return `<section class="st-card">
       <h3 class="st-h3">목소리</h3>
       <p class="st-desc">학습 문장과 모의고사 안내·질문을 읽을 목소리예요. 미국·영국·호주 목소리는 iPad 설정의 음성 목록에서 지역마다 고른 목소리로 바뀌어요.</p>
-      <p class="st-note ${status.tone}">${esc(status.text)}</p>
+      <p class="st-note ${status.tone}" role="status" aria-live="polite">${esc(status.text)}</p>
       <ul class="st-list st-voices" role="radiogroup" aria-label="목소리">${items}</ul>
     </section>
     <section class="st-card">
@@ -495,7 +546,7 @@
         ${confirmMarkup}
       </div>
       <span class="st-list-val"></span>
-      <button class="st-btn ghost small" type="button" data-si="reset" data-kind="${kind}">지우기</button>
+      <button class="st-btn ghost small" type="button" data-si="reset" data-kind="${kind}" aria-label="${esc(title)} 지우기">지우기</button>
     </li>`;
   }
 
@@ -549,7 +600,7 @@
           <button class="st-switch" type="button" role="switch" aria-checked="${on ? 'true' : 'false'}" aria-label="자동 채점" data-si="toggle-auto"></button>
         </div>
       </div>
-      <p class="st-note">${on ? '지금은 자동 채점이 켜져 있어요.' : '지금은 자동 채점이 꺼져 있어요. 이미 저장된 점수는 그대로 남아 있어요.'}</p>
+      <p class="st-note" role="status" aria-live="polite">${on ? '지금은 자동 채점이 켜져 있어요.' : '지금은 자동 채점이 꺼져 있어요. 이미 저장된 점수는 그대로 남아 있어요.'}</p>
     </section>`;
   }
 
@@ -564,6 +615,7 @@
   function paint() {
     if (!sheet) return;
     const active = document.activeElement;
+    const focusTab = active && active.getAttribute ? active.getAttribute('data-si-tab') : '';
     const focusKey = active && active.getAttribute ? active.getAttribute('data-si') : '';
     const focusValue = active && active.getAttribute ? active.getAttribute('data-value') : '';
     sheet.innerHTML = `<header class="st-head">
@@ -571,12 +623,12 @@
         <button class="st-close" type="button" data-si="close" aria-label="설정 닫기">×</button>
       </header>
       <nav class="st-tabs" role="tablist" aria-label="설정 항목">
-        ${TABS.map(([key, label]) => `<button class="st-tab" role="tab" type="button" data-si-tab="${key}" aria-selected="${tab === key ? 'true' : 'false'}">${label}</button>`).join('')}
+        ${TABS.map(([key, label]) => `<button class="st-tab" role="tab" id="st-tab-${key}" aria-controls="st-body" type="button" data-si-tab="${key}" aria-selected="${tab === key ? 'true' : 'false'}">${label}</button>`).join('')}
       </nav>
-      <div class="st-body" id="st-body" tabindex="-1">
+      <div class="st-body" id="st-body" role="tabpanel" aria-labelledby="st-tab-${tab}" tabindex="-1">
         <div class="st-status" role="status" aria-live="polite"${statusLine ? '' : ' hidden'} style="margin:0 0 12px;font-size:13px;line-height:1.5;color:${statusWarn ? 'var(--warn-deep)' : 'var(--accent-ink)'}">${esc(statusLine)}</div>
         ${bodyMarkup()}
-        <input type="file" accept="application/json,.json" data-si-import hidden>
+        <input type="file" accept="application/json,.json" data-si-import aria-label="백업 파일 선택" hidden>
       </div>`;
     if (statusLine) {
       window.setTimeout(() => {
@@ -586,7 +638,10 @@
         if (status) status.hidden = true;
       }, 5000);
     }
-    if (focusKey) {
+    if (focusTab) {
+      const target = sheet.querySelector(`[data-si-tab="${focusTab}"]`);
+      if (target) target.focus();
+    } else if (focusKey) {
       const target = sheet.querySelector(`[data-si="${focusKey}"][data-value="${focusValue}"]`) || sheet.querySelector(`[data-si="${focusKey}"]`);
       if (target) target.focus();
     }
@@ -624,6 +679,12 @@
     sheet.setAttribute('aria-modal', 'true');
     sheet.setAttribute('aria-labelledby', 'st-title');
     host.appendChild(sheet);
+    inerted = [...document.querySelectorAll('header.site-header, main.wrap, main.ex-shell, .ex-settings-btn')]
+      .filter((node) => !node.inert);
+    inerted.forEach((node) => {
+      node.inert = true;
+      node.setAttribute('aria-hidden', 'true');
+    });
     document.body.appendChild(host);
     document.body.style.overflow = 'hidden';
     paint();
@@ -639,6 +700,11 @@
     host.remove();
     host = null;
     sheet = null;
+    inerted.forEach((node) => {
+      node.inert = false;
+      node.removeAttribute('aria-hidden');
+    });
+    inerted = [];
     document.body.style.overflow = '';
     if (lastFocus && typeof lastFocus.focus === 'function') lastFocus.focus();
     lastFocus = null;
@@ -653,7 +719,10 @@
     summaryCache = null;
     pendingReset = '';
     if (result && result.failed) {
-      statusLine = '일부 기록을 지우지 못했어요. 잠시 뒤 다시 시도해 주세요.';
+      statusLine = result.locked
+        ? '학습이나 모의고사 진행 중에는 기록을 지울 수 없어요.'
+        : '일부 기록을 지우지 못했어요. 잠시 뒤 다시 시도해 주세요.';
+      statusWarn = true;
       paint();
       return;
     }

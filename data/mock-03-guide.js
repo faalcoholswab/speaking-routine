@@ -8,7 +8,7 @@ window.MOCK_GUIDES['mock-03'] = {
       pron: '웰컴 투 오크데일 파크 아워 워킹 투어 이즈 어 그레이트 웨이 투 익스플로어 더 뷰티 오브 네이처 애즈 유 팔로우 더 트레일 페이 어텐션 투 더 사운즈 오브 네이처 어라운드 유 얼롱 더 웨이 유 캔 인조이 뷰티풀 트리스 와일드 애니멀스 앤 컬러풀 플라워스 플리즈 스테이 온 더 트레일 앤 테이크 유어 타임 인조잉 더 내추럴 서라운딩스',
     },
     2: {
-      pron: '땡큐 포 어텐딩 투데이스 컨퍼런스 아임 히어 투데이 투 톡 어바웃 트래픽 컨제스천 인 아워 씨티 위 해브 플랜스 투 익스팬드 버스 서비시스 프로모트 카풀링 프로그램스 앤 인크리스 더 넘버 오브 바이크 레인스 디즈 체인지스 윌 헬프 리듀스 트래픽 컨제스천 앤 메이크 잇 이지어 포 피플 투 겟 어라운드 더 씨티',
+      pron: '땡큐 포 어텐딩 투데이스 컨퍼런스 아임 히어 투데이 투 톡 어바웃 트래픽 컨제스천 인 아워 씨티 위 해브 플랜스 투 익스팬드 버스 서비시즈 프로모트 카풀링 프로그램스 앤 인크리스 더 넘버 오브 바이크 레인스 디즈 체인지스 윌 헬프 리듀스 트래픽 컨제스천 앤 메이크 잇 이지어 포 피플 투 겟 어라운드 더 씨티',
     },
     3: {
       model: 'This picture was taken inside. I think it\'s a meeting room. The first thing I can see is two women. They are sitting at a long table. On the left, a woman is wearing a yellow sweater. She is looking at the other woman. On the right, a woman is wearing a light blue shirt. She is smiling. There is some food on the table. In the background, I can see a computer.',
@@ -54,8 +54,8 @@ window.MOCK_GUIDES['mock-03'] = {
       ],
     },
     6: {
-      model: 'I would say with others because it\'s fun. We can sing together.',
-      ko: '저는 다른 사람들과 함께 듣는 쪽이라고 말하겠습니다. 재미있기 때문입니다. 함께 노래할 수 있습니다.',
+      model: 'I would say listening to music with others is more enjoyable because it\'s fun. We can sing together.',
+      ko: '저는 다른 사람들과 함께 음악을 듣는 것이 더 즐겁다고 말하겠습니다. 재미있기 때문입니다. 함께 노래할 수 있습니다.',
       patterns: [
         'I would say + 답 + because ~',
         'We can ~ together.',
@@ -65,7 +65,7 @@ window.MOCK_GUIDES['mock-03'] = {
       model: 'I would say pop music. Here\'s why. First, it\'s fun and exciting, so people feel happy. Second, many people know the songs, so everyone can sing along. They can also dance easily to the strong beat. That\'s why I think pop music is the best for a party.',
       ko: '저는 팝 음악이라고 말하겠습니다. 이유는 이렇습니다. 첫째, 재미있고 신나서 사람들이 행복해집니다. 둘째, 많은 사람들이 그 노래를 알아서 모두 따라 부를 수 있습니다. 강한 비트 덕분에 쉽게 춤출 수도 있습니다. 그래서 저는 팝 음악이 파티에 가장 좋다고 생각합니다.',
       patterns: [
-        'I would say + 답 + because ~',
+        'I would say + 고른 보기.',
         'Here\'s why.',
         'First, ~ / Second, ~',
         'so I can ~',

@@ -6,10 +6,10 @@ window.MOCK_GUIDES['mock-01'] = {
   status: 'applied',
   questions: {
     1: {
-      pron: '헬로우 에브리원. 잇츠 어 플레저 투 스픽 앳 투데이즈 커뮤니티 포럼. 애즈 어 트랜스포테이션 리포터 포 시티 레이디오, 아이브 런드 하우 트래픽 업데이츠 어펙트 아워 데일리 루틴즈. 릴라이어블 리포트 헬프 커뮤터즈 츄즈 데어 라우츠, 어보이드 딜레이즈, 앤 어라이브 앳 데어 데스티네이션즈 온 타임. 댓츠 와이 프로바이딩 클리어 앤 애큐럿 인포메이션 이즈 쏘 임포턴트.',
+      pron: '헬로우, 에브리원. 잇츠 어 플레저 투 스픽 앳 투데이즈 커뮤니티 포럼. 애즈 어 트랜스포테이션 리포터 포 시티 레이디오, 아이브 런드 하우 트래픽 업데이츠 어펙트 아워 데일리 루틴즈. 릴라이어블 리포츠 헬프 커뮤터즈 츄즈 데어 라우츠, 어보이드 딜레이즈, 앤 어라이브 앳 데어 데스티네이션즈 온 타임. 댓츠 와이 프로바이딩 클리어 앤 애큐럿 인포메이션 이즈 쏘 임포턴트.',
     },
     2: {
-      pron: '웰컴 투 아워 가이디드 워킹 투어 오브 더 리버사이드 디스트릭트, 워너브 더 타운즈 페이버릿 네이버후즈. 얼롱 더 웨이, 율 디스커버 히스토릭 빌딩즈, 컬러풀 뮤럴즈, 앤 어 라이블리 샤핑 스트리트. 이프 유 니드 어시스턴스 오어 우드 라이크 투 런 모어 어바웃 어 파티큘러 로케이션, 플리즈 애스크 유어 투어 가이드. 위 호프 유 해브 어 원더풀 비짓.',
+      pron: '웰컴 투 아워 가이디드 워킹 투어 오브 더 리버사이드 디스트릭트, 워너브 더 타운즈 페이버릿 네이버후즈. 얼롱 더 웨이, 율 디스커버 히스토릭 빌딩즈, 컬러풀 뮤럴즈, 앤 어 라이블리 샤핑 스트리트. 이프 유 니드 어시스턴스 오어 우드 라익 투 런 모어 어바웃 어 파티큘러 로케이션, 플리즈 애스크 유어 투어 가이드. 위 호프 유 해브 어 원더풀 비짓.',
     },
     3: {
       model: 'This picture was taken inside. I think it\'s an office. The first thing I can see is three people. On the left, a man is sitting and talking. In the middle, another man is standing and holding a tablet. On the right, a woman is holding a cup. There is a laptop and a plant on the table. In the background, I can see large windows. It seems like they are having a meeting.',
@@ -44,10 +44,10 @@ window.MOCK_GUIDES['mock-01'] = {
       ],
     },
     5: {
-      model: 'I cooked dinner at home yesterday. I prefer cooking by myself because it\'s easy and convenient.',
-      ko: '저는 어제 집에서 저녁을 요리했습니다. 쉽고 편리해서 혼자 요리하는 것을 더 좋아합니다.',
+      model: 'The last time I cooked a meal at home was yesterday. I prefer cooking by myself because it\'s easy and convenient.',
+      ko: '마지막으로 집에서 식사를 요리한 것은 어제였습니다. 쉽고 편리해서 혼자 요리하는 것을 더 좋아합니다.',
       patterns: [
-        'I cooked ~ yesterday. (질문을 I로 받기)',
+        'The last time I cooked a meal at home was yesterday. (질문을 I로 받기)',
         'I prefer cooking by myself because it\'s easy and convenient.',
       ],
     },
@@ -60,9 +60,10 @@ window.MOCK_GUIDES['mock-01'] = {
       ],
     },
     7: {
-      model: 'I would prefer a healthy meal. Here\'s why. First, healthy food is good for my health. Also, it makes me feel strong and happy, so I can work better. Easy meals are fast, but I don\'t want to eat unhealthy food every day. That\'s why I think so.',
-      ko: '저는 건강한 음식을 더 선택하겠습니다. 이유는 이렇습니다. 첫째, 건강한 음식은 제 건강에 좋습니다. 또한 몸이 튼튼해지고 기분이 좋아져서 일을 더 잘할 수 있습니다. 쉬운 음식은 빠르지만, 저는 매일 건강에 나쁜 음식을 먹고 싶지 않습니다. 그래서 저는 그렇게 생각합니다.',
+      model: 'When choosing a meal to cook, how healthy the meal is matters more to me. Here\'s why. First, healthy food is good for my health. Also, it makes me feel strong and happy, so I can work better. Easy meals are fast to prepare, but I don\'t want to eat unhealthy food every day. That\'s why I think so.',
+      ko: '요리할 식사를 고를 때 저는 음식이 얼마나 건강한지가 더 중요합니다. 이유는 이렇습니다. 첫째, 건강한 음식은 제 건강에 좋습니다. 또한 몸이 튼튼해지고 기분이 좋아져서 일을 더 잘할 수 있습니다. 쉬운 음식은 준비하기 빠르지만, 저는 매일 건강에 나쁜 음식을 먹고 싶지 않습니다. 그래서 저는 그렇게 생각합니다.',
       patterns: [
+        'How healthy the meal is matters more to me. (보기 그대로 받기)',
         'I would prefer + 보기.',
         'Here\'s why.',
         'First, ~ / Second, ~',

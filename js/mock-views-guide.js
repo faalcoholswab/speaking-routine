@@ -267,6 +267,10 @@
       "I would say + 답 + because it's + 형용사.",
       "It's easy / convenient / fast / fun / relaxing.",
       "Well, I usually cook every day and I usually cook alone because it's convenient.",
+      'The last time I + 과거동사 + was + 시점 + because ~.',
+      "I usually + 동사 + once or twice a week because it's practical and efficient.",
+      'So I can save time and money. / So I can relieve my stress.',
+      "I'm very busy with my work these days, so I prefer ~.",
     ],
     notes: [
       '질문의 you를 I로 바꾼 답 한 문장, because + 형용사로 이유 한 문장이면 충분해요. 시간이 남아도 감점되지 않아요.',
@@ -286,10 +290,14 @@
     5: PART3_SHORT_TIPS,
     7: {
       frames: [
-        'I would prefer + 보기.',
+        'I would prefer + 보기. / I would say + 기준 + is the most important.',
         "Here's why.",
-        'First, ~ / Above all, ~',
-        'so I can ~',
+        'First, ~ / First of all, ~ / Above all, ~',
+        "It's easy and convenient, so I can save time.",
+        "It's fun and relaxing, so I can relieve my stress.",
+        "It's affordable and practical for my daily life.",
+        'Also, I can ~ anytime, anywhere.',
+        'When I choose ~, I always check ~ first.',
         "That's why I think so.",
       ],
       notes: [
@@ -337,10 +345,15 @@
     },
     11: {
       frames: [
+        'I think / I believe + 문제 문장 그대로.',
+        'I will give reasons and examples to support my opinion.',
+        'First of all, it can increase work efficiency. / It will be good for the environment.',
         'If + 주어 + 동사, 주어 + can + 동사.',
         'Then + 결과 한 번 더.',
         'As a result, / Eventually, it will be beneficial.',
+        'For example, in my case, when I was in college / high school, ~',
         'When it comes to ~,',
+        "That's why I think ~ is the better choice.",
       ],
       notes: [
         '첫 문장은 질문 문장을 그대로 받아 내 입장으로 말해요.',
@@ -428,7 +441,7 @@
 
   function pronGuideMarkup(text, pron) {
     if (!window.PRON_GUIDE || !text) return '';
-    const built = window.PRON_GUIDE.build({ en: text });
+    const built = window.PRON_GUIDE.build({ en: text, pron });
     const points = (built && built.points) || [];
     if (!points.length) return '';
     const used = new Set(points.map((point) => point.tag));

@@ -127,8 +127,13 @@
       try { URL.revokeObjectURL(mic.testUrl); } catch (error) { /* noop */ }
       mic.testUrl = '';
     }
+    if (mic.testId && window.SpeakingRecorder && typeof window.SpeakingRecorder.remove === 'function') {
+      try { window.SpeakingRecorder.remove(mic.testId, 1); } catch (error) { /* noop */ }
+    }
+    mic.testId = '';
     mic.testBlob = null;
     mic.testing = false;
+    recordingNo = 0;
     if (window.SpeakingRecorder && typeof window.SpeakingRecorder.cancel === 'function') {
       try { window.SpeakingRecorder.cancel(); } catch (error) { /* noop */ }
     }
@@ -261,6 +266,7 @@
     revokeReportAudio();
     scoring.token += 1;
     scoring = { running: false, done: false, error: null, results: {}, raw: {}, summary: null, token: scoring.token };
+    practiceScoreToken += 1;
     runToken += 1;
     attempt = null;
     document.title = '모의고사 · 스피킹 루틴';
@@ -345,6 +351,7 @@
     revokeReportAudio();
     scoring.token += 1;
     scoring.running = false;
+    practiceScoreToken += 1;
     runToken += 1;
 
     root.innerHTML = `
@@ -603,20 +610,20 @@
     if (!paged) {
       dockMarkup = `<footer class="ex-dock idle" id="ex-dock">
           <div class="ex-dock-in">
-            <span class="ex-phase" id="ex-phase">대기</span>
-            <span class="ex-time" id="ex-time">--</span>
+            <span class="ex-phase" id="ex-phase" role="status" aria-live="polite">대기</span>
+            <span class="ex-time" id="ex-time" role="timer" aria-live="off">--</span>
             <span class="ex-track"><span id="ex-fill" style="width:0%"></span></span>
           </div>
         </footer>`;
     } else {
       const middle = mode === 'practice'
         ? `<button class="ex-timer-btn" data-act="ptimer" type="button">
-             <span class="ex-phase" id="ex-phase">타이머</span>
-             <span class="ex-time" id="ex-time">--</span>
+             <span class="ex-phase" id="ex-phase" role="status" aria-live="polite">타이머</span>
+             <span class="ex-time" id="ex-time" role="timer" aria-live="off">--</span>
            </button>`
         : `<span class="ex-timer-btn static">
-             <span class="ex-phase" id="ex-phase">해설</span>
-             <span class="ex-time" id="ex-time" hidden>--</span>
+             <span class="ex-phase" id="ex-phase" role="status" aria-live="polite">해설</span>
+             <span class="ex-time" id="ex-time" role="timer" aria-live="off" hidden>--</span>
            </span>`;
       dockMarkup = `<footer class="ex-dock idle practice" id="ex-dock">
           <span class="ex-track ex-track-top"><span id="ex-fill" style="width:0%"></span></span>
@@ -700,7 +707,7 @@
     let clock = els.stage.querySelector('.ex-clock');
     if (!clock) {
       clock = document.createElement('div');
-      clock.innerHTML = '<span class="ex-clock-label"></span><span class="ex-clock-time"></span>';
+      clock.innerHTML = '<span class="ex-clock-label" aria-live="polite"></span><span class="ex-clock-time" aria-live="off"></span>';
       clock.setAttribute('role', 'timer');
       slot.appendChild(clock);
       if (clock.offsetParent && typeof clock.scrollIntoView === 'function') clock.scrollIntoView({ block: 'nearest' });
@@ -762,7 +769,8 @@
 
   function questionMarkup(part, q, phase, forceText) {
     const head = `<div class="ex-q-head">
-      <span class="ex-q-no">Question ${q.no} of ${totalQuestions()}</span>
+      <h1 class="sr-only">${esc((currentExam && currentExam.title) || '모의고사')}</h1>
+      <h2 class="ex-q-no">Question ${q.no} of ${totalQuestions()}</h2>
       <span class="ex-q-kind">${esc(KIND_LABEL[part.part] || '')}</span>
       ${stepper(part, q.no)}
     </div>`;
@@ -798,7 +806,8 @@
 
   function practiceMarkup(part, q) {
     const head = `<div class="ex-q-head">
-      <span class="ex-q-no">Question ${q.no} of ${totalQuestions()}</span>
+      <h1 class="sr-only">${esc((currentExam && currentExam.title) || '모의고사')} 연습</h1>
+      <h2 class="ex-q-no">Question ${q.no} of ${totalQuestions()}</h2>
       <span class="ex-q-kind">${esc(KIND_LABEL[part.part] || '')}</span>
       ${stepper(part, q.no, true)}
     </div>`;
@@ -854,7 +863,8 @@
 
   function guideMarkup(part, q) {
     const head = `<div class="ex-q-head">
-      <span class="ex-q-no">Question ${q.no} of ${totalQuestions()}</span>
+      <h1 class="sr-only">${esc((currentExam && currentExam.title) || '모의고사')} 해설</h1>
+      <h2 class="ex-q-no">Question ${q.no} of ${totalQuestions()}</h2>
       <span class="ex-q-kind">${esc(KIND_LABEL[part.part] || '')}</span>
       ${noteStar(q.no)}
     </div>${stepper(part, q.no, true)}`;
@@ -889,7 +899,7 @@
   function partBar(current) {
     const exam = currentExam;
     if (!exam) return '';
-    return `<div class="ex-partbar">${exam.parts.map((part) => (
+    return `<div class="ex-partbar" role="group" aria-label="파트 선택">${exam.parts.map((part) => (
       `<button type="button" data-act="part" data-part="${part.part}" aria-pressed="${part.part === current ? 'true' : 'false'}" class="${part.part === current ? 'on' : ''}">Part ${part.part}</button>`
     )).join('')}</div>`;
   }
@@ -1002,6 +1012,7 @@
         if (token !== runToken) return;
         if (part.cues && part.cues.start) await speak(part.cues.start, 'narrator');
         if (token !== runToken) return;
+        beep('go');
         await startRecording(q.no);
         if (token !== runToken) { cancelRecording(); return; }
         await countdown(q.responseSeconds, '응답', token, 'respond');
@@ -1011,11 +1022,16 @@
       beep('end');
       dockIdle('타이머');
       if (recordingEnabled && (TEST_AUDIO || recorderSupported())) {
+        const scoreToken = practiceScoreToken;
         practiceScores[q.no] = { pending: true };
         paintPractice();
         const result = await scorePracticeItem(part, q);
+        if (scoreToken !== practiceScoreToken) return;
         practiceScores[q.no] = result || { unavailable: true };
-        if (token === runToken) paintPractice();
+        if (mode === 'practice' && practiceList[practiceIndex] && practiceList[practiceIndex].q.no === q.no
+          && (token === runToken || (els && els.dock && els.dock.classList.contains('idle')))) {
+          paintPractice();
+        }
       }
     } catch (error) {
       if (error !== ABORT) console.error(error);
@@ -1125,7 +1141,7 @@
     const max = result.max || (part.part === 5 ? 5 : 3);
     return `<section class="practice-score" id="practice-score-${q.no}">
       <div class="qcard-head">
-        <span class="qcard-no">Q${q.no}</span>
+        <h2 class="qcard-no">Q${q.no}</h2>
         <span class="qcard-kind">${esc(KIND_LABEL[part.part] || '')}</span>
         <span class="qcard-score">${result.score}/${max}</span>
         ${noteStar(q.no)}
@@ -1170,7 +1186,8 @@
     setChrome(part.part, 0);
     els.stage.innerHTML = `<div class="ex-q">
       <div class="ex-q-head">
-        <span class="ex-q-no">Situation</span>
+        <h1 class="sr-only">${esc((currentExam && currentExam.title) || '모의고사')}</h1>
+        <h2 class="ex-q-no">Situation</h2>
         <span class="ex-q-kind">Part ${part.part}</span>
       </div>
       <div class="ex-context">${esc(part.context)}</div>
@@ -1394,7 +1411,7 @@
       <div class="ex-row">
         <span class="ex-row-no">Q${q.no}</span>
         <span class="ex-row-label">${esc(KIND_LABEL[part.part] || '')}</span>
-        <span class="ex-ratings" data-no="${q.no}">
+        <span class="ex-ratings" role="group" aria-label="Q${q.no} 내 평가" data-no="${q.no}">
           <button type="button" data-act="rate" data-no="${q.no}" data-value="good" aria-pressed="false">좋음</button>
           <button type="button" data-act="rate" data-no="${q.no}" data-value="ok" aria-pressed="false">보통</button>
           <button type="button" data-act="rate" data-no="${q.no}" data-value="weak" aria-pressed="false">아쉬움</button>
@@ -1440,7 +1457,7 @@
 
           <div class="ex-review">${rows}</div>
 
-          <p class="ex-note" id="ex-save-state">${attempt.saved === false
+          <p class="ex-note" id="ex-save-state" role="status" aria-live="polite">${attempt.saved === false
             ? '기록을 저장하지 못했습니다. 저장 공간을 확인해 주세요.'
             : '자기평가는 이 기기에만 저장됩니다.'}</p>
 
@@ -1534,7 +1551,7 @@
     }
     if (scoring.error) {
       if (scoring.error === 'auto-score-off') {
-        return `<div class="scoring-banner error">
+        return `<div class="scoring-banner error" role="status" aria-live="polite">
           <div class="scoring-label">자동 채점이 꺼져 있어요</div>
           <p class="scoring-sub">녹음과 자기평가는 그대로 남아 있어요. 점수가 필요하면 설정에서 자동 채점을 켜 주세요.</p>
           <button class="ex-btn ghost sm" type="button" data-settings-open>설정 열기</button>
@@ -1546,13 +1563,13 @@
       const retry = recordingEnabled && scoreModulesReady()
         ? '<button class="ex-btn ghost sm" data-act="score-now" type="button">다시 채점</button>'
         : '';
-      return `<div class="scoring-banner error">
+      return `<div class="scoring-banner error" role="status" aria-live="polite">
         <div class="scoring-label">채점을 마치지 못했어요</div>
         <p class="scoring-sub">${text}</p>${retry}
       </div>`;
     }
     if (scoring.done) {
-      return '<div class="scoring-banner done"><div class="scoring-label">채점 완료</div><p class="scoring-sub">추정 점수는 참고용이에요.</p></div>';
+      return '<div class="scoring-banner done" role="status" aria-live="polite"><div class="scoring-label">채점 완료</div><p class="scoring-sub">추정 점수는 참고용이에요.</p></div>';
     }
     return '';
   }
@@ -1679,6 +1696,7 @@
     }
     card.classList.add('scored');
     paintStar(no);
+    loadReportAudio(attempt.id, [found]);
   }
 
   async function runScoring(current) {
@@ -1816,6 +1834,7 @@
     revokeReportAudio();
     scoring.token += 1;
     scoring.running = false;
+    practiceScoreToken += 1;
     runToken += 1;
     attempt = null;
     const items = NOTES ? NOTES.list() : [];
@@ -1889,7 +1908,7 @@
     scoring.token += 1;
     scoring = { running: false, done: false, error: null, results: {}, raw: {}, summary: null, token: scoring.token };
     attempt = {
-      id: uid(),
+      id: `retake-${uid()}`,
       examId: exam.id,
       at: new Date().toISOString(),
       startedAt: Date.now(),
@@ -1906,18 +1925,20 @@
     try {
       await runQuestion({ part, q }, token);
       if (token !== runToken) return;
-      await finishRetake(item, prevScore);
+      await finishRetake(item, prevScore, token);
     } catch (error) {
       if (error !== ABORT) console.error(error);
     }
   }
 
-  async function finishRetake(item, prevScore) {
+  async function finishRetake(item, prevScore, token) {
+    if (token !== runToken || !attempt) return;
     const exam = currentExam;
     const { part, q } = item;
     attempt.finishedAt = new Date().toISOString();
     attempt.seconds = Math.round((Date.now() - attempt.startedAt) / 1000);
     const record = await getRecording(attempt.id, q.no);
+    if (token !== runToken || !attempt) return;
     if (record && !autoScoreEnabled()) {
       releaseExamLock();
       retake = { item, prevScore, skipped: true };
@@ -1930,6 +1951,7 @@
       return;
     }
     const metrics = await analyzeRecording(record.blob);
+    if (token !== runToken || !attempt) return;
     if (isSilentMetrics(metrics)) {
       const silent = silentResult(q);
       if (!silent) {
@@ -1945,7 +1967,7 @@
       paintRetakeResult(item, prevScore, silent, null);
       return;
     }
-    els.stage.innerHTML = `<div class="practice-score pending"><h3>채점 중…</h3><p id="retake-status">음성 인식 모델 준비 중…</p></div>`;
+    els.stage.innerHTML = `<div class="practice-score pending" role="status" aria-live="polite"><h3>채점 중…</h3><p id="retake-status">음성 인식 모델 준비 중…</p></div>`;
     dockIdle('채점');
     try {
       const stt = window.SpeakingSTT;
@@ -1955,7 +1977,9 @@
         const pct = Math.round(normalizeProgress(progress) * 100);
         el.textContent = pct > 0 ? `음성 인식 모델 준비 중… ${pct}%` : '음성 인식 모델 준비 중…';
       });
+      if (token !== runToken || !attempt) return;
       const tr = await stt.transcribe(record.blob);
+      if (token !== runToken || !attempt) return;
       const text = String((typeof tr === 'string' ? tr : (tr && tr.text)) || '').trim();
       const words = tr && Array.isArray(tr.words) ? tr.words : undefined;
       const value = window.SpeakingScore.gradeQuestion({
@@ -1977,6 +2001,7 @@
       beep('end');
       paintRetakeResult(item, prevScore, result, null);
     } catch (error) {
+      if (token !== runToken || !attempt) return;
       releaseExamLock();
       paintRetakeResult(item, prevScore, null, 'unavailable');
     }
@@ -2168,6 +2193,8 @@
       stopSpeech();
       practiceIndex = index;
       paintPractice();
+      const stepBtn = els && els.stage.querySelector(`[data-act="jump"][data-no="${no}"]`);
+      if (stepBtn) stepBtn.focus();
       return;
     }
     if (act === 'prev') {
@@ -2190,6 +2217,8 @@
       stopSpeech();
       practiceIndex = index;
       paintPractice();
+      const partBtn = els && els.stage.querySelector(`[data-act="part"][data-part="${partNo}"]`);
+      if (partBtn) partBtn.focus();
       return;
     }
     if (act === 'ptimer') {
