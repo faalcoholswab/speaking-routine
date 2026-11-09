@@ -5,10 +5,10 @@ window.MOCK_GUIDES['mock-04'] = {
   status: 'applied',
   questions: {
     1: {
-      pron: '아임 아너드 투 인트로듀스 에이드리언 벤튼 원 오브 더 모스트 익사이팅 아티스츠 워킹 투데이 미스터 벤튼 이즈 노운 포 컴바이닝 컬러 셰이프 앤드 라이트 인투 스터닝 웍스 오브 아트 힐 톡 어바웃 히즈 레이티스트 프로젝트 위드아웃 펄더 딜레이 플리즈 웰컴 미스터 에이드리언 벤튼 투 더 스테이지',
+      pron: '아임 아너드 투 인트로듀스 에이드리언 벤튼 원 오브 더 모스트 익사이팅 아티스츠 워킹 투데이 미스터 벤튼 이즈 노운 포 컴바이닝 컬러 셰이프 앤드 라이트 인투 스터닝 웍스 오브 아트 힐 톡 어바웃 히즈 레이티스트 프라젝트 위드아웃 퍼더 딜레이 플리즈 웰컴 미스터 에이드리언 벤튼 투 더 스테이지',
     },
     2: {
-      pron: '인 로컬 뉴스 더 그랜드뷰 호텔 체인 윌 오픈 어 뉴 호텔 인 서머필드 컨스트럭션 온 더 라지스트 호텔 인 디 에어리어 이즈 플랜드 투 비긴 디스 서머 더 호텔 윌 오퍼 컨퍼런스 룸스 투 레스토랑스 앤드 엑서사이즈 퍼실리티즈',
+      pron: '인 로컬 뉴스 더 그랜드뷰 호텔 체인 윌 오픈 어 뉴 호텔 인 서머필드 컨스트럭션 온 더 라지스트 호텔 인 디 에어리어 이즈 플랜드 투 비긴 디스 서머 더 호텔 윌 오퍼 컨퍼런스 룸스 투 레스토랑츠 앤드 엑서사이즈 퍼실러티즈',
     },
     3: {
       model: 'This picture was taken outside. I think it\'s a street. The first thing I can see is some people. It is raining, so they have umbrellas. In the middle, a man is wearing a yellow vest and holding a box. On the left, a man is sitting on a motorbike. He is holding a black umbrella. On the right, a man is looking at his phone. In the background, I can see many shops and motorbikes. It seems like they are busy working.',
@@ -54,18 +54,18 @@ window.MOCK_GUIDES['mock-04'] = {
       ],
     },
     6: {
-      model: 'The most delicious food is grilled chicken because it\'s juicy and tasty. I last had it two weeks ago at a park.',
-      ko: '가장 맛있는 음식은 구운 닭고기입니다. 촉촉하고 맛있기 때문입니다. 마지막으로 먹은 것은 2주 전 공원에서였습니다.',
+      model: 'The most delicious food I have cooked outdoors is grilled chicken because it\'s juicy and tasty. I last had it two weeks ago at a park.',
+      ko: '제가 야외에서 요리해 본 가장 맛있는 음식은 구운 닭고기입니다. 촉촉하고 맛있기 때문입니다. 마지막으로 먹은 것은 2주 전 공원에서였습니다.',
       patterns: [
-        'The most delicious food is + 음식 + because it\'s ~.',
+        'The most delicious food I have cooked outdoors is + 음식 + because it\'s ~.',
         'I last had it + 시간.',
       ],
     },
     7: {
-      model: 'I would say cooking indoors. Here\'s why. First, it\'s easy because I have everything in the kitchen. Second, I don\'t worry about the weather, like rain or wind. It\'s also fast and convenient, so I can save time. That\'s why I think cooking indoors is easier.',
+      model: 'I would say cooking indoors. Here\'s why. First, it\'s easy because I have everything in the kitchen. Second, I don\'t have to worry about the weather, like rain or wind. It\'s also fast and convenient, so I can save time. That\'s why I think cooking indoors is easier.',
       ko: '저는 실내 요리라고 말하겠습니다. 이유는 이렇습니다. 첫째, 부엌에 모든 것이 있어서 쉽습니다. 둘째, 비나 바람 같은 날씨를 걱정하지 않아도 됩니다. 또한 빠르고 편리해서 시간을 아낄 수 있습니다. 그래서 저는 실내 요리가 더 쉽다고 생각합니다.',
       patterns: [
-        'I would say + 답 + because ~',
+        'I would say + 고른 보기.',
         'Here\'s why.',
         'First, ~ / Second, ~',
         'It\'s fast and convenient, so I can ~',

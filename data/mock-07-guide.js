@@ -5,10 +5,10 @@ window.MOCK_GUIDES['mock-07'] = {
   status: 'applied',
   questions: {
     1: {
-      pron: '스타팅 디스 오텀 오크우드 컬처럴 소사이어티 윌 호스트 먼슬리 렉처스 딜리버드 바이 페이머스 오써즈 키 띰즈 인클루드 인핸싱 라이팅 테크닉스 매니징 퍼서널 파이낸시즈 와이즐리 앤 프랙티싱 헬씨 라이프스타일 초이시즈 이프 유 아 인터레스티드 인 어텐딩 플리즈 사인 업 위드 더 볼런티어 앳 디 인포메이션 카운터',
+      pron: '스타팅 디스 오텀 오크우드 컬처럴 소사이어티 윌 호스트 먼슬리 렉처스 딜리버드 바이 페이머스 오써즈 키 띰즈 인클루드 인핸싱 라이팅 테크닉스 매니징 퍼스널 파이낸시즈 와이즐리 앤 프랙티싱 헬씨 라이프스타일 초이시즈 이프 유 아 인터레스티드 인 어텐딩 플리즈 사인 업 위드 더 볼런티어 앳 디 인포메이션 카운터',
     },
     2: {
-      pron: '웰컴 투 디 오프닝 오브 더 뉴 리버사이드 피트니스 센터 위 아 딜라이티드 투 쇼케이스 아워 모던 퍼실리티즈 모스트 오브 위치 윌 오픈 얼리 넥스트 위크 멤버스 캔 테이크 어드밴티지 오브 컴플리멘터리 피트니스 어세스먼츠 스페이셔스 라커 룸스 앤 그룹 엑서사이즈 클래시즈 펄더모어 게스트스 캔 유즈 디 인도어 스위밍 풀 쓰루아웃 더 데이',
+      pron: '웰컴 투 디 오프닝 오브 더 뉴 리버사이드 피트니스 센터 위 아 딜라이티드 투 쇼케이스 아워 모던 퍼실러티즈 모스트 오브 위치 윌 오픈 얼리 넥스트 위크 멤버스 캔 테이크 어드밴티지 오브 컴플리멘터리 피트니스 어세스먼츠 스페이셔스 라커 룸스 앤 그룹 엑서사이즈 클래시즈 퍼더모어 게스츠 캔 유즈 디 인도어 스위밍 풀 쓰루아웃 더 데이',
     },
     3: {
       model: 'This picture was taken outside. I think it\'s a walkway along a river. The first thing I can see is some people. On the left, a man is walking a dog on a leash. He is wearing a red hat and a dark coat. The dog is brown and white. On the right, a woman is wearing a white dress and carrying a white tote bag. There are green benches and trees. In the background, I can see some boats and tall buildings. It seems like they are having a good time.',
@@ -41,10 +41,10 @@ window.MOCK_GUIDES['mock-07'] = {
       ],
     },
     5: {
-      model: 'I spend more time outside these days than when I was younger because it\'s relaxing. It helps me feel better.',
-      ko: '저는 어릴 때보다 요즘 밖에서 더 많은 시간을 보냅니다. 마음이 놓이기 때문입니다. 기분이 좋아지는 데 도움이 됩니다.',
+      model: 'Yes, I spend more time outside these days than when I was younger because it\'s relaxing. It helps me feel better.',
+      ko: '네, 저는 어릴 때보다 요즘 밖에서 더 많은 시간을 보냅니다. 마음이 놓이기 때문입니다. 기분이 좋아지는 데 도움이 됩니다.',
       patterns: [
-        'I spend more time ~ because it\'s relaxing.',
+        'Yes, I spend more time ~ because it\'s relaxing.',
         'It helps me ~',
       ],
     },
@@ -57,14 +57,14 @@ window.MOCK_GUIDES['mock-07'] = {
       ],
     },
     7: {
-      model: 'I would say relaxing in a local park. Here\'s why. First, it\'s relaxing and easy, so I can feel better outside. Second, it\'s convenient. I don\'t have much time, so I don\'t need a long trip. That\'s why I think relaxing in a local park is the best.',
-      ko: '저는 동네 공원에서 쉬는 것이라고 말하겠습니다. 이유는 이렇습니다. 첫째, 편하고 마음이 놓여서 밖에서 기분이 좋아집니다. 둘째, 편리합니다. 시간이 많지 않아서 긴 여행이 필요 없습니다. 그래서 저는 동네 공원에서 쉬는 것이 가장 좋다고 생각합니다.',
+      model: 'In my free time outside, I prefer relaxing in a local park. Here\'s why. First, it\'s peaceful and easy, so I can feel better outside. Second, it\'s convenient. I don\'t have much free time, so I don\'t need a long camping trip. That\'s why I think relaxing in a local park is the best activity.',
+      ko: '밖에서 보내는 여가 시간에는 동네 공원에서 쉬는 것을 더 좋아합니다. 이유는 이렇습니다. 첫째, 평화롭고 편해서 밖에서 기분이 좋아집니다. 둘째, 편리합니다. 여가 시간이 많지 않아서 긴 캠핑 여행이 필요 없습니다. 그래서 저는 동네 공원에서 쉬는 것이 가장 좋은 활동이라고 생각합니다.',
       patterns: [
-        'I would say + 고른 보기.',
+        'I prefer + 고른 보기.',
         'Here\'s why.',
         'First, ~ / Second, ~',
         'I don\'t have much time, so ~',
-        'That\'s why I think so.',
+        'That\'s why I think ~ is the best.',
       ],
     },
     8: {

@@ -5,10 +5,10 @@ window.MOCK_GUIDES['mock-08'] = {
   status: 'applied',
   questions: {
     1: {
-      pron: '웰컴 투 더 헤리티지 아트 뮤지엄 에브리원 아이드 라이크 투 리뷰 어 퓨 이센셜 가이드라인즈 플리즈 컨펌 댓 유어 헤비 코츠 라지 백팩스 앤 엄브렐러즈 아 세이플리 스토어드 인 더 라커스 미드웨이 쓰루 더 투어 컴플리멘터리 브로슈어즈 앤 포스트카드즈 윌 비 프로바이디드 투 올 비지터스 이프 유 리콰이어 에니 헬프 듀링 유어 비짓 플리즈 필 프리 투 어프로치 에니 오브 아워 뮤지엄 가이드즈',
+      pron: '웰컴 투 더 헤리티지 아트 뮤지엄 에브리원 아이드 라이크 투 리뷰 어 퓨 이센셜 가이드라인즈 플리즈 컨펌 댓 유어 헤비 코츠 라지 백팩스 앤 엄브렐러즈 아 세이플리 스토어드 인 더 라커스 미드웨이 쓰루 더 투어 컴플리멘터리 브로슈어즈 앤 포스트카즈 윌 비 프로바이디드 투 올 비지터스 이프 유 리콰이어 에니 헬프 듀링 유어 비짓 플리즈 필 프리 투 어프로치 에니 오브 아워 뮤지엄 가이즈',
     },
     2: {
-      pron: '더 메인 토픽 오브 투데이스 브리핑 이즈 아워 프로포절 포 익스텐디드 위켄드 오퍼레이팅 아워즈 땡스 투 더 플래닝 팀 위 나우 해브 어 클리어러 언더스탠딩 오브 왓 커뮤니티 멤버스 익스펙트 프롬 어스 위 컬렉티드 디스 데이타 바이 컨덕팅 유저 인터뷰즈 리뷰잉 서제스천 박스즈 앤 애널라이징 퍼실리티 유시지 레이츠 마이 팀메이트 데이비드 밀러 윌 프리젠트 더 스퍼시픽 디테일즈',
+      pron: '더 메인 토픽 오브 투데이스 브리핑 이즈 아워 프로포절 포 익스텐디드 위켄드 오퍼레이팅 아워즈 쌩스 투 더 플래닝 팀 위 나우 해브 어 클리어러 언더스탠딩 오브 왓 커뮤니티 멤버스 익스펙트 프롬 어스 위 컬렉티드 디스 데이타 바이 컨덕팅 유저 인터뷰즈 리뷰잉 서제스천 박시즈 앤 애널라이징 퍼실리티 유시지 레이츠 마이 팀메이트 데이비드 밀러 윌 프리젠트 더 스퍼시픽 디테일즈',
     },
     3: {
       model: 'This picture was taken outside. I think it\'s an airport. The first thing I can see is two people. A man is lifting a black suitcase onto a luggage cart. He is wearing a white sweater and sunglasses and carrying a black backpack. A woman is holding a silver suitcase. She has blond hair and is wearing a striped sweater. A black car has the trunk open. In the background, I can see the departures area. It seems like they are going on a trip.',
@@ -93,10 +93,10 @@ window.MOCK_GUIDES['mock-08'] = {
       ],
     },
     11: {
-      model: 'I would rather take several short trips over the year. I will give some reasons or examples to support my opinion. First, short trips will be good for our minds. As you know, work can be very tiring. If we take a short trip a few times a year, we can relax before we get too tired. Then we can come back and focus better. As a result, it will be beneficial for our work. Second, several short trips are easier to plan. In my case, when I was in college, I waited all year for one long vacation. Later I took several short trips with my friends, and I felt fresh. That\'s why I think so.',
+      model: 'I would rather take several short trips over the year. I will give some reasons or examples to support my opinion. First, short trips will be good for our minds. As you know, work can be very tiring. If we take a short trip a few times a year, we can relax before we get too tired. Then we can come back and focus better. As a result, it will be beneficial for our work. Second, several short trips are easier to plan. In my case, when I was in college, I waited all year for one long vacation. Later I took several short trips with my friends, and I felt refreshed. That\'s why I think so.',
       ko: '저는 일 년 동안 짧은 여행을 여러 번 가는 쪽을 택하겠습니다. 제 의견을 뒷받침할 몇 가지 이유와 예를 말씀드리겠습니다. 첫째, 짧은 여행은 마음에 좋습니다. 아시다시피 일은 매우 지칠 수 있습니다. 일 년에 몇 번 짧게 떠나면 너무 지치기 전에 쉴 수 있습니다. 그러면 돌아와서 더 잘 집중할 수 있습니다. 결과적으로 일에도 이로울 것입니다. 둘째, 짧은 여행 여러 번은 계획을 세우기가 더 쉽습니다. 제 경우에는 대학생일 때 긴 휴가 한 번을 위해 일 년을 기다렸습니다. 나중에는 친구들과 짧은 여행을 여러 번 갔고, 기분이 새로워졌습니다. 그래서 그렇게 생각합니다.',
       patterns: [
-        'I would rather ~ than ~.',
+        'I would rather + 고른 보기.',
         'I will give some reasons or examples to support my opinion.',
         'First, ~ / If ~, we can ~. / Then ~ / As a result, ~',
         'If + 주어 + 동사, 주어 + can + 동사.',
