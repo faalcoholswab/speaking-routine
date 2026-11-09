@@ -6,7 +6,7 @@ window.MOCK_GUIDES['mock-02'] = {
   status: 'applied',
   questions: {
     1: {
-      pron: '웰컴 투 썬브룩 팜 비포어 유 스타트 더 투어 렛츠 고 오버 더 스케줄 윌 비긴 바이 익스플로링 더 그라운드 웨어 위 그로우 애플스 스트로베리스 앤 펌킨스 애프터 댓 윌 비짓 더 팜 애니멀스 더 투어 윌 엔드 앳 더 컨트리 마킷 위치 오퍼스 베리어스 로컬 프로덕츠 데어라 이즈 플렌티 투 씨 쏘 플리즈 팔로우 미',
+      pron: '웰컴 투 써니브룩 팜 비포어 위 스타트 더 투어 렛츠 고 오버 더 스케줄 윌 비긴 바이 익스플로링 더 그라운즈 웨어 위 그로우 애플스 스트로베리스 앤 펌킨스 애프터 댓 윌 비짓 더 팜 애니멀스 더 투어 윌 엔드 앳 더 컨트리 마킷 위치 오퍼즈 베리어스 로컬 프로덕츠 데어 이즈 플렌티 투 씨 쏘 플리즈 팔로우 미',
     },
     2: {
       pron: '어코딩 투 어 리슨트 어나운스먼트 프롬 더 씨티 더 크레스트뷰 아트 인스티튜트 이즈 씨킹 데디케이티드 볼런티어스 더 뮤지엄 윌 오픈 어 뉴 스컬프처 가든 넥스트 오텀 앤 이스페셜리 니즈 피플 위드 날리지 오브 플랜팅 앤 케어링 포 트리스 플라워스 앤 아더 플랜츠 에니원 인터레스티드 슈드 비짓 더 인스티튜츠 오피셜 웹사이트 포 모어 디테일스',
@@ -45,11 +45,11 @@ window.MOCK_GUIDES['mock-02'] = {
       ],
     },
     5: {
-      model: 'I usually clean my home. I clean it alone because I live alone.',
-      ko: '저는 보통 제 집을 청소합니다. 혼자 살아서 혼자 청소합니다.',
+      model: 'I usually clean my home. Yes, I clean it alone because I live alone and it\'s convenient.',
+      ko: '저는 보통 제가 집을 청소합니다. 네, 혼자 살고 편리해서 혼자 청소합니다.',
       patterns: [
         'I usually + 질문 동사 (질문을 I로 받기)',
-        'I ~ alone because I live alone.',
+        'Yes, I ~ alone because I live alone.',
       ],
     },
     6: {
@@ -64,7 +64,7 @@ window.MOCK_GUIDES['mock-02'] = {
       model: 'I would say online reviews. Here\'s why. First, they are easy to find, so I can save time. Second, other people tell the truth, so I can trust them. Ads are not always honest, but reviews are real. That\'s why I always check online reviews before I buy cleaning products.',
       ko: '저는 온라인 후기라고 말하겠습니다. 이유는 이렇습니다. 첫째, 찾기 쉬워서 시간을 아낄 수 있습니다. 둘째, 다른 사람들이 사실대로 말해 주어서 믿을 수 있습니다. 광고는 항상 솔직하지는 않지만 후기는 진짜입니다. 그래서 저는 청소용품을 사기 전에 항상 온라인 후기를 확인합니다.',
       patterns: [
-        'I would say + 답 + because ~',
+        'I would say + 고른 보기.',
         'Here\'s why.',
         'First, ~ / Second, ~',
         'so I can ~',
@@ -103,14 +103,14 @@ window.MOCK_GUIDES['mock-02'] = {
       patterns: [
         'I agree that + 제시문. / No, I don\'t think + 제시문.',
         'I will give reasons or examples to support my opinion.',
-        'First, ~ ',
+        'First, ~',
         'As you know, ~',
         'If + 주어 + 동사, 주어 + can + 동사.',
         'Eventually, it will be beneficial.',
         'Then + 결과 한 번 더.',
         'As a result, ~',
         'Second, ~',
-        'In my case, when I was in college, ~',
+        'In my case, ~',
         'That\'s why I think ~',
       ],
     },
