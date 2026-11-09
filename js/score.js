@@ -215,15 +215,24 @@
     // 5) "nine in the morning"
     s = s.replace(new RegExp(`\\b(${HOUR_WORDS}|\\d{1,2})\\s+in\\s+(?:the\\s+)?(morning|afternoon|evening|night)\\b`, 'g'),
       (all, hour, part) => {
-        const h = NUMBER_WORDS[hour] !== undefined ? NUMBER_WORDS[hour] : Number(hour);
+        const raw = NUMBER_WORDS[hour] !== undefined ? NUMBER_WORDS[hour] : Number(hour);
+        if (!Number.isFinite(raw) || raw < 1 || raw > 23) return all;
         const pm = part !== 'morning';
-        return ` ${pm && h < 12 ? h + 12 : h}:00${pm ? 'pm' : 'am'} `;
+        const h = raw > 12 ? raw - 12 : raw;
+        return ` ${h}:00${pm ? 'pm' : 'am'} `;
       });
 
     // 5) 날짜 ("april fourteenth", "april 14", "july twenty-fourth")
-    s = s.replace(new RegExp(`\\b(${MONTH_PATTERN})\\s+([a-z-]+|\\d{1,2}(?:st|nd|rd|th)?)\\b`, 'g'), (all, monthWord, dayWord) => {
+    s = s.replace(new RegExp(`\\b(${MONTH_PATTERN})\\s+([a-z-]+|\\d{1,2}(?:st|nd|rd|th)?)\\b`, 'g'), (all, monthWord, dayWord, offset, str) => {
       const month = MONTH_NAMES[monthWord];
       if (!month) return all;
+      if (monthWord === 'may' || monthWord === 'march') {
+        const before = str.slice(0, offset);
+        if (/\b(?:i|you|he|she|it|we|they|there|who|that|which|people|someone|anyone|everyone|nobody|members|students|guests|visitors|users|customers)\s+$/.test(before)) {
+          return all;
+        }
+        if (monthWord === 'may' && NUMBER_WORDS[dayWord] !== undefined) return all;
+      }
       const day = ordinalWordToNumber(dayWord);
       return day && day >= 1 && day <= 31 ? ` ${month} ${day} ` : all;
     });
@@ -262,7 +271,7 @@
     const clean = String(word).replace(/-/g, ' ').trim();
     const direct = NUMBER_WORDS[clean];
     if (direct !== undefined) return direct;
-    const m = clean.match(/^([a-z]+)\s+(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth|thirtieth|forty|fifty)$/);
+    const m = clean.match(/^([a-z]+)\s+(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|eighteenth|nineteenth|twentieth|thirtieth|fortieth|fiftieth)$/);
     if (m) {
       const base = NUMBER_WORDS[m[1]];
       const ord = ordinalWordToNumber(m[2]);
@@ -272,17 +281,21 @@
     if (map[clean] !== undefined) return map[clean];
     const digits = clean.match(/^(\d{1,2})(st|nd|rd|th)?$/);
     if (digits) return Number(digits[1]);
-    // 음성 인식이 서수 철자를 조금 틀린 경우("eighdeenth")는 가장 가까운 서수로 봅니다.
-    let closest = null;
-    let closestDistance = 3;
-    for (const [word, value] of Object.entries(map)) {
-      const distance = editDistance(clean.replace(/\s+/g, ''), word);
-      if (distance < closestDistance) { closestDistance = distance; closest = value; }
-    }
-    if (closest !== null) return closest;
     if (/^twenty[\s-]/.test(clean)) {
       const rest = ordinalWordToNumber(clean.replace(/^twenty[\s-]/, ''));
       return rest ? 20 + rest : null;
+    }
+    // 음성 인식이 서수 철자를 조금 틀린 경우("eighdeenth")는 가장 가까운 서수로 봅니다.
+    const compact = clean.replace(/\s+/g, '');
+    if (compact.length >= 7 && /th$/.test(compact)) {
+      let closest = null;
+      let closestDistance = 3;
+      for (const [ordWord, value] of Object.entries(map)) {
+        if (ordWord.length < 7) continue;
+        const distance = editDistance(compact, ordWord);
+        if (distance < closestDistance) { closestDistance = distance; closest = value; }
+      }
+      if (closest !== null) return closest;
     }
     return null;
   }
@@ -298,9 +311,19 @@
   function extractDates(normalized) {
     const out = new Set();
     // 월 이름은 전체 이름/약어 모두 받습니다. ("april 14", "apr 14", "june 18th")
-    const re = /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?\b/g;
+    const re = /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?\b/g;
     let m;
-    while ((m = re.exec(normalized))) out.add(`${m[1].slice(0, 3)} ${Number(m[2])}`);
+    while ((m = re.exec(normalized))) {
+      const day = Number(m[2]);
+      if (day < 1 || day > 31) continue;
+      if (m[1] === 'may') {
+        const before = normalized.slice(0, m.index);
+        const after = normalized.slice(m.index + m[0].length);
+        if (/\b(?:i|you|he|she|it|we|they|there|who|that|which|people|someone|anyone|everyone|nobody|members|students|guests|visitors|users|customers)\s+$/.test(before)) continue;
+        if (/^\s+(?:days?|hours?|minutes?|seconds?|weeks?|months?|years?|times?|people|persons?|items?|things?|options?|ways?|reasons?)\b/.test(after)) continue;
+      }
+      out.add(`${m[1].slice(0, 3)} ${day}`);
+    }
     // 월 없이 서수만 쓴 날짜("not the 28th")는 문장에 월이 하나뿐이면 그 월을 씁니다.
     const monthSet = new Set([...out].filter((value) => /^[a-z]{3} \d+$/.test(value)).map((value) => value.split(' ')[0]));
     if (monthSet.size === 1) {
