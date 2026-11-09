@@ -251,8 +251,18 @@
     if (kind === 'all' || kind === 'mock') {
       try { localStorage.removeItem(KEYS.mock); } catch (error) { failed = true; }
     }
+    // 모의고사 기록만 지우면 14일 계획에 남은 해설 확인·연습 타이머·다시 풀기 기록도 지워요(js/app.js 와 같아요).
+    if (kind === 'mock' && window.PlanCore) {
+      const cleared = await window.PlanCore.forgetMock();
+      if (!cleared.ok && !cleared.skipped) failed = true;
+    }
     if (kind === 'all' || kind === 'notes') {
       try { localStorage.removeItem(KEYS.notes); } catch (error) { failed = true; }
+    }
+    // 전체 지우기는 14일 계획도 지워요(계획 키는 PlanCore 의 차례 쓰기로만 써요).
+    if (kind === 'all' && window.PlanCore) {
+      const cleared = await window.PlanCore.write(null);
+      if (!cleared.ok) failed = true;
     }
     if (kind === 'all' || kind === 'recordings') {
       const cleared = await deleteAudioDb();
@@ -279,6 +289,9 @@
     };
     if (!payload.mock) delete payload.mock;
     if (!payload.notes) delete payload.notes;
+    // 14일 계획: js/app.js 의 내보내기와 같은 형식(계획이 없으면 null).
+    const plan = window.PlanCore ? window.PlanCore.read() : null;
+    if (plan && plan.status !== 'error') payload.plan = plan.value;
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -318,7 +331,12 @@
       const recognizable = data && typeof data === 'object' && !Array.isArray(data)
         && ['progress', 'queue', 'history', 'ratings', 'sessions'].some((key) => key in data);
       if (!recognizable) throw new Error('invalid');
-      if (!window.confirm('현재 기록을 이 파일의 기록으로 바꿀까요?')) return;
+      // 14일 계획: 형식이 맞지 않으면 그 부분만 건너뛰고 지금 계획을 유지해요(js/app.js 가져오기와 같아요).
+      const hasPlan = Boolean(parsed) && Object.prototype.hasOwnProperty.call(parsed, 'plan') && Boolean(window.PlanCore);
+      const planValue = hasPlan && parsed.plan !== null ? window.PlanCore.validate(parsed.plan) : null;
+      const planSkipped = hasPlan && parsed.plan !== null && !planValue;
+      const planNotice = planSkipped ? ' 14일 계획은 형식이 맞지 않아 가져오지 않고 지금 계획을 유지합니다.' : '';
+      if (!window.confirm(`현재 기록을 이 파일의 기록으로 바꿀까요?${planNotice}`)) return;
       try { localStorage.setItem(KEYS.study, JSON.stringify(data)); } catch (error) { /* noop */ }
       if (parsed && Object.prototype.hasOwnProperty.call(parsed, 'mock')) {
         try {
@@ -337,6 +355,8 @@
           else if (parsed.notes === null) localStorage.removeItem(KEYS.notes);
         } catch (error) { /* noop */ }
       }
+      // 계획이 없는 예전 백업은 지금 계획을 그대로 둬요. 새로고침 전에 다 써요.
+      if (hasPlan && !planSkipped) await window.PlanCore.write(planValue);
       if (parsed && parsed.appSettings && settingsApi() && typeof settingsApi().import === 'function') {
         try { settingsApi().import(parsed.appSettings); } catch (error) { /* noop */ }
       }
@@ -530,11 +550,11 @@
     </section>
     <section class="st-card">
       <h3 class="st-h3">전체 초기화</h3>
-      <p class="st-desc">학습·모의고사 기록, 마이노트, 녹음을 모두 지워요.</p>
+      <p class="st-desc">학습·모의고사 기록, 마이노트, 녹음, 14일 계획을 모두 지워요.</p>
       <div class="st-actions">
         <button class="st-btn danger" type="button" data-si="reset" data-kind="all">전체 지우기</button>
       </div>
-      ${confirm('all', '학습·모의고사·마이노트·녹음', '전부')}
+      ${confirm('all', '학습·모의고사·마이노트·녹음·14일 계획', '전부')}
     </section>`;
   }
 

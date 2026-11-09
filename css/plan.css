@@ -1,0 +1,194 @@
+/* =========================================================
+   14일 완성 프로그램 (js/plan.js) — 계획 화면·홈 카드·학습 팁 표시
+   앱의 기존 토큰(--g*, --line, --muted …)과 .panel·.btn-*·.part-row를 그대로 써요.
+   ========================================================= */
+
+/* ---------- 홈 카드 ---------- */
+.plan-home { display: grid; gap: 16px; }
+.plan-home .eyebrow { margin: 0 0 6px; }
+.plan-home h2 { margin: 0 0 6px; font-size: 20px; letter-spacing: -.02em; line-height: 1.35; }
+.ph-desc { margin: 0; font-size: 14px; color: var(--text-2); }
+.ph-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ph-link {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 44px; width: max-content;
+  font-size: 14px; font-weight: 600; color: var(--accent-ink);
+}
+.ph-link .ic { width: 16px; height: 16px; }
+.plan-bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; margin-top: 14px; }
+.plan-bar i { display: block; height: 100%; border-radius: 999px; background: var(--g600); }
+
+/* ---------- 다음 할 일 ---------- */
+.plan-next {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  background: var(--g50); border: 1px solid var(--g200); border-radius: 16px; padding: 14px 16px;
+}
+.pn-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pn-label { font-size: 12px; font-weight: 600; color: var(--accent-ink-2); }
+.pn-copy strong { font-size: 15px; color: var(--text); letter-spacing: -.01em; }
+.pn-copy span:last-child { font-size: 13px; color: var(--muted); }
+.plan-next .btn-primary { flex: none; height: 48px; }
+
+/* ---------- 계획 화면 ---------- */
+.plan-grid { display: grid; gap: 0; }
+.plan-col { min-width: 0; }
+.plan-status { margin-bottom: 20px; }
+.plan-theme { margin: -8px 0 8px; font-size: 14px; color: var(--text-2); }
+.plan-theme b { color: var(--text); }
+.plan-lead { margin: 0 0 16px; font-size: 14px; color: var(--muted); word-break: keep-all; }
+.plan-today .plan-next { margin-bottom: 16px; }
+
+.plan-tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.plan-task {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 12px 12px 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2);
+}
+.pt-mark {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  background: #fff; border: 1.5px solid var(--line-2); color: var(--text-2);
+  font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.pt-mark .ic { width: 16px; height: 16px; stroke-width: 2.6; }
+.plan-task.is-done { background: #fff; }
+.plan-task.is-done .pt-mark { background: var(--accent-ink); border-color: var(--accent-ink); color: #fff; }
+.plan-task.is-doing { border-color: var(--g300); background: var(--g50); }
+.plan-task.is-doing .pt-mark { border-color: var(--g500); color: var(--accent-ink); }
+.pt-main { min-width: 0; }
+.pt-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -.01em; word-break: keep-all; }
+.pt-meta { margin: 2px 0 0; font-size: 13px; color: var(--muted); word-break: keep-all; }
+.plan-task.is-done .pt-title { color: var(--text-2); }
+.pt-note { margin: 6px 0 0; font-size: 12px; line-height: 1.6; color: var(--peach-text); word-break: keep-all; }
+.pt-actions { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.pt-go, .pt-skip { height: 44px; padding: 0 16px; font-size: 14px; border-radius: 10px; white-space: nowrap; }
+.pt-skip { color: var(--text-2); }
+.pt-items { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; font-size: 13px; color: var(--text-2); }
+.pt-items li::before { content: '○'; margin-right: 6px; color: var(--faint); }
+.pt-items li.is-done { color: var(--muted); }
+.pt-items li.is-done::before { content: '✓'; color: var(--accent-ink); }
+.plan-task.is-skipped { background: #fff; }
+.plan-task.is-skipped .pt-mark { background: var(--surface-2); border-style: dashed; color: var(--muted); }
+.plan-task.is-skipped .pt-title { color: var(--text-2); }
+.plan-tasks.compact { gap: 6px; }
+.plan-tasks.compact .plan-task { padding: 10px 10px 10px 12px; gap: 10px; grid-template-columns: 28px minmax(0, 1fr) auto; }
+.plan-tasks.compact .pt-mark { width: 28px; height: 28px; font-size: 12px; }
+.plan-tasks.compact .pt-title { font-size: 14px; }
+
+/* 14일 일정 */
+.plan-day-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.plan-day { border: 1px solid var(--line-2); border-radius: 14px; background: #fff; overflow: hidden; }
+.pd-sum {
+  display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 14px;
+  cursor: pointer; list-style: none;
+}
+.pd-sum::-webkit-details-marker { display: none; }
+.pd-sum:focus-visible { outline-offset: -2px; border-radius: 14px; }
+.pd-no {
+  width: 30px; height: 30px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: var(--g50); color: var(--accent-ink); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.pd-no .ic { width: 16px; height: 16px; stroke-width: 2.6; }
+.pd-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.pd-title { font-size: 14px; font-weight: 600; color: var(--text); letter-spacing: -.01em; word-break: keep-all; }
+.pd-meta { font-size: 12px; color: var(--muted); word-break: keep-all; }
+.pd-state {
+  flex: none; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--line-2); color: var(--muted); background: var(--surface-2); white-space: nowrap;
+}
+.plan-day.is-current { border-color: var(--accent-line); box-shadow: 0 0 0 1px var(--accent-line) inset; }
+.plan-day.is-current .pd-state { background: var(--accent-ink); border-color: var(--accent-ink); color: #fff; }
+.plan-day.is-done .pd-no { background: var(--accent-ink); color: #fff; }
+.plan-day.is-done .pd-state { background: var(--g50); border-color: var(--g200); color: var(--accent-ink); }
+.plan-day[open] .pd-sum { border-bottom: 1px solid var(--line); }
+.pd-body { padding: 12px 12px 14px; }
+.pd-focus { margin: 0 0 10px; font-size: 13px; color: var(--text-2); word-break: keep-all; }
+
+/* 전체 진행 */
+.plan-row { grid-template-columns: 64px minmax(0, 1fr) auto; }
+.plan-row .val { min-width: 72px; }
+.plan-sub { margin: 20px 0 8px; font-size: 13px; font-weight: 700; color: var(--text); }
+.plan-hint { margin: 8px 0 0; font-size: 12px; line-height: 1.65; color: var(--muted); word-break: keep-all; }
+
+/* 이렇게 진행해요 */
+.plan-how { padding: 0; }
+.plan-how-sum {
+  display: flex; align-items: center; min-height: 60px; padding: 8px 24px; cursor: pointer; list-style: none;
+}
+.plan-how-sum::-webkit-details-marker { display: none; }
+.plan-how-sum h2 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+.plan-how-sum::after { content: '+'; margin-left: auto; font-size: 18px; font-weight: 600; color: var(--faint); }
+.plan-how[open] .plan-how-sum::after { content: '−'; }
+.plan-how-sum:focus-visible { outline-offset: -2px; border-radius: 20px; }
+.plan-how-body { padding: 0 24px 24px; }
+.plan-how-body .plan-sub:first-child { margin-top: 0; }
+.plan-points { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; line-height: 1.65; color: var(--text-2); word-break: keep-all; }
+.plan-points b { color: var(--text); margin-right: 4px; }
+
+/* 시작 전·완주·관리 */
+.plan-start h2 { margin: 0 0 16px; font-size: 20px; letter-spacing: -.02em; }
+.plan-start-cta { margin-top: 20px; }
+.plan-start-cta .btn-primary { width: 100%; }
+.plan-manage-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.plan-manage-actions .btn-secondary { height: 48px; font-size: 14px; }
+.plan-finished > p + p { margin-top: 8px; }
+.plan-finished-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 24px; }
+.plan-done-note { margin: 0 0 4px; text-align: center; font-size: 15px; font-weight: 700; color: var(--accent-ink); }
+
+/* ---------- 학습 팁 화면 ---------- */
+.plan-tipbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--g50); border: 1px solid var(--g200); border-radius: 16px;
+  padding: 12px 12px 12px 16px; margin-bottom: 16px;
+}
+.ptb-copy { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ptb-copy strong { font-size: 14px; color: var(--text); }
+.ptb-copy span { font-size: 12px; color: var(--muted); word-break: keep-all; }
+.plan-tipbar .btn-secondary { flex: none; height: 44px; padding: 0 16px; font-size: 14px; }
+.tip-plan {
+  flex: none; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--line-2); background: var(--surface-2); color: var(--muted); white-space: nowrap;
+}
+.tip-plan.is-today { background: var(--accent-ink); border-color: var(--accent-ink); color: #fff; }
+.tip-plan.is-read { background: var(--g50); border-color: var(--g200); color: var(--accent-ink); }
+.tip-plan-foot {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px;
+  margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line-2);
+  font-size: 12px; color: var(--muted);
+}
+.tip-plan-foot .btn-secondary { height: 44px; padding: 0 16px; font-size: 14px; }
+.tip-plan-foot.is-read { color: var(--accent-ink); font-weight: 600; }
+.tip-plan-foot .ic { width: 16px; height: 16px; }
+p.tip-plan-foot { margin-bottom: 0; }
+
+/* ---------- 모의고사 화면(mock.html): 해설·연습 아래 계획 진행 ---------- */
+.plan-strip {
+  margin: 28px 0 8px; padding: 16px; border: 1px solid var(--g200); border-radius: 14px;
+  background: var(--g50); display: grid; gap: 12px;
+}
+.plan-strip-text { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-2); word-break: keep-all; }
+.plan-strip-text b { display: block; color: var(--text); font-size: 15px; }
+.plan-strip-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.plan-strip-actions .ex-btn { min-height: 44px; }
+
+@media (hover: none) {
+  .plan-day .pd-sum:hover { background: transparent; }
+}
+
+@media (max-width: 560px) {
+  .plan-next { flex-direction: column; align-items: stretch; }
+  .plan-next .btn-primary { width: 100%; }
+  .plan-task { grid-template-columns: 32px minmax(0, 1fr); }
+  .plan-task .pt-actions { grid-column: 2; flex-direction: row; flex-wrap: wrap; justify-self: start; }
+  .plan-tasks.compact .plan-task { grid-template-columns: 28px minmax(0, 1fr); }
+  .plan-tipbar { flex-direction: column; align-items: stretch; }
+  .plan-manage-actions .btn-secondary { flex: 1 1 100%; }
+  .plan-how-sum { padding: 8px 16px; }
+  .plan-how-body { padding: 0 16px 20px; }
+}
+
+/* iPad 가로(1180×820): 왼쪽 오늘의 프로그램, 오른쪽 진행·일정 */
+@media (min-width: 900px) {
+  .plan-grid { grid-template-columns: minmax(0, 1.12fr) minmax(0, .88fr); gap: 20px; align-items: start; }
+  .plan-home { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; column-gap: 24px; }
+  .plan-home .ph-link { grid-column: 1 / -1; margin-top: -8px; }
+  .plan-home:not(.is-active) { grid-template-columns: minmax(0, 1fr) auto; }
+  .plan-home:not(.is-active) .ph-link { grid-column: auto; }
+}

@@ -23,7 +23,7 @@
   const SRS_MAX_INTERVAL = 60;
   const DAY_MS = 24 * 60 * 60 * 1000;
   const HISTORY_PAGE_SIZE = 8;
-  const ROUTES = ['home', 'study', 'review', 'records', 'tips'];
+  const ROUTES = ['home', 'study', 'review', 'records', 'tips', 'plan'];
   const PART_KEYS = ['part2', 'part3', 'part4', 'part5'];
   const ALL_PARTS_LABEL = 'Part 2–5';
   const SPEEDS = [0.7, 0.85, 1, 1.15];
@@ -127,6 +127,7 @@
     review: { label: '복습하기', title: '복습하기' },
     records: { label: '학습 기록', title: '학습 기록' },
     tips: { label: '학습 팁', title: '학습 팁' },
+    plan: { label: '14일 계획', title: '14일 계획' },
   };
 
   const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -737,7 +738,7 @@
   }
 
   function routeFromHash() {
-    const match = location.hash.match(/^#\/(home|study|review|records|tips)\/?$/);
+    const match = location.hash.match(/^#\/(home|study|review|records|tips|plan)\/?$/);
     return match ? match[1] : 'home';
   }
 
@@ -1018,6 +1019,7 @@
     const totalSentences = SENTENCES.length;
 
     return `${pageHead(prettyToday(), '오늘도 한 문장씩,<br>영어로 말해 볼까요?', '토익스피킹 파트 2~5의 핵심 문장을 내 속도에 맞춰 연습해요.')}
+      ${window.StudyPlan ? window.StudyPlan.homeMarkup() : ''}
       <div class="summary-bar">
         <span><strong>오늘 복습 ${dueToday}문장</strong> · 이번 주 연습 ${weekTotal}문장 · ${effectiveStreak() ? `${effectiveStreak()}일 연속` : '오늘부터 시작'}</span>
         <span class="tag">${ALL_PARTS_LABEL}</span>
@@ -1246,9 +1248,14 @@
     return state.settings.sceneMode === 'read' ? 'read' : 'answer';
   }
 
+  // 세션 화면의 사진·표 표시 방식. 14일 계획 세션은 저장된 설정을 바꾸지 않고 '문제 보고 답하기'로 고정해요.
+  function sessionSceneMode() {
+    return (session && session.sceneMode) || sceneModeNow();
+  }
+
   // 요약·칩에 보여 줄 표시 방식 이름. 사진·표 카드(Part 2·4)만이면 그 방식, 섞여 있으면 둘 다 보여 줘요.
-  function modeText(hasScene, hasText, textMode) {
-    const sceneLabel = SCENE_MODE_INFO[sceneModeNow()].short;
+  function modeText(hasScene, hasText, textMode, sceneMode = sceneModeNow()) {
+    const sceneLabel = SCENE_MODE_INFO[sceneMode].short;
     const textLabel = (MODE_INFO[textMode] || MODE_INFO['en-first']).label;
     if (hasScene && !hasText) return sceneLabel;
     if (hasScene && hasText) return `${textLabel} · ${sceneLabel}`;
@@ -1267,7 +1274,7 @@
 
   // 사진·표 카드가 "문제를 보고 답변하기"이고 아직 답안을 열지 않았는지.
   function sceneAnswerHidden(card) {
-    return Boolean(card && card.image) && sceneModeNow() === 'answer' && !session.revealed;
+    return Boolean(card && card.image) && sessionSceneMode() === 'answer' && !session.revealed;
   }
 
   // R·Space로 정답(답안)을 열 수 있는 상태인지. 사진·표 카드는 "문제를 보고 답변하기"에서 숨긴 동안에만 열 수 있어요.
@@ -1305,7 +1312,7 @@
     const scene = Boolean(card.image);
     const answerHidden = sceneAnswerHidden(card);
     const isKoFirst = !scene && (s.mode === 'ko-first' || s.mode === 'listen');
-    const isBoth = scene ? sceneModeNow() === 'read' : s.mode === 'both';
+    const isBoth = scene ? sessionSceneMode() === 'read' : s.mode === 'both';
     const primary = isKoFirst ? card.ko : card.en;
     const secondary = isKoFirst ? card.en : card.ko;
     // 사진·표 카드의 답은 여러 문장이라 한 문장용 큰 글자보다 작게 보여 줍니다.
@@ -1325,7 +1332,7 @@
     const revealHint = isBoth ? '' : ' · <kbd>R</kbd> 정답';
     const parts = PART_KEYS.filter((key) => s.sentences.some((sentence) => sentence.part === key));
     const partLabel = parts.map((part) => PART_INFO[part].label).join(' + ');
-    const sourceLabel = s.source === 'review' ? '복습' : partLabel;
+    const sourceLabel = s.plan ? s.plan.label : s.source === 'review' ? '복습' : partLabel;
 
     const speedOptions = SPEEDS.map((speed) => `<option value="${speed}" ${Number(state.settings.speed) === speed ? 'selected' : ''}>${speed}×</option>`).join('');
     const primaryLang = isKoFirst ? '' : ' lang="en"';
@@ -1333,7 +1340,7 @@
 
     return `<h1 class="sr-only">${s.source === 'review' ? '문장 복습' : '문장 학습'}</h1>
       <section class="session-bar" aria-label="학습 세션 정보">
-        <div class="chips"><span>${esc(sourceLabel)}</span><span>${esc(modeText(s.sentences.some((item) => item.image), s.sentences.some((item) => !item.image), s.mode))}</span><span>${s.index + 1} / ${total}</span></div>
+        <div class="chips"><span>${esc(sourceLabel)}</span><span>${esc(modeText(s.sentences.some((item) => item.image), s.sentences.some((item) => !item.image), s.mode, sessionSceneMode()))}</span><span>${s.index + 1} / ${total}</span></div>
         <button type="button" data-action="finish-session">${icon('x')} 학습 마치기</button>
       </section>
       <div class="session-meta">
@@ -1410,11 +1417,14 @@
     const copy = s.partial
       ? `${s.rated}문장의 결과를 저장했어요. 다음에 이어서 가볍게 이어가요.`
       : `${s.rated}문장을 끝까지 연습했어요. ${dueToday ? `오늘 복습할 문장이 ${dueToday}개 남았어요.` : queueCount ? `복습 큐 ${queueCount}문장은 예정일에 다시 만나요.` : '복습 큐가 비어 있어요. 멋져요!'}`;
-    const primary = s.source === 'review' && dueToday
-      ? `<button class="btn-primary" type="button" data-action="restart">${icon('repeat')} 복습 더 하기</button>`
-      : s.source === 'study' && dueToday
-        ? `<a class="btn-primary" href="#/review">${icon('repeat')} 오늘 복습 ${dueToday}문장 하기</a>`
-        : `<button class="btn-primary" type="button" data-action="restart">${icon('refresh')} 한 번 더 연습</button>`;
+    // 14일 계획에서 시작한 세션은 같은 할 일을 이어 하거나 계획으로 돌아가요(일반 '한 번 더 연습'은 계획 밖 설정을 써서 숨겨요).
+    const primary = s.plan && window.StudyPlan
+      ? window.StudyPlan.doneMarkup(s.plan)
+      : s.source === 'review' && dueToday
+        ? `<button class="btn-primary" type="button" data-action="restart">${icon('repeat')} 복습 더 하기</button>`
+        : s.source === 'study' && dueToday
+          ? `<a class="btn-primary" href="#/review">${icon('repeat')} 오늘 복습 ${dueToday}문장 하기</a>`
+          : `<button class="btn-primary" type="button" data-action="restart">${icon('refresh')} 한 번 더 연습</button>`;
 
     return `<h1 class="sr-only">학습 완료</h1>
       <section class="panel done-card">
@@ -1609,6 +1619,7 @@
     else if (routeFromHash() === 'study') html = viewStudy();
     else if (routeFromHash() === 'review') html = viewReview();
     else if (routeFromHash() === 'tips') html = window.StudyTips ? window.StudyTips.render() : '<section class="panel"><div class="empty"><h2>학습 팁은 준비 중이에요</h2><p>잠시 뒤 다시 열어 주세요.</p></div></section>';
+    else if (routeFromHash() === 'plan') html = window.StudyPlan ? window.StudyPlan.render() : '<section class="panel"><div class="empty"><h2>14일 계획을 불러오지 못했어요</h2><p>새로고침한 뒤 다시 열어 주세요.</p></div></section>';
     else html = viewRecords();
 
     app.innerHTML = html;
@@ -1672,6 +1683,46 @@
     announce(`${cards.length}문장 학습을 시작합니다.`);
   }
 
+  // 14일 계획(js/plan.js)이 고른 카드로 바로 세션을 시작해요. 학습 설정(파트·문장 수·필터·표시 방식)은 바꾸지 않아요.
+  // 평가·복습 큐·기록·연속 학습은 보통 세션과 똑같이 남고, session.plan 은 화면 표시용이에요.
+  // 표시 방식: 새 문장은 저장된 방식, 복습은 opts.mode(한국어 먼저), 사진·표 카드는 opts.sceneMode('문제 보고 답하기').
+  function startPlanSession(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const kind = opts.kind === 'review' ? 'review' : 'study';
+    const cards = (Array.isArray(opts.ids) ? opts.ids : []).map((id) => BY_ID.get(id)).filter(Boolean);
+    if (!cards.length) {
+      toast('지금 연습할 문장이 없어요.');
+      return false;
+    }
+    if (!acquireSessionLock()) {
+      toast('다른 탭에서 학습 중이에요. 그 탭을 마친 뒤 다시 시도해 주세요.');
+      return false;
+    }
+    if (suspendedSession) saveAbandonedSession(suspendedSession);
+    suspendedSession = null;
+    stopSpeech();
+    const mode = MODE_ORDER.includes(opts.mode) ? opts.mode : (kind === 'review' ? 'ko-first' : state.settings.mode);
+    session = makeSession(kind, kind, cards, mode);
+    if (SCENE_MODES.includes(opts.sceneMode)) session.sceneMode = opts.sceneMode;
+    session.plan = {
+      taskId: String(opts.taskId || '').slice(0, 40),
+      label: String(opts.label || '14일 계획').slice(0, 40),
+      run: String(opts.run || '').slice(0, 40),
+    };
+    const message = `${cards.length}문장 ${kind === 'review' ? '복습' : '학습'}을 시작합니다.`;
+    if (routeFromHash() !== kind) {
+      // hashchange 가 세션 화면을 그리고 제목으로 포커스를 옮겨요.
+      location.hash = `#/${kind}`;
+      announce(message);
+      return true;
+    }
+    render();
+    scrollTop();
+    focusElement('.flash-card');
+    announce(message);
+    return true;
+  }
+
   // 예정일이 지난 문장을 먼저, 없으면 가장 빨리 돌아오는 문장부터 복습해요.
   function orderedForReview(filter) {
     const list = queueEntries()
@@ -1733,6 +1784,7 @@
     session.lastRated = {
       cardId: card.id,
       status,
+      at: now,
       index: indexBefore,
       results: resultsBefore,
       rated: ratedBefore,
@@ -1801,6 +1853,8 @@
 
     if (last.prevQueue) state.queue[last.cardId] = { ...last.prevQueue };
     else delete state.queue[last.cardId];
+    // 이 평가로 14일 계획의 하루가 끝났다면 그 날의 완료도 되돌려요.
+    if (window.PlanCore) window.PlanCore.revert(last.at);
 
     session.results = { ...last.results };
     session.rated = last.rated;
@@ -2285,6 +2339,10 @@
     if (window.AppSettings && typeof window.AppSettings.export === 'function') {
       try { payload.appSettings = window.AppSettings.export(); } catch (error) { /* noop */ }
     }
+    // 14일 계획(speaking-routine-plan-v1). 계획이 없으면 null 로 남겨, 가져올 때도 '계획 없음'으로 맞춰요.
+    // 읽을 수 없게 깨진 계획은 빼요(가져올 때 지금 계획을 그대로 둬요).
+    const plan = window.PlanCore ? window.PlanCore.read() : null;
+    if (plan && plan.status !== 'error') payload.plan = plan.value;
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -2294,8 +2352,8 @@
     anchor.click();
     anchor.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast(mock.status === 'error' || notes.status === 'error'
-      ? '학습 기록을 내보냈어요. 일부 모의고사·마이노트 기록은 읽지 못해 제외했습니다.'
+    toast(mock.status === 'error' || notes.status === 'error' || (plan && plan.status === 'error')
+      ? '학습 기록을 내보냈어요. 일부 모의고사·마이노트·계획 기록은 읽지 못해 제외했습니다.'
       : '학습 기록을 내보냈어요.');
   }
 
@@ -2322,9 +2380,17 @@
       const hasNotes = Object.prototype.hasOwnProperty.call(parsed, 'notes');
       const mockNotice = hasMock ? ' 모의고사 기록도 함께 바뀝니다.' : ' 모의고사 기록은 유지됩니다.';
       const notesNotice = hasNotes ? ' 마이노트도 함께 바뀝니다.' : ' 마이노트는 유지됩니다.';
+      // 14일 계획: 없으면(예전 백업) 지금 계획을 그대로, null 이면 지우고, 있으면 형식을 꼼꼼히 확인해요.
+      // 형식이 맞지 않는 계획만 건너뛰고(지금 계획 유지) 나머지 기록은 가져와요.
+      const hasPlan = Boolean(window.PlanCore) && Object.prototype.hasOwnProperty.call(parsed, 'plan');
+      const planValue = hasPlan && parsed.plan !== null ? window.PlanCore.validate(parsed.plan) : null;
+      const planSkipped = hasPlan && parsed.plan !== null && !planValue;
+      const planNotice = !hasPlan ? ' 14일 계획은 유지됩니다.'
+        : planSkipped ? ' 14일 계획은 형식이 맞지 않아 가져오지 않고 지금 계획을 유지합니다.'
+          : parsed.plan === null ? ' 14일 계획은 지워집니다.' : ' 14일 계획도 함께 바뀝니다.';
 
       const next = normalizeState(parsed);
-      if (!window.confirm(`현재 기록을 가져온 파일의 기록으로 바꿀까요?${mockNotice}${notesNotice}`)) return;
+      if (!window.confirm(`현재 기록을 가져온 파일의 기록으로 바꿀까요?${mockNotice}${notesNotice}${planNotice}`)) return;
       state = next;
       // 음성·자동 채점 설정은 선택 항목이라, 없는 예전 백업은 지금 설정을 그대로 둔다.
       if (parsed.appSettings && window.AppSettings && typeof window.AppSettings.import === 'function') {
@@ -2341,6 +2407,11 @@
         const written = writeNotesStore(parsed.notes);
         notesFailed = !written.ok;
       }
+      let planFailed = false;
+      if (hasPlan && !planSkipped) {
+        const written = await window.PlanCore.write(planValue);
+        planFailed = !written.ok;
+      }
       session = null;
       suspendedSession = null;
       releaseSessionLock();
@@ -2348,9 +2419,11 @@
       persist();
       render();
       focusHeading();
-      toast(mockFailed || notesFailed
-        ? '학습 기록을 가져왔어요. 일부 모의고사·마이노트 기록은 형식이 맞지 않아 기존 값을 유지했습니다.'
-        : '학습 기록을 가져왔어요.');
+      toast(planSkipped
+        ? '학습 기록을 가져왔어요. 14일 계획은 형식이 맞지 않아 건너뛰고 지금 계획을 유지했어요.'
+        : mockFailed || notesFailed || planFailed
+          ? '학습 기록을 가져왔어요. 일부 모의고사·마이노트·계획 기록은 형식이 맞지 않아 기존 값을 유지했습니다.'
+          : '학습 기록을 가져왔어요.');
     } catch (error) {
       toast('올바른 학습 기록 파일이 아니에요.');
     } finally {
@@ -2358,12 +2431,12 @@
     }
   }
 
-  function resetData() {
+  async function resetData() {
     if (otherSessionLockActive()) {
       toast('다른 탭에서 학습 중이에요. 그 탭을 마친 뒤 다시 시도해 주세요.');
       return;
     }
-    if (!window.confirm('모든 학습 기록, 모의고사 기록, 마이노트, 녹음을 삭제할까요? 이 작업은 되돌릴 수 없어요.')) return;
+    if (!window.confirm('모든 학습 기록, 모의고사 기록, 마이노트, 녹음, 14일 계획을 삭제할까요? 이 작업은 되돌릴 수 없어요.')) return;
     const keepSettings = state.settings;
     state = defaultState();
     state.settings = keepSettings;
@@ -2375,10 +2448,11 @@
     releaseSessionLock();
     resetViewState();
     persist();
+    const clearedPlan = window.PlanCore ? await window.PlanCore.write(null) : { ok: true };
     render();
     focusHeading();
-    toast(cleared.ok && clearedNotes.ok
-      ? '학습 기록, 모의고사 기록, 마이노트, 녹음을 초기화했어요.'
+    toast(cleared.ok && clearedNotes.ok && clearedPlan.ok
+      ? '학습 기록, 모의고사 기록, 마이노트, 녹음, 14일 계획을 초기화했어요.'
       : '학습 기록은 초기화했지만 일부 기록을 삭제하지 못했어요.');
   }
 
@@ -2450,6 +2524,11 @@
       const cleared = writeMockStore(null);
       if (!cleared.ok) failed = true;
     }
+    // 모의고사 기록만 지우면 14일 계획에 남은 해설 확인·연습 타이머·다시 풀기 기록도 지워요(그 할 일이 다시 열려요).
+    if (kind === 'mock' && window.PlanCore) {
+      const cleared = await window.PlanCore.forgetMock();
+      if (!cleared.ok && !cleared.skipped) failed = true;
+    }
     if (kind === 'all' || kind === 'notes') {
       const cleared = writeNotesStore(null);
       if (!cleared.ok) failed = true;
@@ -2457,6 +2536,11 @@
     if (kind === 'all' || kind === 'recordings') {
       const cleared = await clearAudioStore();
       if (!cleared) failed = true;
+    }
+    // 전체 지우기는 14일 계획도 지워요. 다른 항목별 지우기는 계획을 건드리지 않아요.
+    if (kind === 'all' && window.PlanCore) {
+      const cleared = await window.PlanCore.write(null);
+      if (!cleared.ok) failed = true;
     }
     if (studyReset || kind === 'all') render();
     return { ok: !failed, failed };
@@ -2469,6 +2553,11 @@
     import: importData,
     refresh: render,
     version: STATE_VERSION,
+    // 14일 계획(js/plan.js)이 쓰는 연결점: 학습 기록 읽기(쓰지 않아요), 카드 세션 시작, 안내.
+    studyState: () => state,
+    startCards: startPlanSession,
+    toast,
+    announce,
   };
 
   function handleAction(action, target) {
@@ -2619,6 +2708,8 @@
         resetData();
         break;
       default:
+        // plan-* 동작(계획 시작·할 일 시작·팁 읽음)은 js/plan.js 가 처리해요.
+        if (window.StudyPlan) window.StudyPlan.handle(action, target);
         break;
     }
   }
@@ -2805,7 +2896,7 @@
 
   window.addEventListener('hashchange', () => {
     const raw = location.hash;
-    if (raw && !/^#\/(home|study|review|records|tips)\/?$/.test(raw)) {
+    if (raw && !/^#\/(home|study|review|records|tips|plan)\/?$/.test(raw)) {
       history.replaceState(null, '', '#/home');
     }
     const route = routeFromHash();
@@ -2912,7 +3003,7 @@
 
   hydrateIcons(document);
   if (window.SpeechVoice) window.SpeechVoice.load();
-  if (!/^#\/(home|study|review|records|tips)\/?$/.test(location.hash)) {
+  if (!/^#\/(home|study|review|records|tips|plan)\/?$/.test(location.hash)) {
     history.replaceState(null, '', '#/home');
   }
   render();

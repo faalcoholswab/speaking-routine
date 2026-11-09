@@ -38,6 +38,42 @@
 
   const root = document.getElementById('ex-root');
 
+  // 14일 계획에서 연 링크: mock.html#plan=1&exam=mock-05&mode=exam · …&mode=practice&no=7(마이노트 문항) · mock.html#plan=1&view=notes
+  // 그 시험·모드의 소개 화면(또는 마이노트)으로 바로 열고, 돌아가는 링크를 계획으로 바꿔요.
+  const PLAN_LINK = (() => {
+    try {
+      const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+      if (params.get('plan') !== '1') return null;
+      const no = Number(params.get('no'));
+      return {
+        exam: params.get('exam') || '',
+        mode: params.get('mode') || '',
+        view: params.get('view') || '',
+        no: Number.isInteger(no) && no >= 1 && no <= 11 ? no : 0,
+      };
+    } catch (error) {
+      return null;
+    }
+  })();
+  const BACK_HREF = PLAN_LINK ? 'index.html#/plan' : 'index.html';
+  const BACK_LABEL = PLAN_LINK ? '14일 계획으로 돌아가기' : '학습으로 돌아가기';
+
+  // 연습·해설·다시 풀기를 시작할 때의 계획(run). 그사이 계획을 다시 시작했으면 그 활동은 새 계획에 남기지 않아요.
+  let planRun = '';
+  const planLogged = new Set();
+
+  function currentPlanRun() {
+    const value = window.PlanCore ? window.PlanCore.current() : null;
+    return value ? value.run : '';
+  }
+
+  // 계획(js/plan-core.js)에 해설 확인·연습 타이머·마이노트 다시 풀기를 남겨요. 계획이 없으면 아무것도 쓰지 않아요.
+  // notBefore: 해설 확인일 때 그 시험을 끝낸 시각(그 전의 확인은 계획에 세지 않아요).
+  function planLog(kind, no, notBefore) {
+    if (!window.PlanCore || !currentExam || !planRun) return Promise.resolve({ ok: false });
+    return window.PlanCore.logMock(kind, currentExam.id, no, planRun, notBefore);
+  }
+
   let runToken = 0;
   let attempt = null;
   let els = null;
@@ -325,7 +361,7 @@
     root.innerHTML = `
       <div class="ex-home">
         <div class="ex-wrap">
-          <a class="ex-back" href="index.html">← 스피킹 루틴</a>
+          <a class="ex-back" href="${BACK_HREF}">← ${PLAN_LINK ? '14일 계획' : '스피킹 루틴'}</a>
           <div class="ex-home-head">
             <h1 class="ex-h1">모의고사</h1>
             <p class="ex-sub">실제 시험과 같은 순서·시간으로 Part 1~5를 한 번에 연습합니다.</p>
@@ -924,6 +960,87 @@
     const timerButton = els.dock.querySelector('[data-act="ptimer"]');
     if (timerButton) timerButton.disabled = pending;
     if (result && !pending && mode === 'practice') loadPracticeAudio(item.q.no);
+    paintPlanStrip();
+  }
+
+  // ---------- 14일 계획 ----------
+  // 해설·연습 화면 아래에 계획 진행을 보여 줘요. 해설은 문항마다 '읽고 말해 봤어요'를 눌러야 기록돼요(열어 보기만으로는 안 세요).
+  function planValue() {
+    const value = window.PlanCore ? window.PlanCore.current() : null;
+    return value && planRun && value.run === planRun ? value : null;
+  }
+
+  function plannedMock(value, examId) {
+    const day = value.plan.days.find((item) => item.mock && item.mock.exam === examId);
+    return day ? day.mock : null;
+  }
+
+  function planCount(value, kind, examId) {
+    return window.PlanCore.QUESTION_NOS.filter((no) => value.mock[`${kind}:${examId}:${no}`]).length;
+  }
+
+  // 해설에는 모범 답안이 있어서, 계획의 그 시험 할 일(실전 11문항 끝까지·연습 11문항 타이머)을 끝낸 뒤의 확인만 계획에 세요.
+  // guideAfter: 그 시험을 끝낸 시각(아직이면 0) · guideChecked: 그 뒤에 확인한 문항 번호(아직이면 null).
+  function guideAfter(value, examId) {
+    const planned = plannedMock(value, examId);
+    return planned ? window.PlanCore.attemptAt(value, planned, loadStore().attempts) : 0;
+  }
+
+  function guideChecked(value, examId) {
+    const after = guideAfter(value, examId);
+    return after ? window.PlanCore.guideNos(value, examId, after) : null;
+  }
+
+  function paintPlanStrip() {
+    if (!els || !currentExam || mode === 'exam') return;
+    const old = els.stage.querySelector('.plan-strip');
+    if (old) old.remove();
+    const value = planValue();
+    const item = practiceList[practiceIndex];
+    if (!value || !item) return;
+    const examId = currentExam.id;
+    const no = item.q.no;
+    const back = '<a class="ex-btn ghost sm" href="index.html#/plan">14일 계획으로</a>';
+    let body = '';
+    if (mode === 'guide') {
+      const planned = plannedMock(value, examId);
+      if (!planned) return;
+      const checked = guideChecked(value, examId);
+      if (!checked) {
+        const how = planned.mode === 'exam' ? '실전 시험으로 11문항을 끝까지 보면' : '연습 모드에서 11문항 타이머를 모두 끝내면';
+        body = `<p class="plan-strip-text"><b>14일 계획 · 해설은 모의고사를 끝낸 뒤에 세요</b> ${how} 여기서 문항마다 확인할 수 있어요.</p>
+          <div class="plan-strip-actions">${back}</div>`;
+      } else {
+        const last = practiceIndex >= practiceList.length - 1;
+        const label = `${checked.includes(no) ? '확인했어요' : '읽고 말해 봤어요'}${last ? '' : ' · 다음 해설'}`;
+        body = `<p class="plan-strip-text"><b>14일 계획 · 해설 ${checked.length}/11 확인</b> 모범 답안을 읽고 소리 내어 말해 본 뒤 눌러요.</p>
+          <div class="plan-strip-actions"><button class="ex-btn sm" type="button" data-act="plan-guide-done">${label}</button>${back}</div>`;
+      }
+    } else {
+      const noteTarget = Boolean(PLAN_LINK && PLAN_LINK.exam === examId && PLAN_LINK.no === no);
+      const planned = plannedMock(value, examId);
+      if (!noteTarget && !(planned && planned.mode === 'practice')) return;
+      const done = noteTarget ? planLogged.has(`${examId}:${no}`) : Boolean(value.mock[`practice:${examId}:${no}`]);
+      const head = noteTarget ? `14일 계획 · 마이노트 Q${no}` : `14일 계획 · 연습 ${planCount(value, 'practice', examId)}/11문항`;
+      const text = done ? `Q${no} 타이머를 끝까지 실행했어요.` : `아래 타이머를 끝까지 실행하면 Q${no}가 기록돼요. 녹음 없이도 돼요.`;
+      body = `<p class="plan-strip-text"><b>${head}</b> ${text}</p><div class="plan-strip-actions">${back}</div>`;
+    }
+    els.stage.insertAdjacentHTML('beforeend', `<section class="plan-strip" aria-label="14일 계획 진행">${body}</section>`);
+  }
+
+  // 계획 링크로 연 해설·연습은 아직 안 한 첫 문항부터, 마이노트 문항 링크는 그 문항부터 열어요.
+  function planStartIndex(examId, target) {
+    const value = planValue();
+    if (!value || !PLAN_LINK || PLAN_LINK.exam !== examId) return 0;
+    const find = (test) => Math.max(0, practiceList.findIndex(test));
+    if (target === 'practice' && PLAN_LINK.no) return find((item) => item.q.no === PLAN_LINK.no);
+    if (target === 'guide') {
+      const checked = guideChecked(value, examId) || [];
+      return find((item) => !checked.includes(item.q.no));
+    }
+    const planned = plannedMock(value, examId);
+    if (planned && planned.mode === 'practice') return find((item) => !value.mock[`practice:${examId}:${item.q.no}`]);
+    return 0;
   }
 
   function goPractice(delta) {
@@ -953,7 +1070,8 @@
     if (target === 'guide') recordingEnabled = false;
     attempt = null;
     practiceList = buildPracticeList(exam);
-    practiceIndex = 0;
+    planRun = currentPlanRun();
+    practiceIndex = planStartIndex(exam.id, target);
     mountShell(target);
     document.title = target === 'guide'
       ? `${exam.title} 해설 · 스피킹 루틴`
@@ -1019,6 +1137,13 @@
         await stopRecording();
       }
       if (token !== runToken) return;
+      const examId = currentExam.id;
+      planLog('practice', q.no).then((result) => {
+        if (!result.ok) return;
+        planLogged.add(`${examId}:${q.no}`);
+        // 녹음 없이 푼 Part 3·4 문항은 화면을 다시 그리지 않으니, 계획 줄만 새로 그려요.
+        if (mode === 'practice' && practiceList[practiceIndex] && practiceList[practiceIndex].q.no === q.no) paintPlanStrip();
+      });
       beep('end');
       dockIdle('타이머');
       if (recordingEnabled && (TEST_AUDIO || recorderSupported())) {
@@ -1463,7 +1588,7 @@
 
           <div class="ex-actions">
             <button class="ex-btn" data-act="retry" type="button">다시 보기</button>
-            <a class="ex-btn ghost" href="index.html">학습으로 돌아가기</a>
+            <a class="ex-btn ghost" href="${BACK_HREF}">${BACK_LABEL}</a>
           </div>
         </div>
       </div>`;
@@ -1504,7 +1629,7 @@
             <p class="report-meta">${attempt.total}문항 · ${fmtClock(attempt.seconds)} · 5파트 · 자기평가 ${rated}/${attempt.total}${attempt.saved === false ? ' · 저장하지 못했어요' : ''}</p>
             <div class="ex-actions report-actions">
               <button class="ex-btn ghost sm" data-act="retry" type="button">다시 보기</button>
-              <a class="ex-btn ghost sm" href="index.html">학습으로 돌아가기</a>
+              <a class="ex-btn ghost sm" href="${BACK_HREF}">${BACK_LABEL}</a>
             </div>
           </div>
           ${scoringBanner()}
@@ -1524,7 +1649,7 @@
           <p class="report-disclaimer">${autoScoreEnabled() ? '기기 안에서 음성 인식으로 계산한 추정치예요. 실제 ETS 채점과 다를 수 있어요.' : '자동 채점이 꺼져 있어 점수는 계산하지 않았어요. 녹음과 자기평가는 기기에만 저장돼요.'}</p>
           <div class="ex-actions">
             <button class="ex-btn" data-act="retry" type="button">다시 보기</button>
-            <a class="ex-btn ghost" href="index.html">학습으로 돌아가기</a>
+            <a class="ex-btn ghost" href="${BACK_HREF}">${BACK_LABEL}</a>
           </div>
         </div>
       </div>`;
@@ -1901,6 +2026,7 @@
   async function startNoteRetakeNow(item, prevScore) {
     const exam = currentExam;
     const { part, q } = item;
+    planRun = currentPlanRun();
     cleanupMic();
     revokeReportAudio();
     testAudioBlobs.clear();
@@ -1937,6 +2063,7 @@
     const { part, q } = item;
     attempt.finishedAt = new Date().toISOString();
     attempt.seconds = Math.round((Date.now() - attempt.startedAt) / 1000);
+    planLog('retake', q.no);
     const record = await getRecording(attempt.id, q.no);
     if (token !== runToken || !attempt) return;
     if (record && !autoScoreEnabled()) {
@@ -2153,6 +2280,49 @@
     const target = event.target.closest('[data-act]');
     if (!target) return;
     const act = target.dataset.act;
+
+    // 14일 계획 해설: 이 문항을 확인으로 남기고 다음 문항 맨 위로 넘어가요.
+    if (act === 'plan-guide-done') {
+      event.preventDefault();
+      const item = practiceList[practiceIndex];
+      const value = planValue();
+      const after = value ? guideAfter(value, currentExam.id) : 0;
+      if (mode !== 'guide' || !item || !after) {
+        // 다른 탭에서 계획을 다시 시작했거나 그만뒀다면 이 버튼은 더 쓸 수 없어요. 계획 줄을 지금 상태로 다시 그려요.
+        paintPlanStrip();
+        return;
+      }
+      target.disabled = true;
+      planLog('guide', item.q.no, after).catch(() => ({ ok: false })).then((result) => {
+        if (mode !== 'guide' || practiceList[practiceIndex] !== item) return;
+        // 확인을 저장하지 못했으면 넘어가지 않아요. 그사이 계획이 바뀐 경우(skipped)는 계획 줄만 새로 그려요.
+        if (!result.ok) {
+          if (result.skipped) {
+            paintPlanStrip();
+            return;
+          }
+          target.disabled = false;
+          const strip = target.closest('.plan-strip');
+          if (strip) {
+            // 다시 실패해도 화면 읽기 프로그램이 또 알려 주도록 안내 줄을 새로 넣어요.
+            const old = strip.querySelector('[role="alert"]');
+            if (old) old.remove();
+            strip.insertAdjacentHTML('beforeend', '<p class="plan-strip-text" role="alert">브라우저 저장 공간을 쓸 수 없어 확인을 저장하지 못했어요. 다시 눌러 주세요.</p>');
+          }
+          return;
+        }
+        if (practiceIndex < practiceList.length - 1) goPractice(1);
+        else paintPractice();
+        const scroller = els.stage.closest('.ex-stage');
+        if (scroller) scroller.scrollTop = 0;
+        const heading = els.stage.querySelector('.ex-q-no');
+        if (heading) {
+          heading.setAttribute('tabindex', '-1');
+          heading.focus({ preventScroll: true });
+        }
+      });
+      return;
+    }
 
     if (act === 'intro') {
       event.preventDefault();
@@ -2376,8 +2546,31 @@
     event.returnValue = '';
   });
 
-  if (window.SpeechVoice) window.SpeechVoice.load().then(() => paintHome());
-  else paintHome();
+  // 계획 링크로 들어왔으면 목록 대신 그 시험의 소개 화면(모드 선택된 상태)이나 마이노트를 열어요.
+  function openPlanLink() {
+    if (!PLAN_LINK) return;
+    if (PLAN_LINK.view === 'notes') {
+      paintNotes();
+      return;
+    }
+    const exam = EXAMS.find((item) => item.id === PLAN_LINK.exam);
+    if (!exam) return;
+    selectedMode = MODE_HINT[PLAN_LINK.mode] ? PLAN_LINK.mode : 'exam';
+    paintIntro(exam.id);
+    const heading = root.querySelector('.ex-h1');
+    if (heading) {
+      heading.setAttribute('tabindex', '-1');
+      heading.focus();
+    }
+  }
+
+  function boot() {
+    paintHome();
+    openPlanLink();
+  }
+
+  if (window.SpeechVoice) window.SpeechVoice.load().then(boot);
+  else boot();
 
   // 설정 화면에서 음성·자동 채점을 바꾸면 다음 재생부터 반영한다.
   if (window.AppSettings && typeof window.AppSettings.subscribe === 'function') {

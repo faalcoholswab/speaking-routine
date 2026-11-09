@@ -164,15 +164,16 @@
     </article>`;
   }
 
-  function sectionMarkup(section, index) {
+  // plan: 14일 계획(js/plan.js)이 주는 표시(오늘 읽을 묶음·'다 읽었어요' 버튼). 계획이 없으면 null.
+  function sectionMarkup(section, index, plan) {
     const key = typeof section.key === 'string' && section.key ? section.key : `section-${index}`;
     const title = typeof section.title === 'string' && section.title ? section.title : '팁';
     const blocks = Array.isArray(section.blocks) ? section.blocks.map(blockMarkup).filter(Boolean) : [];
     const examples = Array.isArray(section.examples) ? section.examples.map(exampleMarkup).filter(Boolean) : [];
     const body = `${blocks.join('')}${examples.join('')}`;
     return `<details class="tip-group" data-tip-key="${esc(key)}"${openKeys.has(key) ? ' open' : ''}>
-      <summary class="tip-sum"><span class="tip-num">${index + 1}</span><span class="tip-name">${esc(title)}</span></summary>
-      <div class="tip-body">${body || '<p class="tip-missing">내용을 채우는 중이에요.</p>'}</div>
+      <summary class="tip-sum"><span class="tip-num">${index + 1}</span><span class="tip-name">${esc(title)}</span>${plan ? plan.badge(key) : ''}</summary>
+      <div class="tip-body">${body || '<p class="tip-missing">내용을 채우는 중이에요.</p>'}${plan ? plan.footer(key) : ''}</div>
     </details>`;
   }
 
@@ -185,7 +186,7 @@
     </section>`;
   }
 
-  function partMarkup(part, data) {
+  function partMarkup(part, data, plan) {
     const sections = Array.isArray(data.sections)
       ? data.sections.filter((section) => section && typeof section === 'object')
       : [];
@@ -196,11 +197,12 @@
         <div class="panel-head"><h2>${title}</h2><span class="tag">${sections.length}묶음</span></div>
         ${summary}
       </section>
-      <div class="tips-sections">${sections.map(sectionMarkup).join('')}</div>`;
+      <div class="tips-sections">${sections.map((section, index) => sectionMarkup(section, index, plan)).join('')}</div>`;
   }
 
   function render() {
     const data = tipsFor(selectedPart);
+    const plan = window.StudyPlan && typeof window.StudyPlan.tipsHook === 'function' ? window.StudyPlan.tipsHook(selectedPart) : null;
     const chips = PARTS.map((part) => {
       const active = part === selectedPart;
       return `<button class="chip${active ? ' active' : ''}" type="button" data-action="tips-part" data-part="${part}" aria-pressed="${active}">Part ${part}</button>`;
@@ -210,8 +212,9 @@
         <h1>학습 팁</h1>
         <p>파트별 답변 구조와 템플릿을 모았어요. 궁금한 묶음만 펼쳐 보세요.</p>
       </section>
+      ${plan ? plan.banner : ''}
       <div class="chip-row tips-parts" role="group" aria-label="파트 선택">${chips}</div>
-      ${data ? partMarkup(selectedPart, data) : preparingMarkup(selectedPart)}
+      ${data ? partMarkup(selectedPart, data, plan) : preparingMarkup(selectedPart)}
     </div>`;
   }
 
@@ -219,6 +222,13 @@
     const next = Number(part);
     if (!PARTS.includes(next)) return false;
     selectedPart = next;
+    return true;
+  }
+
+  // 14일 계획에서 "읽기"를 누르면 그 파트로 바꾸고 묶음을 펼쳐 둬요.
+  function openSection(part, key) {
+    if (!setPart(part) || typeof key !== 'string' || !key) return false;
+    openKeys.add(key);
     return true;
   }
 
@@ -235,6 +245,7 @@
   window.StudyTips = {
     render,
     setPart,
+    openSection,
     get part() { return selectedPart; },
   };
 })();
