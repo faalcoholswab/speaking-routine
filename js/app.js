@@ -1368,7 +1368,7 @@
                   </div>
                   ${card.pron || !card.image ? `<div class="pg-line">
                     <p class="pg-line-label">한글 발음</p>
-                    <p class="pg-plain-pron">${esc(card.pron || '발음 가이드가 준비되지 않았어요.')}</p>
+                    <p class="pg-plain-pron">${renderPron(card.pron, points)}</p>
                   </div>` : ''}
                   ${renderGuide(points, guide.flow)}
                 </div>` : ''}
