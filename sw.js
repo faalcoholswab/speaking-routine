@@ -157,7 +157,11 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response.ok && target) {
             const copy = response.clone();
-            event.waitUntil(caches.open(CACHE).then((cache) => cache.put(target, copy)));
+            const rootCopy = target === './index.html' ? response.clone() : null;
+            event.waitUntil(caches.open(CACHE).then((cache) => Promise.all([
+              cache.put(cacheKey(target), copy),
+              rootCopy ? cache.put(cacheKey('./'), rootCopy) : null,
+            ])));
           }
           return response;
         })
