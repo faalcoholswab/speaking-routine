@@ -472,7 +472,7 @@ button:enabled:active, a[href]:active, [role="button"]:active, summary:active { 
   border-top: 1px dashed var(--line-2);
 }
 .pg-details summary {
-  display: inline-flex; align-items: center; min-height: 44px;
+  min-height: 44px; padding: 12px 0;
   cursor: pointer; font-size: 13px; font-weight: 600;
   color: var(--accent-ink);
 }
