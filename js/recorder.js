@@ -65,8 +65,21 @@
             store.createIndex('created', 'createdAt', { unique: false });
           }
         };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error || new Error('IndexedDB 오류'));
+        request.onsuccess = () => {
+          const db = request.result;
+          db.onversionchange = () => {
+            db.close();
+            dbPromise = null;
+          };
+          db.onclose = () => {
+            dbPromise = null;
+          };
+          resolve(db);
+        };
+        request.onerror = () => {
+          dbPromise = null;
+          reject(request.error || new Error('IndexedDB 오류'));
+        };
       });
     }
     return dbPromise;
@@ -140,12 +153,20 @@
     const keep = Math.max(1, Number(maxAttempts) || 10);
     const clips = await allClips();
     const attempts = new Map();
+    const temp = new Map();
     for (const clip of clips) {
-      const at = attempts.get(clip.attemptId) || 0;
-      attempts.set(clip.attemptId, Math.max(at, clip.createdAt || 0));
+      const id = String(clip.attemptId || '');
+      const map = id === 'mic-test' || id.startsWith('practice-') || id.startsWith('retake-') ? temp : attempts;
+      const at = map.get(id) || 0;
+      map.set(id, Math.max(at, clip.createdAt || 0));
     }
     const ordered = [...attempts.entries()].sort((a, b) => b[1] - a[1]);
-    const drop = new Set(ordered.slice(keep).map(([id]) => id));
+    const orderedTemp = [...temp.entries()].filter(([id]) => id !== 'mic-test').sort((a, b) => b[1] - a[1]);
+    const drop = new Set([
+      ...ordered.slice(keep).map(([id]) => id),
+      ...orderedTemp.slice(1).map(([id]) => id),
+      ...(temp.has('mic-test') ? ['mic-test'] : []),
+    ]);
     if (!drop.size) return 0;
     await tx('readwrite', (store) => {
       for (const clip of clips) if (drop.has(clip.attemptId)) store.delete(clip.key);
@@ -309,7 +330,12 @@
     return new Promise((resolve) => {
       const recorder = state.recorder;
       if (!recorder) { resolve(null); return; }
+      let settled = false;
+      let timer = 0;
       const done = async () => {
+        if (settled) return;
+        settled = true;
+        if (timer) window.clearTimeout(timer);
         const current = state.current || {};
         const seconds = Math.max(0, (Date.now() - state.startedAt) / 1000);
         const blob = new Blob(state.chunks, { type: current.mime || 'audio/webm' });
@@ -331,6 +357,8 @@
       };
       if (recorder.state === 'inactive') { done(); return; }
       recorder.onstop = done;
+      recorder.onerror = done;
+      timer = window.setTimeout(done, 1500);
       try { recorder.stop(); } catch (error) { done(); }
     });
   }
