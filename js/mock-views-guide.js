@@ -290,14 +290,13 @@
     5: PART3_SHORT_TIPS,
     7: {
       frames: [
-        'I would prefer + 보기.',
+        'I would prefer + 보기. / I would say + 기준 + is the most important.',
         "Here's why.",
-        'First, ~ / Above all, ~',
+        'First, ~ / First of all, ~ / Above all, ~',
         "It's easy and convenient, so I can save time.",
-        'so I can ~',
-        'Also, I can ~ anytime, anywhere.',
         "It's fun and relaxing, so I can relieve my stress.",
         "It's affordable and practical for my daily life.",
+        'Also, I can ~ anytime, anywhere.',
         'When I choose ~, I always check ~ first.',
         "That's why I think so.",
       ],
