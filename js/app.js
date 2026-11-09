@@ -989,6 +989,11 @@
       tile.classList.toggle('selected', selected);
       tile.setAttribute('aria-pressed', String(selected));
     });
+    app.querySelectorAll('.quick-chip[data-action="set-count"]').forEach((chip) => {
+      const selected = Number(chip.dataset.count) === Number(study.count);
+      chip.classList.toggle('active', selected);
+      chip.setAttribute('aria-pressed', String(selected));
+    });
   }
 
   function badgeMarkup(status) {
@@ -1653,6 +1658,7 @@
       toast('다른 탭에서 학습 중이에요. 그 탭을 마친 뒤 다시 시도해 주세요.');
       return;
     }
+    if (suspendedSession) saveAbandonedSession(suspendedSession);
     suspendedSession = null;
 
     stopSpeech();
@@ -1685,6 +1691,7 @@
       toast('다른 탭에서 학습 중이에요. 그 탭을 마친 뒤 다시 시도해 주세요.');
       return false;
     }
+    if (suspendedSession) saveAbandonedSession(suspendedSession);
     suspendedSession = null;
     stopSpeech();
     const cards = entries.map((entry) => entry.sentence);
@@ -1873,17 +1880,17 @@
     state.history = state.history.slice(0, MAX_HISTORY);
   }
 
-  function saveAbandonedSession() {
-    if (!session || session.done || session.saved || !session.rated) return false;
+  function saveAbandonedSession(target = session) {
+    if (!target || target.done || target.saved || !target.rated) return false;
     // 다른 탭이 락을 넘겨받았으면(20초 넘게 heartbeat가 끊겼다가 재개된 경우) 저장하지 않아요.
     // 그대로 쓰면 다른 탭이 이미 저장한 최신 기록을 이 탭의 옛 state로 덮어써요.
     if (!acquireSessionLock()) {
       toast('다른 탭에서 학습 중이라 이번 결과는 저장하지 못했어요.');
       return false;
     }
-    session.partial = true;
-    recordSession(session);
-    session.saved = true;
+    target.partial = true;
+    recordSession(target);
+    target.saved = true;
     persist();
     return true;
   }
@@ -2708,6 +2715,10 @@
       const value = clamp(toInt(target.value, 0), 0, MAX_COUNT);
       study.count = value;
       target.value = value ? String(value) : '';
+      if (value) {
+        syncSettingsFromStudy();
+        persist();
+      }
       syncStudySummary();
       return;
     }
@@ -2800,7 +2811,10 @@
     const route = routeFromHash();
     if (session && session.kind !== route) {
       stopSpeech();
-      if (!session.done && session.rated && !session.saved) suspendedSession = session;
+      if (!session.done && session.rated && !session.saved) {
+        if (suspendedSession && suspendedSession !== session) saveAbandonedSession(suspendedSession);
+        suspendedSession = session;
+      }
       session = null;
       releaseSessionLock();
     }
@@ -2818,12 +2832,17 @@
   });
 
   window.addEventListener('beforeunload', (event) => {
-    if (!session || session.done || !session.rated) return;
+    const active = session || suspendedSession;
+    if (!active || active.done || active.saved || !active.rated) return;
     event.preventDefault();
     event.returnValue = '';
   });
 
-  window.addEventListener('pagehide', () => {
+  window.addEventListener('pagehide', (event) => {
+    if (!event.persisted) {
+      if (session && !session.done && session.rated && !session.saved) saveAbandonedSession(session);
+      else if (suspendedSession) saveAbandonedSession(suspendedSession);
+    }
     releaseSessionLock();
   });
 
@@ -2833,15 +2852,34 @@
       session = null;
       // 락을 넘겨줬으면 heartbeat도 같이 멈춰요. 남겨 두면 다른 탭 락을 5초마다 읽기만 해요.
       releaseSessionLock();
+      state = loadState();
+      resetViewState();
       toast('다른 탭에서 학습이 시작되어 이 세션은 종료됐어요.');
     }
     render();
     focusHeading();
   });
 
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (session && !session.done && !acquireSessionLock()) {
+      session = null;
+      releaseSessionLock();
+      state = loadState();
+      resetViewState();
+      render();
+      toast('다른 탭에서 학습이 시작되어 이 세션은 종료됐어요.');
+    }
+  });
+
   window.addEventListener('storage', (event) => {
     if (event.key !== STORAGE_KEY) return;
-    if (session && !session.done) return;
+    if (session && !session.done) {
+      const lock = readSessionLock();
+      if (!lock || lock.tab === TAB_ID) return;
+      session = null;
+      releaseSessionLock();
+    }
     if (!event.newValue) {
       state = defaultState();
       resetViewState();
