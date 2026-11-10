@@ -802,8 +802,8 @@
   }
 
   // 할 일 하나의 진행. at 은 할 일을 끝낸 시각(ms, 기록에서 셈)이에요. 비어 있어서 완료인 것처럼 기록이 없으면 0.
-  // live 는 복습·누적 점검·마이노트를 지금 열 수 있는지예요: '지금 하는 날'(첫 번째로 안 끝난 날)이고,
-  // 앞날을 끝낸 공부한 날이 지났을 때만. 아니면 pending 으로만 보여 줘요.
+  // live 는 복습·누적 점검·마이노트를 지금 열 수 있는지예요: '지금 하는 날'(첫 번째로 안 끝난 날)일 때만.
+  // 아니면 pending 으로만 보여 줘요. 앞날을 끝낸 그날에도 바로 열려서, 하루에 여러 날을 끝낼 수 있어요.
   function measure(plan, task, value, ctx, live) {
     const startMs = Date.parse(value.startedAt);
     switch (task.kind) {
@@ -866,26 +866,20 @@
     }
   }
 
-  // 복습·누적 점검·마이노트를 열 수 있는 날인지: 앞날을 끝낸 공부한 날이 지나야 해요(같은 날 두 날 치를 하지 않게).
-  function windowOpen(days, n, today) {
-    const prev = days[n - 1];
-    return !prev || studyDate(Date.parse(prev)) < today;
-  }
-
   // 저장된 진행(value)과 지금의 학습·모의고사·마이노트 기록(ctx)으로 날짜별 진행을 계산해요.
   //  - 문장·팁·모의고사처럼 내용이 정해진 할 일은 언제 해도(앞당겨도) 기록으로 완료가 보여요. 따로 저장하지 않아요.
   //  - 날은 1일 차부터 차례로 끝나요. '지금 하는 날'의 할 일이 모두 끝났을 때만 그 날의 완료를 남겨요(latch).
+  //    한 날을 끝내면 다음 날이 곧바로 '지금 하는 날'이 돼서, 같은 날 여러 날을 이어서 끝낼 수 있어요.
   //    완료 시각은 그 날 할 일 중 마지막으로 끝낸 것의 기록 시각이에요(어느 화면에서 했든, 언제 다시 그리든 같아요).
   //    한 번 끝난 날은 그 뒤 기록이 바뀌어도 끝난 채로 남아요(그 날을 끝낸 평가를 실행 취소한 때만 revert).
   function evaluate(plan, value, ctx) {
-    const today = studyDate(ctx.now);
     const days = { ...value.days };
     const fresh = {};
     for (const day of plan.days) {
       if (days[day.n]) continue;
       const working = { ...value, days };
-      const open = windowOpen(days, day.n, today);
-      const progress = day.tasks.map((task) => measure(plan, task, working, ctx, open));
+      // 여기까지 온 날은 첫 번째로 안 끝난 날('지금 하는 날')이에요.
+      const progress = day.tasks.map((task) => measure(plan, task, working, ctx, true));
       if (!progress.every((item) => item.done)) break;
       const at = Math.max(Date.parse(value.startedAt), ...progress.map((item) => item.at || 0));
       days[day.n] = iso(Math.min(at, ctx.now));
@@ -911,7 +905,7 @@
     const days = plan.days.map((day) => {
       const completedAt = value.days[day.n] || '';
       const isFocus = Boolean(focus && focus.n === day.n);
-      const open = isFocus && windowOpen(value.days, day.n, today);
+      const open = isFocus;
       const tasks = day.tasks.map((task) => {
         const progress = measure(plan, task, value, ctx, open);
         return { ...task, done: Boolean(completedAt) || progress.done, progress };
@@ -950,7 +944,9 @@
       // 오늘 하루를 다 마쳤다면 다음 날은 내일 몫이라, 앞섬·늦음을 내일 기준으로 셉니다.
       // (시작 전 밤에 1일 차를 다 끝냈다면 1일 차 날짜보다 먼저 끝낸 것이라 하루 앞서요.)
       ahead: focus ? focus.n - (completedToday ? due + 1 : expected) : 0,
-      finishDate: remaining ? addDays(base, remaining - 1) : (value.finishedAt ? studyDate(Date.parse(value.finishedAt)) : today),
+      // 다 끝냈으면 끝낸 날이에요. 자정~새벽 4시에 시작한 그 밤에 다 끝냈다면 공부한 날이 시작일 하루 전이라, 시작일로 보여 줘요.
+      finishDate: remaining ? addDays(base, remaining - 1)
+        : [value.finishedAt ? studyDate(Date.parse(value.finishedAt)) : today, value.startDate].sort().pop(),
       totals: {
         cards: { done: cardIds.filter((id) => seenSince(ctx.progress, id, startMs)).length, total: cardIds.length },
         tips: { done: tips.filter((tip) => value.tips[`${tip.part}:${tip.key}`]).length, total: tips.length },

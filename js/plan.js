@@ -145,12 +145,11 @@
   }
 
   // ---------- 할 일 하나 ----------
-  // 화면에 보일 제목·분량·진행과 시작 방법. 복습·누적 점검·마이노트는 '지금 하는 날'에만 열리고,
-  // 앞날을 끝낸 공부한 날(새벽 4시까지)에는 다음 날 열려요(day.open).
+  // 화면에 보일 제목·분량·진행과 시작 방법. 복습·누적 점검·마이노트는 '지금 하는 날'에만 열려요(day.open).
+  // 앞날을 끝내면 그 자리에서 다음 날이 '지금 하는 날'이 돼요.
   function describeTask(task, day, view) {
     const p = task.progress || {};
     const live = day.open && !view.preview;
-    const later = day.status === 'current' && !day.open && !view.preview ? '내일 열려요' : '';
     const started = !view.preview;
     const info = { title: '', meta: [], note: '', action: null, items: null, skip: false, label: '' };
     const count = (done, total, unit) => `${done}/${total}${unit}`;
@@ -159,7 +158,7 @@
       case 'review': {
         info.title = '오늘 복습 · 한국어 보고 영어로';
         if (task.done) info.meta.push(p.total ? `${p.total}문장 복습했어요` : '복습할 문장이 없었어요');
-        else if (!live) info.meta.push(later || `몰라요·애매해요로 돌아오는 문장 · 하루 최대 ${Core.CAPS.review}문장`, minutes(task.minutes));
+        else if (!live) info.meta.push(`몰라요·애매해요로 돌아오는 문장 · 하루 최대 ${Core.CAPS.review}문장`, minutes(task.minutes));
         else if (p.frozen) {
           info.meta.push(count(p.count, p.total, '문장'), minutes(p.left.length * R));
           info.action = { type: 'button', label: `이어서 ${Core.blockSize(p.left.length)}문장` };
@@ -179,7 +178,7 @@
         const range = day.n > 2 ? `1~${day.n - 1}일 차` : '1일 차';
         if (p.empty) info.meta.push('점검할 알아요 문장이 아직 없어요');
         else if (task.done) info.meta.push(p.frozen ? `${p.total}문장 점검했어요` : '점검할 알아요 문장이 없었어요');
-        else if (!live) info.meta.push(later || `${range}에 알아요로 넘긴 문장 ${task.size}개`, minutes(task.minutes));
+        else if (!live) info.meta.push(`${range}에 알아요로 넘긴 문장 ${task.size}개`, minutes(task.minutes));
         else if (p.frozen) {
           info.meta.push(count(p.count, p.total, '문장'), minutes(p.left.length * R));
           info.action = { type: 'button', label: `이어서 ${Core.blockSize(p.left.length)}문장` };
@@ -197,7 +196,7 @@
           info.label = '건너뜀';
         } else if (p.empty) info.meta.push('마이노트가 비어 있어요 · 채점에서 약했던 문항이 모이면 그날 다시 풀어요');
         else if (task.done) info.meta.push(p.total ? `약점 문항 ${p.total}개를 다시 풀었어요` : '마이노트가 비어 있었어요');
-        else if (!live) info.meta.push(later || `앞 모의고사에서 약했던 문항 최대 ${task.target}개`, minutes(task.minutes));
+        else if (!live) info.meta.push(`앞 모의고사에서 약했던 문항 최대 ${task.target}개`, minutes(task.minutes));
         else if (p.frozen) {
           info.meta.push(count(p.count, p.total, '문항'), minutes((p.total - p.count) * Core.MINUTES.retake));
           info.items = p.items.map((item) => {
@@ -320,9 +319,13 @@
     </li>`;
   }
 
+  // 앞날을 오늘 끝내고 내일 몫을 이어서 할 때는 문장·팁·모의고사를 먼저 권해요. 복습·누적 점검·마이노트는 시작하는 순간
+  // 그날 목록이 정해져서, '다음 할 일'을 무심코 눌러 내일 복습이 오늘 정해지지 않게 해요(그 줄의 버튼으로는 언제든 시작돼요).
   function nextTask(day, view) {
     if (!day) return null;
-    const task = day.tasks.find((item) => !item.done && describeTask(item, day, view).action);
+    const ready = day.tasks.filter((item) => !item.done && describeTask(item, day, view).action);
+    const fixed = view.completedToday ? ready.find((item) => !['review', 'check', 'notes'].includes(item.kind)) : null;
+    const task = fixed || ready[0];
     return task ? { task, info: describeTask(task, day, view) } : null;
   }
 
@@ -442,7 +445,8 @@
         <p class="plan-sub">하루를 놓치거나 미리 할 때</p>
         <ul class="plan-points">
           <li>놓친 날은 건너뛰지 않아요. 다음에 열면 멈춘 날부터 이어서 하고, 남은 날이 하루씩 뒤로 밀려요.</li>
-          <li>앞으로 할 날의 문장·팁·모의고사는 미리 해도 돼요. 복습·누적 점검·마이노트는 그날이 되어야 열려요. 날은 1일 차부터 차례로, 하루에 한 날씩 끝나요.</li>
+          <li>하루에 여러 날을 이어서 끝내도 돼요. 날은 1일 차부터 차례로 끝나고, 한 날을 마치면 다음 날의 복습·누적 점검·마이노트가 바로 열려요. 앞으로 할 날의 문장·팁·모의고사는 순서와 상관없이 미리 해도 돼요.</li>
+          <li>몰라요·애매해요 문장은 다음 날부터 복습으로 돌아와요. 같은 날 이어서 하는 복습은 방금 본 문장을 다시 떠올리는 것이라, 며칠에 나눠 할 때보다 덜 오래 남아요.</li>
           <li>날짜는 새벽 4시에 바뀌어요. 밤늦게 이어서 한 공부는 시작한 날의 공부로 세요.</li>
           <li>자정부터 새벽 4시 사이에 계획을 시작하면 1일 차는 그날 새벽 4시부터예요. 그 전에 한 문장·팁·모의고사는 1일 차를 미리 한 것으로 세요.</li>
           <li>다시 시작하면 1일 차부터 다시 진행하고 완료 표시만 처음부터 다시 세요. 학습·모의고사 기록, 복습 큐, 마이노트는 그대로예요.</li>
@@ -490,7 +494,7 @@
     const next = nextTask(day, view);
     const heading = view.completedToday || view.beforeStart ? `내일 할 일 미리 하기 · ${day.n}일 차` : `오늘의 프로그램 · ${day.n}일 차`;
     let lead = day.focus;
-    if (view.completedToday) lead = '오늘 분량을 마쳤어요. 여기서 쉬어도 되고, 내일 몫의 문장·팁·모의고사는 미리 해도 좋아요. 복습·누적 점검·마이노트는 내일 열려요.';
+    if (view.completedToday) lead = '오늘 분량을 마쳤어요. 여기서 쉬어도 되고, 내일 몫을 지금 이어서 끝내도 돼요. 다만 방금 본 문장의 복습은 하루 쉬고 할 때 더 오래 남아요.';
     else if (view.beforeStart) lead = '1일 차는 새벽 4시에 시작해요. 그 전에 하는 문장·팁·모의고사는 1일 차를 미리 하는 거라, 다 못 끝내도 밀리지 않아요.';
     return `<section class="panel plan-today" aria-labelledby="plan-today-title">
       <div class="panel-head"><h2 id="plan-today-title">${esc(heading)}</h2><span class="tag">${esc(dayCount(day).text)}</span></div>
@@ -505,7 +509,7 @@
   }
 
   function finishedPanel(view) {
-    const end = view.finishedAt ? Core.studyDate(Date.parse(view.finishedAt)) : view.today;
+    const end = view.finishDate;
     const spent = Core.daysBetween(view.startDate, end) + 1;
     const late = spent - view.days.length;
     return `<section class="panel plan-finished done-card" aria-labelledby="plan-finished-title">
